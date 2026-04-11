@@ -1,0 +1,246 @@
+{
+    "Bayi / Anak": [
+        {
+            "kelompok_umur": "0 - 5 bulan",
+            "cal": 550.0,
+            "protein": 9.0,
+            "fat": 31.0,
+            "carb": 59.0,
+            "fiber": 0.0,
+            "water": 700.0
+        },
+        {
+            "kelompok_umur": "6 - 11 bulan",
+            "cal": 800.0,
+            "protein": 15.0,
+            "fat": 35.0,
+            "carb": 105.0,
+            "fiber": 11.0,
+            "water": 900.0
+        },
+        {
+            "kelompok_umur": "1 - 3 tahun",
+            "cal": 1350.0,
+            "protein": 20.0,
+            "fat": 45.0,
+            "carb": 215.0,
+            "fiber": 19.0,
+            "water": 1150.0
+        },
+        {
+            "kelompok_umur": "4 - 6 tahun",
+            "cal": 1400.0,
+            "protein": 25.0,
+            "fat": 50.0,
+            "carb": 220.0,
+            "fiber": 20.0,
+            "water": 1450.0
+        },
+        {
+            "kelompok_umur": "7 - 9 tahun",
+            "cal": 1650.0,
+            "protein": 40.0,
+            "fat": 55.0,
+            "carb": 250.0,
+            "fiber": 23.0,
+            "water": 1650.0
+        }
+    ],
+    "Laki-laki": [
+        {
+            "kelompok_umur": "10 - 12 tahun",
+            "cal": 2000.0,
+            "protein": 50.0,
+            "fat": 65.0,
+            "carb": 300.0,
+            "fiber": 28.0,
+            "water": 1850.0
+        },
+        {
+            "kelompok_umur": "13 - 15 tahun",
+            "cal": 2400.0,
+            "protein": 70.0,
+            "fat": 80.0,
+            "carb": 350.0,
+            "fiber": 34.0,
+            "water": 2100.0
+        },
+        {
+            "kelompok_umur": "16 - 18 tahun",
+            "cal": 2650.0,
+            "protein": 75.0,
+            "fat": 85.0,
+            "carb": 400.0,
+            "fiber": 37.0,
+            "water": 2300.0
+        },
+        {
+            "kelompok_umur": "19 - 29 tahun",
+            "cal": 2650.0,
+            "protein": 65.0,
+            "fat": 75.0,
+            "carb": 430.0,
+            "fiber": 37.0,
+            "water": 2500.0
+        },
+        {
+            "kelompok_umur": "30 - 49 tahun",
+            "cal": 2550.0,
+            "protein": 65.0,
+            "fat": 70.0,
+            "carb": 415.0,
+            "fiber": 36.0,
+            "water": 2500.0
+        },
+        {
+            "kelompok_umur": "50 - 64 tahun",
+            "cal": 2150.0,
+            "protein": 65.0,
+            "fat": 60.0,
+            "carb": 340.0,
+            "fiber": 30.0,
+            "water": 2500.0
+        },
+        {
+            "kelompok_umur": "65 - 80 tahun",
+            "cal": 1800.0,
+            "protein": 64.0,
+            "fat": 50.0,
+            "carb": 275.0,
+            "fiber": 25.0,
+            "water": 1800.0
+        },
+        {
+            "kelompok_umur": "80+ tahun",
+            "cal": 1600.0,
+            "protein": 64.0,
+            "fat": 45.0,
+            "carb": 235.0,
+            "fiber": 22.0,
+            "water": 1600.0
+        }
+    ],
+    "Perempuan": [
+        {
+            "kelompok_umur": "10 - 12 tahun",
+            "cal": 1900.0,
+            "protein": 55.0,
+            "fat": 65.0,
+            "carb": 280.0,
+            "fiber": 27.0,
+            "water": 1850.0
+        },
+        {
+            "kelompok_umur": "13 - 15 tahun",
+            "cal": 2050.0,
+            "protein": 65.0,
+            "fat": 70.0,
+            "carb": 300.0,
+            "fiber": 29.0,
+            "water": 2100.0
+        },
+        {
+            "kelompok_umur": "16 - 18 tahun",
+            "cal": 2100.0,
+            "protein": 65.0,
+            "fat": 70.0,
+            "carb": 300.0,
+            "fiber": 29.0,
+            "water": 2150.0
+        },
+        {
+            "kelompok_umur": "19 - 29 tahun",
+            "cal": 2250.0,
+            "protein": 60.0,
+            "fat": 65.0,
+            "carb": 360.0,
+            "fiber": 32.0,
+            "water": 2350.0
+        },
+        {
+            "kelompok_umur": "30 - 49 tahun",
+            "cal": 2150.0,
+            "protein": 60.0,
+            "fat": 60.0,
+            "carb": 340.0,
+            "fiber": 30.0,
+            "water": 2350.0
+        },
+        {
+            "kelompok_umur": "50 - 64 tahun",
+            "cal": 1800.0,
+            "protein": 60.0,
+            "fat": 50.0,
+            "carb": 280.0,
+            "fiber": 25.0,
+            "water": 2350.0
+        },
+        {
+            "kelompok_umur": "65 - 80 tahun",
+            "cal": 1550.0,
+            "protein": 58.0,
+            "fat": 45.0,
+            "carb": 230.0,
+            "fiber": 22.0,
+            "water": 1550.0
+        },
+        {
+            "kelompok_umur": "80+ tahun",
+            "cal": 1400.0,
+            "protein": 58.0,
+            "fat": 40.0,
+            "carb": 200.0,
+            "fiber": 20.0,
+            "water": 1400.0
+        }
+    ],
+    "Hamil (+ tambahan)": [
+        {
+            "kelompok_umur": "01 - 13 minggu",
+            "cal": 180.0,
+            "protein": 1.0,
+            "fat": 2.3,
+            "carb": 25.0,
+            "fiber": 3.0,
+            "water": 300.0
+        },
+        {
+            "kelompok_umur": "14 - 27 minggu",
+            "cal": 300.0,
+            "protein": 10.0,
+            "fat": 2.3,
+            "carb": 40.0,
+            "fiber": 4.0,
+            "water": 300.0
+        },
+        {
+            "kelompok_umur": "28 - 41 minggu",
+            "cal": 300.0,
+            "protein": 30.0,
+            "fat": 2.3,
+            "carb": 40.0,
+            "fiber": 4.0,
+            "water": 300.0
+        }
+    ],
+    "Menyusui (+ tambahan)": [
+        {
+            "kelompok_umur": "6 bulan pertama",
+            "cal": 330.0,
+            "protein": 20.0,
+            "fat": 2.2,
+            "carb": 45.0,
+            "fiber": 5.0,
+            "water": 800.0
+        },
+        {
+            "kelompok_umur": "6 bulan kedua",
+            "cal": 400.0,
+            "protein": 15.0,
+            "fat": 2.2,
+            "carb": 55.0,
+            "fiber": 6.0,
+            "water": 650.0
+        }
+    ]
+}
