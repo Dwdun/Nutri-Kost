@@ -3,7 +3,6 @@ import sqlite3
 class DBHelper:
     def __init__(self, db_name="nutrisi.db"):
         self.conn = sqlite3.connect(db_name)
-        # Aktifkan factory agar hasil query berbentuk dictionary (memudahkan UI)
         self.conn.row_factory = sqlite3.Row 
 
     def _create_table_log(self):
@@ -48,7 +47,6 @@ class DBHelper:
         """
         cursor = self.conn.cursor()
         cursor.execute(query)
-        # Mengubah hasil ke list of dict
         return [dict(row) for row in cursor.fetchall()]
 
     # --- UPDATE (U) ---
@@ -71,6 +69,26 @@ class DBHelper:
         cursor.execute(query, (log_idx,))
         self.conn.commit()
 
-    
+    def kalkulator_nutrisi(self, code: str, porsi_user: float):
+        query = "SELECT * FROM Makanan WHERE code = ?"
+        cursor = self.conn.cursor()
+        cursor.execute(query, (code,))
+        makanan = cursor.fetchone()
+
+        if not makanan:
+            return None
+
+        multiplier = porsi_user / 100.0
+
+        return {
+            "name": makanan["food_name"],
+            "porsi": porsi_user,
+            "cal": round(makanan["cal"] * multiplier, 2),
+            "protein": round(makanan["protein"] * multiplier, 2),
+            "fat": round(makanan["fat"] * multiplier, 2),
+            "carb": round(makanan["carb"] * multiplier, 2),
+            "fiber": round(makanan["fiber"] * multiplier, 2),
+            "water": round(makanan["water"] * multiplier, 2)
+        }
 
     
