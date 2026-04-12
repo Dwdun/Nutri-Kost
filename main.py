@@ -28,7 +28,7 @@ def main():
     # Tiap anggota tidak perlu set font/scrollbar sendiri-sendiri.
     app.setStyleSheet("""
         QWidget {
-            font-family: 'Segoe UI', Arial, sans-serif;
+            font-family:  'Montserrat Alternates', 'Segoe UI', Arial, sans-serif;
             font-size: 13px;
         }
         QScrollBar:vertical {
