@@ -128,3 +128,41 @@ class ProfilSystem:
 
         # Return string gabungan nilai BMI dan statusnya
         return f"{bmi} ({status})"
+    
+    def calculatorHarrisBenedict(self, jk, bb, tb, usia):
+        # Validasi input
+        if bb <= 0 or tb <= 0 or usia <= 0:
+            print("Error: BB, TB, dan usia harus lebih dari 0.")
+            return None
+
+        if jk not in ['Male', 'Female']:
+            print("Error: Gender harus 'Male' atau 'Female'.")
+            return None
+
+        # Hitung BMR berdasarkan jenis kelamin
+        # Rumus berbeda untuk laki-laki dan perempuan
+        if jk == 'Male':
+            # Rumus untuk laki-laki
+            bmr = 88.362 + (13.397 * bb) + (4.799 * tb) - (5.677 * usia)
+        else:
+            # Rumus untuk perempuan
+            bmr = 447.593 + (9.247 * bb) + (3.098 * tb) - (4.330 * usia)
+
+        # Kalikan BMR dengan faktor aktivitas
+        # Untuk sekarang pakai 'sedentary' (tidak banyak gerak)
+        # karena belum ada input level aktivitas dari user
+        # 
+        # Faktor aktivitas:
+        # 1.2  = Sedentary (jarang olahraga)
+        # 1.375= Ringan (olahraga 1-3x seminggu)
+        # 1.55 = Sedang (olahraga 3-5x seminggu)
+        # 1.725= Berat (olahraga 6-7x seminggu)
+        faktor_aktivitas = 1.2
+
+        # Total kalori harian = BMR × faktor aktivitas
+        total_kalori = round(bmr * faktor_aktivitas, 1)
+
+        print(f"BMR        : {round(bmr, 1)} kkal")
+        print(f"Target kalori harian: {total_kalori} kkal")
+
+        return total_kalori
