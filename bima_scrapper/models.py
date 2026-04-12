@@ -1,6 +1,22 @@
 import sqlite3
 import json
 import os
+import re
+from thefuzz import process
+
+KONVERSI_GRAM = {
+    'sdm': 15,     # 1 Sendok makan = ~15 gram
+    'sdt': 5,      # 1 Sendok teh = ~5 gram
+    'siung': 5,    # 1 Siung bawang = ~5 gram
+    'ekor': 80,    # 1 Ekor ikan rata-rata = ~80 gram
+    'genggam': 40,
+    'pcs': 50,
+    'buah': 100,
+    'gram': 1,
+    'gr': 1
+}
+
+
 
 class DBHelper:
     def __init__(self, db_name='nutrikost.db'):
@@ -171,3 +187,43 @@ class JsonHelper:
 
     def get_resep_harian(self):
         return self._read_json('resep.json')
+    
+    def hitung_nutrisi_bahan(teks_bahan_resep, conn):
+        cursor = conn.cursor()
+    
+        cursor.execute("SELECT code, food_name, cal, protein, carb, fat FROM Makanan")
+        db_makanan = cursor.fetchall()
+    
+        nama_makanan_db = {row[1]: row for row in db_makanan} 
+
+        match = re.search(r'([\d\./]+)\s*([a-zA-Z]+)\s*(.*)', teks_bahan_resep)
+        
+        if match:
+            kuantitas = float(eval(match.group(1).replace('/', '.0/')))
+            satuan = match.group(2).lower()
+            nama_bahan_mentah = match.group(3).strip()
+        else:
+            return None 
+        
+        list_nama_db = list(nama_makanan_db.keys())
+        kecocokan_terbaik = process.extractOne(nama_bahan_mentah, list_nama_db)
+        
+        if kecocokan_terbaik and kecocokan_terbaik[1] >= 75:
+            nama_ditemukan = kecocokan_terbaik[0]
+            data_nutrisi = nama_makanan_db[nama_ditemukan] 
+            
+            pengali_gram = KONVERSI_GRAM.get(satuan, 100)
+            total_berat_gram = kuantitas * pengali_gram
+            
+            hasil_kalkulasi = {
+                'nama_asli_resep': teks_bahan_resep,
+                'dikenali_sebagai': nama_ditemukan,
+                'berat_estimasi_gram': total_berat_gram,
+                'kalori': round((total_berat_gram / 100) * float(data_nutrisi[2]), 2),
+                'protein': round((total_berat_gram / 100) * float(data_nutrisi[3]), 2),
+                'karbohidrat': round((total_berat_gram / 100) * float(data_nutrisi[4]), 2),
+                'lemak': round((total_berat_gram / 100) * float(data_nutrisi[5]), 2),
+            }
+            return hasil_kalkulasi
+        else:
+            return None
