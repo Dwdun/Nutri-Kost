@@ -25,16 +25,18 @@ RED_SOFT      = "#dc3545"
 # Untuk satu kategori yang punya banyak sinonim, pisahkan dengan spasi.
 # Contoh: "Protein" → cari makanan yang namanya mengandung salah satu dari kata-kata ini.
 FILTER_CHIPS = {
-    "Semua":          {"type": "semua"},
-    "Protein Tinggi": {"type": "nutrisi", "key": "protein", "min": 15.0},
-    "Karbo Tinggi":   {"type": "nutrisi", "key": "carb",    "min": 38.0},
-    "Lemak Rendah":   {"type": "nutrisi", "key": "fat",     "max": 2.0},
-    "Rendah Kalori":  {"type": "nutrisi", "key": "cal",     "max": 100.0},
-    "Sayur & Buah":   {"type": "nama",    "keywords": ["sayur", "buah", "wortel", "bayam",
-                                                        "kangkung", "tomat", "jagung",
-                                                        "pisang", "jeruk", "mangga", "apel"]},
-    "Minuman":        {"type": "nama",    "keywords": ["teh", "kopi", "susu", "jus",
-                                                        "air", "minuman", "sirup", "soda"]},
+    "Semua":         ("",        0,    ""),
+    "Protein Tinggi":("protein", 15.0, "gte"),
+    "Karbo Tinggi":  ("carb",    40.0, "gte"),
+    "Lemak Rendah":  ("fat",     5.0,  "lte"),
+    "Rendah Kalori": ("cal",     100.0,"lte"),
+    "Sayur & Buah":  ("",        0,    ""),
+    "Minuman":       ("",        0,    ""),
+}
+
+CHIP_NAME_KEYWORDS = {
+    "Sayur & Buah": "sayur buah",
+    "Minuman":      "minuman teh kopi susu jus air",
 }
 
 # ── Konfigurasi Sorting ───────────────────────────────────────────────────────
@@ -165,7 +167,7 @@ class FoodCard(QFrame):
         )
         nutrisi.setStyleSheet(f"color: {GRAY_TEXT}; font-size: 11px;")
         info.addWidget(nutrisi)
-        layout.addLayout(info, stretch=1)
+        layout.addLayout(info, 1)
 
         # Tombol pilih — klik ini yang memicu alur ke Log Harian
         btn = QPushButton("+ Pilih")
@@ -241,7 +243,7 @@ class SearchPage(QWidget):
         top.setSpacing(10)
 
         self._search_input = QLineEdit()
-        self._search_input.setPlaceholderText("🔍  Cari nama makanan...")
+        self._search_input.setPlaceholderText("  Cari nama makanan...")
         self._search_input.setFixedHeight(40)
         self._search_input.setStyleSheet(f"""
             QLineEdit {{
@@ -311,7 +313,7 @@ class SearchPage(QWidget):
         self._result_container = QWidget()
         self._result_container.setStyleSheet("background: transparent;")
         self._result_layout = QVBoxLayout(self._result_container)
-        self._result_layout.setContentsMargins(0, 4, 0, 4)
+        self._result_layout.setContentsMargins(0, 4, 14, 4)
         self._result_layout.setSpacing(8)
         # Stretch di akhir mendorong card ke atas, bukan terpusat di tengah
         self._result_layout.addStretch()
@@ -352,28 +354,15 @@ class SearchPage(QWidget):
         self._render(self._filter_sort(raw))
     
     def _filter_sort(self, data: List[dict]) -> List[dict]:
-        cfg = FILTER_CHIPS.get(self._active_chip, {"type": "semua"})
-        ftype = cfg.get("type", "semua")
+        field, threshold, operator = FILTER_CHIPS.get(self._active_chip, ("", 0, ""))
 
-        if ftype == "nutrisi":
-            key = cfg["key"]
-            min_val = cfg.get("min")
-            max_val = cfg.get("max")
-            def passes_nutrisi(m):
-                val = m.get(key) or 0.0
-                if min_val is not None and val < min_val:
-                    return False
-                if max_val is not None and val > max_val:
-                    return False
-                return True
-            data = [m for m in data if passes_nutrisi(m)]
-        
-        elif ftype == "nama":
-            keywords = [k.lower() for k in cfg.get("keywords", [])]
-            data = [
-                m for m in data
-                if any(k in m.get("food_name", "").lower() for k in keywords)
-            ]
+        if operator == "gte":
+            data = [m for m in data if (m.get(field) or 0) >= threshold]
+        elif operator == "lte":
+            data = [m for m in data if (m.get(field) or 0) <= threshold]
+        elif self._active_chip in CHIP_NAME_KEYWORDS:
+            kws = CHIP_NAME_KEYWORDS[self._active_chip].lower().split()
+            data = [m for m in data if any(k in m.get("food_name", "").lower() for k in kws)]
 
         return sorted(data, key=lambda m: m.get(self._sort_key, 0) or 0, reverse=self._sort_desc)
 

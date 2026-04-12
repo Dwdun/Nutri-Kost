@@ -1,16 +1,3 @@
-"""
-main_window.py — Window Utama NutriKost
-========================================
-Bertanggung jawab atas dua hal besar:
-1. Tampilan: sidebar hijau di kiri + area konten di kanan
-2. Routing: menentukan halaman mana yang tampil saat tombol sidebar diklik
-
-Pola yang dipakai adalah QStackedWidget — semua halaman ditumpuk,
-hanya satu yang terlihat pada satu waktu. navigate() yang mengatur giliran.
-
-Simpan di: faqih_integrator/main_window.py
-Faqih (PM & System Integrator)
-"""
 
 from PyQt5.QtWidgets import (
     QMainWindow, QWidget, QHBoxLayout, QVBoxLayout,

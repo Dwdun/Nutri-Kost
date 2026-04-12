@@ -1,93 +1,132 @@
 from __future__ import annotations
 from typing import List
 
-
-# ── Konstanta: Pilihan Waktu Makan ────────────────────────────────────────────
-# Format: (label yang tampil di UI, nilai yang disimpan di DB)
-# None = semua waktu (tidak difilter)
-LOG_WAKTU_OPTIONS = [
-    ("Semua Waktu",  None),
-    ("Sarapan",      "Sarapan"),
-    ("Makan Siang",  "Makan Siang"),
-    ("Makan Malam",  "Makan Malam"),
-    ("Snack",        "Snack"),
-    ("Minuman",      "Minuman"),
-]
-
-
-# ── Fungsi: Load Log dari DB ──────────────────────────────────────────────────
-
-def load_logs(db) -> List[dict]:
+class TimeFilter:
     """
-    Ambil semua log harian dari database.
+    Mengelola semua operasi filter waktu untuk log harian.
 
-    Parameter:
-        db : instance DBHelper dari bima_scrapper/models.py
+    Sebelumnya fungsi-fungsi ini standalone — dibungkus jadi class
+    agar bisa di-instantiate sekali dan dipakai di mana saja tanpa
+    harus passing 'db' dan 'logs' berulang-ulang.
 
-    Return:
-        List dict log harian, setiap dict berisi kolom LogHarian
-        + food_name dan full_name dari JOIN.
+    Cara pakai:
+        from time_filter import TimeFilter
+        tf = TimeFilter(db)
+        tf.load()                            # ambil semua log dari DB
+        tf.filter_waktu("Sarapan")           # filter berdasarkan waktu
+        tf.filter_tanggal("2026-04-12")      # filter berdasarkan tanggal
+        tf.label_status()                    # teks untuk ditampilkan di UI
     """
-    return db.get_all_logs()
 
-
-# ── Fungsi: Filter Berdasarkan Waktu ─────────────────────────────────────────
-
-def filter_log_berWaktu(logs: List[dict], waktu: str | None) -> List[dict]:
-    """
-    Filter log harian berdasarkan kategori waktu makan.
-
-    Sesuai diagram class: filterLogBerWaktu(waktu: String) : List<LogHarian>
-
-    Parameter:
-        logs  : list semua log harian (dari load_logs atau DBHelper.get_all_logs())
-        waktu : string kategori ("Sarapan", "Makan Siang", "Makan Malam",
-                "Snack", "Minuman"), atau None untuk mengembalikan semua log.
-
-    Return:
-        List dict log harian yang cocok dengan waktu yang diminta.
-    """
-    if waktu is None:
-        return list(logs)
-    return [
-        log for log in logs
-        if log.get("category", "").lower() == waktu.lower()
+    # Format: (label tampil di UI, nilai yang disimpan di DB)
+    # None = semua waktu (tidak difilter)
+    WAKTU_OPTIONS = [
+        ("Semua Waktu", None),
+        ("Sarapan",     "Sarapan"),
+        ("Makan Siang", "Makan Siang"),
+        ("Makan Malam", "Makan Malam"),
+        ("Snack",       "Snack"),
+        ("Minuman",     "Minuman"),
     ]
 
+    def __init__(self, db):
+        """
+        Parameter:
+            db : instance DBHelper dari bima_scrapper/models.py
+        """
+        self._db            = db
+        self._all_logs      = []       # cache semua log dari DB
+        self._active_waktu  = None     # filter waktu aktif (None = semua)
+        self._active_tanggal = None    # filter tanggal aktif (None = semua)
 
-# ── Fungsi: Teks Label untuk UI ───────────────────────────────────────────────
+    # ── Load ──────────────────────────────────────────────────────────────────
 
-def hitung_log_display(logs: List[dict], waktu: str | None) -> str:
-    """
-    Hitung dan kembalikan teks label jumlah log untuk ditampilkan di UI.
+    def load(self) -> None:
+        """
+        Ambil semua log dari DB dan simpan ke cache internal.
+        Panggil ini sekali saat halaman dibuka, atau setelah ada perubahan log.
+        """
+        self._all_logs = self._db.get_all_logs()
 
-    Parameter:
-        logs  : list semua log harian
-        waktu : filter waktu yang sedang aktif (None = semua)
+    # ── Filter ────────────────────────────────────────────────────────────────
 
-    Return:
-        String siap tampil, contoh:
-        - "Belum ada log hari ini"
-        - "5 log harian tersimpan"
-        - "2 dari 5 log · waktu: Sarapan"
-    """
-    filtered = filter_log_berWaktu(logs, waktu)
-    total    = len(logs)
-    shown    = len(filtered)
+    def filter_waktu(self, waktu: str | None) -> List[dict]:
+        """
+        Set filter waktu aktif lalu kembalikan log yang cocok.
 
-    if total == 0:
-        return "Belum ada log hari ini"
-    elif waktu is None:
-        return f"{total} log harian tersimpan"
-    else:
-        return f"{shown} dari {total} log · waktu: {waktu}"
-    
-def filter_log_berTanggal(logs: List[dict], tanggal: str) -> List[dict]:
-    """
-    Filter log berdasarkan tanggal tertentu.
-    tanggal format: "YYYY-MM-DD"
-    """
-    return [
-        log for log in logs
-        if log.get("meal_time", "").startswith(tanggal)
-    ]
+        Parameter:
+            waktu : "Sarapan", "Makan Siang", "Makan Malam", "Snack",
+                    "Minuman", atau None untuk semua waktu.
+        """
+        self._active_waktu = waktu
+        return self._terapkan_filter()
+
+    def filter_tanggal(self, tanggal: str | None) -> List[dict]:
+        """
+        Set filter tanggal aktif lalu kembalikan log yang cocok.
+
+        Parameter:
+            tanggal : string format "YYYY-MM-DD", atau None untuk semua tanggal.
+        """
+        self._active_tanggal = tanggal
+        return self._terapkan_filter()
+
+    def get_filtered(self) -> List[dict]:
+        """Kembalikan hasil filter saat ini tanpa mengubah state."""
+        return self._terapkan_filter()
+
+    def _terapkan_filter(self) -> List[dict]:
+        """
+        Terapkan semua filter aktif (waktu + tanggal) ke _all_logs.
+        Filter bisa dikombinasikan — misalnya Sarapan pada tanggal tertentu.
+        """
+        hasil = list(self._all_logs)
+
+        # Filter waktu
+        if self._active_waktu is not None:
+            hasil = [
+                log for log in hasil
+                if log.get("category", "").lower() == self._active_waktu.lower()
+            ]
+
+        # Filter tanggal — cukup cek apakah meal_time diawali tanggal yang diminta
+        if self._active_tanggal is not None:
+            hasil = [
+                log for log in hasil
+                if log.get("meal_time", "").startswith(self._active_tanggal)
+            ]
+
+        return hasil
+
+    # ── Info UI ───────────────────────────────────────────────────────────────
+
+    def label_status(self) -> str:
+        """
+        Teks siap tampil di UI yang menunjukkan jumlah log dan filter aktif.
+
+        Contoh output:
+            "Belum ada log hari ini"
+            "5 log harian tersimpan"
+            "2 dari 5 log · waktu: Sarapan"
+        """
+        filtered = self._terapkan_filter()
+        total    = len(self._all_logs)
+        shown    = len(filtered)
+
+        if total == 0:
+            return "Belum ada log hari ini"
+        elif self._active_waktu is None and self._active_tanggal is None:
+            return f"{total} log harian tersimpan"
+        else:
+            parts = []
+            if self._active_waktu:
+                parts.append(f"waktu: {self._active_waktu}")
+            if self._active_tanggal:
+                parts.append(f"tanggal: {self._active_tanggal}")
+            return f"{shown} dari {total} log · {' · '.join(parts)}"
+
+    def reset(self) -> List[dict]:
+        """Reset semua filter ke kondisi awal (tampilkan semua log)."""
+        self._active_waktu   = None
+        self._active_tanggal = None
+        return list(self._all_logs)
