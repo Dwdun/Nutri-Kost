@@ -1,13 +1,14 @@
 import sys
 import os
 
-BASE = os.path.dirname(__file__)   # direktori tempat main.py berada = root proyek
+#tempat main.py berada = root proyek
+BASE = os.path.dirname(__file__)   
 
 sys.path.insert(0, os.path.join(BASE, "faqih_integrator"))  # main_window, search_page
 sys.path.insert(0, os.path.join(BASE, "bima_scrapper"))     # models.py (DBHelper, JsonHelper)
-sys.path.insert(0, os.path.join(BASE, "irfan_calculator"))  # log_page (nanti)
-sys.path.insert(0, os.path.join(BASE, "anindya_profil"))    # profil_page (nanti)
-sys.path.insert(0, os.path.join(BASE, "fatih_GUI"))         # dashboard, chart (nanti)
+sys.path.insert(0, os.path.join(BASE, "irfan_calculator"))  # log_page 
+sys.path.insert(0, os.path.join(BASE, "anindya_profil"))    # profil_page 
+sys.path.insert(0, os.path.join(BASE, "fatih_GUI"))         # dashboard, chart 
 
 from PyQt5.QtWidgets import QApplication
 from PyQt5.QtGui import QFontDatabase
@@ -21,7 +22,7 @@ def main():
     font_id = QFontDatabase.addApplicationFont("assets/MontserratAlternates-Regular.ttf")
     QFontDatabase.addApplicationFont("assets/MontserratAlternates-Bold.ttf")
 
-    # Fusion: tampilan lintas OS yang konsisten (Windows, Linux, Mac sama ratanya)
+    #tampilan lintas OS yang konsisten (Windows, Linux, Mac sama ratanya)
     app.setStyle("Fusion")
 
     # Stylesheet global — berlaku untuk SEMUA widget di seluruh aplikasi.

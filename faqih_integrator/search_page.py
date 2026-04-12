@@ -10,25 +10,22 @@ from PyQt5.QtGui import QFont
 
 from models import DBHelper
 
-# ── Palet warna ───────────────────────────────────────────────────────────────
+# collor pallate
 GREEN_PRIMARY = "#1A7A34"
-GREEN_LIGHT   = "#EAF5EE"
+GREEN_LIGHT   = "#CAEED4"
 GRAY_BG       = "#f5f7f5"
 GRAY_CARD     = "#ffffff"
 GRAY_BORDER   = "#e0e0e0"
 GRAY_TEXT     = "#6c757d"
-RED_SOFT      = "#dc3545"
+RED_SOFT      = "#E03030"
 
 
-# ── Konfigurasi Filter Chip ───────────────────────────────────────────────────
-# Format: label yang tampil → keyword pencarian (string kosong = tampilkan semua)
-# Untuk satu kategori yang punya banyak sinonim, pisahkan dengan spasi.
-# Contoh: "Protein" → cari makanan yang namanya mengandung salah satu dari kata-kata ini.
+#konfigurasi parameter chip filter makanan
 FILTER_CHIPS = {
     "Semua":         ("",        0,    ""),
-    "Protein Tinggi":("protein", 15.0, "gte"),
-    "Karbo Tinggi":  ("carb",    40.0, "gte"),
-    "Lemak Rendah":  ("fat",     5.0,  "lte"),
+    "Protein Tinggi":("protein", 15.0, "gte"), #greater than or equal 
+    "Karbo Tinggi":  ("carb",    40.0, "gte"), 
+    "Lemak Rendah":  ("fat",     5.0,  "lte"), #less than or equal
     "Rendah Kalori": ("cal",     100.0,"lte"),
     "Sayur & Buah":  ("",        0,    ""),
     "Minuman":       ("",        0,    ""),
@@ -39,9 +36,7 @@ CHIP_NAME_KEYWORDS = {
     "Minuman":      "minuman teh kopi susu jus air",
 }
 
-# ── Konfigurasi Sorting ───────────────────────────────────────────────────────
-# (label tampilan, key dict makanan, apakah descending?)
-# Key harus sesuai dengan nama kolom yang dikembalikan DBHelper: cal, protein, carb, fat
+#konfigurasi fitur sorting berdasarkan makronutrien
 SORT_OPTIONS = [
     ("Kalori ↑",  "cal",     False),   # terendah dulu
     ("Kalori ↓",  "cal",     True),    # tertinggi dulu
@@ -53,16 +48,9 @@ SORT_OPTIONS = [
     ("Lemak ↓",   "fat",     True),
 ]
 
-# ── Komponen: Chip Filter ─────────────────────────────────────────────────────
-
+#komponen filter button
 class ChipButton(QPushButton):
-    """
-    Tombol kecil berbentuk pil untuk filter kategori makanan.
-
-    Mirip tag/badge yang bisa diklik — satu chip aktif pada satu waktu.
-    Tampilan berubah (hijau/putih) mengikuti state aktif/tidak.
-    """
-
+    #tombol filter bentuknya kapsul (chip)
     def __init__(self, label: str, parent=None):
         super().__init__(label, parent)
         self.setCursor(Qt.PointingHandCursor)
@@ -72,7 +60,9 @@ class ChipButton(QPushButton):
     def set_active(self, active: bool):
         self._apply_style(active)
 
+    #style UI
     def _apply_style(self, active: bool):
+        #aktif = hijau
         if active:
             self.setStyleSheet(f"""
                 QPushButton {{
@@ -85,6 +75,7 @@ class ChipButton(QPushButton):
                     font-size: 12px;
                 }}
             """)
+        #nonaktif = abu
         else:
             self.setStyleSheet(f"""
                 QPushButton {{
@@ -101,20 +92,8 @@ class ChipButton(QPushButton):
                 }}
             """)
 
-
-# ── Komponen: Card Makanan ────────────────────────────────────────────────────
-
+#komponen foodcard di searching page
 class FoodCard(QFrame):
-    """
-    Card yang merepresentasikan satu item makanan di hasil pencarian.
-
-    Menampilkan: ikon · nama · ringkasan nutrisi (kal, protein, karbo, lemak)
-    User bisa klik card atau tombol '+ Pilih' — keduanya emit signal clicked(dict).
-
-    Signal clicked membawa dict makanan lengkap ke SearchPage,
-    lalu diteruskan ke MainWindow dan akhirnya ke LogPage (Irfan).
-    """
-
     # Signal ini membawa data makanan (dict) saat card diklik
     clicked = pyqtSignal(dict)
 
@@ -142,23 +121,22 @@ class FoodCard(QFrame):
         layout.setContentsMargins(14, 10, 14, 10)
         layout.setSpacing(14)
 
-        # Ikon makanan — sementara pakai emoji, bisa diganti gambar asli nanti
         icon = QLabel("🍽️")
         icon.setFixedSize(46, 46)
         icon.setAlignment(Qt.AlignCenter)
         icon.setStyleSheet(f"background-color: {GREEN_LIGHT}; border-radius: 8px; font-size: 22px;")
         layout.addWidget(icon)
 
-        # Blok teks: nama + ringkasan nutrisi
+        # Blok teks nama + ringkasan nutrisi
         info = QVBoxLayout()
         info.setSpacing(2)
 
         name = QLabel(self._data.get("food_name", "-"))
-        name.setFont(QFont("Segoe UI", 11, QFont.Bold))
+        name.setFont(QFont("Montserrat Alternates", 11, QFont.Bold))
         name.setStyleSheet("color: #1a1a1a;")
         info.addWidget(name)
 
-        # Nilai nutrisi semua per 100g — sesuai standar DBHelper Bima
+        # status kalori dan nutrisi makronutrien per 100g
         nutrisi = QLabel(
             f"{self._data.get('cal', 0):.0f} kal  ·  "
             f"P {self._data.get('protein', 0):.1f}g  ·  "
@@ -169,7 +147,7 @@ class FoodCard(QFrame):
         info.addWidget(nutrisi)
         layout.addLayout(info, 1)
 
-        # Tombol pilih — klik ini yang memicu alur ke Log Harian
+        # Tombol pilih memicu log harian
         btn = QPushButton("+ Pilih")
         btn.setFixedSize(72, 32)
         btn.setCursor(Qt.PointingHandCursor)
@@ -192,25 +170,8 @@ class FoodCard(QFrame):
         # Klik di mana saja pada card juga trigger signal yang sama
         self.clicked.emit(self._data)
 
-
-# ── Halaman Utama ─────────────────────────────────────────────────────────────
-
+#Page Utama Searching filtering dan sorting
 class SearchPage(QWidget):
-    """
-    Halaman pencarian makanan utama.
-
-    Alur data:
-        User ketik → debounce 400ms → _do_search() → DB / dummy
-            → _all_results disimpan
-            → _filter_sort() terapkan chip + sort
-            → _render() tampilkan FoodCard
-
-    Parameter:
-        on_pilih_makanan: Callable[[dict], None]
-            Fungsi yang dipanggil saat user memilih makanan.
-            Diisi oleh MainWindow saat SearchPage dibuat.
-    """
-
     def __init__(self, on_pilih_makanan: Callable[[dict], None] = None, parent=None):
         super().__init__(parent)
         self._callback    = on_pilih_makanan
@@ -221,17 +182,17 @@ class SearchPage(QWidget):
 
         self._db = DBHelper()
 
-        # QTimer sebagai debounce: cegah query ke DB setiap kali user mengetik satu huruf.
-        # Timer di-reset tiap ada perubahan teks; query baru dijalankan setelah 400ms diam.
+        # QTimer sebagai debounce mencegah query ke DB setiap kali user mengetik satu huruf.
+        # Timer di-reset tiap ada perubahan teks, query baru dijalankan setelah 400ms diam.
         self._timer = QTimer()
         self._timer.setSingleShot(True)
         self._timer.setInterval(400)
         self._timer.timeout.connect(self._do_search)
 
         self._build_ui()
-        self._do_search()   # load awal: tampilkan semua makanan tanpa filter
-    # ── Membangun Tampilan ────────────────────────────────────────────────────
+        self._do_search()   # load awal menampilkan semua makanan tanpa filter
 
+    #UI page
     def _build_ui(self):
         self.setStyleSheet(f"background-color: {GRAY_BG};")
         root = QVBoxLayout(self)
@@ -243,7 +204,7 @@ class SearchPage(QWidget):
         top.setSpacing(10)
 
         self._search_input = QLineEdit()
-        self._search_input.setPlaceholderText("  Cari nama makanan...")
+        self._search_input.setPlaceholderText(" Cari nama makanan...")
         self._search_input.setFixedHeight(40)
         self._search_input.setStyleSheet(f"""
             QLineEdit {{
@@ -255,6 +216,7 @@ class SearchPage(QWidget):
             }}
             QLineEdit:focus {{ border-color: {GREEN_PRIMARY}; }}
         """)
+
         # Setiap perubahan teks me-restart timer debounce
         self._search_input.textChanged.connect(lambda _: self._timer.start())
         top.addWidget(self._search_input, stretch=1)
@@ -263,6 +225,7 @@ class SearchPage(QWidget):
         sort_lbl.setStyleSheet(f"color: {GRAY_TEXT}; font-size: 12px;")
         top.addWidget(sort_lbl)
 
+        #dropdown sorting
         self._sort_combo = QComboBox()
         self._sort_combo.setFixedHeight(40)
         self._sort_combo.setMinimumWidth(130)
@@ -277,7 +240,7 @@ class SearchPage(QWidget):
             QComboBox:focus {{ border-color: {GREEN_PRIMARY}; }}
             QComboBox::drop-down {{ border: none; width: 24px; }}
         """)
-        # Simpan (key, desc) sebagai data item — diambil kembali saat sort berubah
+
         for label, key, desc in SORT_OPTIONS:
             self._sort_combo.addItem(label, (key, desc))
         self._sort_combo.currentIndexChanged.connect(self._on_sort_changed)
@@ -290,7 +253,6 @@ class SearchPage(QWidget):
         self._chips: dict[str, ChipButton] = {}
         for label in FILTER_CHIPS:
             chip = ChipButton(label)
-            # default arg l=label penting agar setiap lambda capture nilai yang benar
             chip.clicked.connect(lambda _, l=label: self._on_chip_click(l))
             self._chips[label] = chip
             chip_row.addWidget(chip)
@@ -315,47 +277,41 @@ class SearchPage(QWidget):
         self._result_layout = QVBoxLayout(self._result_container)
         self._result_layout.setContentsMargins(0, 4, 14, 4)
         self._result_layout.setSpacing(8)
+
         # Stretch di akhir mendorong card ke atas, bukan terpusat di tengah
         self._result_layout.addStretch()
 
         scroll.setWidget(self._result_container)
         root.addWidget(scroll, stretch=1)
 
-    # ── Event Handler ─────────────────────────────────────────────────────────
-
+    #kalo chip di klik , re filter data
     def _on_chip_click(self, label: str):
-        """Ganti chip aktif lalu re-filter data yang sudah ada di cache."""
         self._active_chip = label
         for k, c in self._chips.items():
             c.set_active(k == label)
         # Tidak perlu query DB ulang — cukup filter dari _all_results
         self._render(self._filter_sort(self._all_results))
 
+    #kalo opsi dropdown berubah , sorting ulang
     def _on_sort_changed(self, _index: int):
-        """Ambil (key, desc) dari item combo yang dipilih lalu re-sort."""
         self._sort_key, self._sort_desc = self._sort_combo.currentData()
         self._render(self._filter_sort(self._all_results))
 
-    # ── Logika Pencarian & Filter ─────────────────────────────────────────────
-
+    #searching makanan sesuai yang diinput berdasarkan dengan nama db
     def _do_search(self):
-        """
-        Query ke DBHelper berdasarkan teks di search bar.
-
-        - Query kosong → ambil semua makanan (get_all_makanan)
-        - Query ada    → gunakan search_makanan(query) yang pakai LIKE di SQL
-        Hasil disimpan ke _all_results sebagai cache, lalu difilter + dirender.
-        """
         query = self._search_input.text().strip()
 
         raw = self._db.search_makanan(query) if query else self._db.get_all_makanan()
 
+        #simpan  hasilnya di memory, show ke layar
         self._all_results = raw
         self._render(self._filter_sort(raw))
     
+    #sorting makanan sesuai kandungan makronutrien dan kalori
     def _filter_sort(self, data: List[dict]) -> List[dict]:
         field, threshold, operator = FILTER_CHIPS.get(self._active_chip, ("", 0, ""))
 
+        #proses sesuai chip yang aktif
         if operator == "gte":
             data = [m for m in data if (m.get(field) or 0) >= threshold]
         elif operator == "lte":
@@ -364,26 +320,20 @@ class SearchPage(QWidget):
             kws = CHIP_NAME_KEYWORDS[self._active_chip].lower().split()
             data = [m for m in data if any(k in m.get("food_name", "").lower() for k in kws)]
 
+        #sorted sesuai pilihan 
         return sorted(data, key=lambda m: m.get(self._sort_key, 0) or 0, reverse=self._sort_desc)
 
-    # ── Rendering ─────────────────────────────────────────────────────────────
-
     def _render(self, results: List[dict]):
-        """
-        Hapus semua card lama dan buat ulang dari daftar hasil.
-
-        Stretch di posisi terakhir layout dipertahankan (tidak dihapus)
-        agar card selalu rata atas di scroll area.
-        """
-        # Hapus semua item kecuali stretch terakhir (index = count - 1)
+        # reset foodcard
         while self._result_layout.count() > 1:
             item = self._result_layout.takeAt(0)
             if item.widget():
                 item.widget().deleteLater()
 
+        #validasi nama makanan jika tidak ada
         if not results:
             self._show_empty_state()
-            self._status.setText("❌  Makanan tidak ditemukan.")
+            self._status.setText(" Makanan tidak ditemukan.")
             self._status.setStyleSheet(f"color: {RED_SOFT}; font-size: 12px;")
             return
 
@@ -396,26 +346,22 @@ class SearchPage(QWidget):
         self._status.setText(info)
         self._status.setStyleSheet(f"color: {GRAY_TEXT}; font-size: 12px;")
 
+        #render list ke foodcard per baris makanan
         for mkn in results:
             card = FoodCard(mkn)
             card.clicked.connect(self._on_card_click)
             # insertWidget(count-1) = sisipkan sebelum stretch agar card tetap di atas
             self._result_layout.insertWidget(self._result_layout.count() - 1, card)
 
+    #searching gagal
     def _show_empty_state(self):
-        """Tampilkan pesan terpusat saat tidak ada hasil pencarian."""
-        empty = QLabel("🔍\n\nMakanan tidak ditemukan.\nCoba kata kunci lain atau ubah filter.")
+        empty = QLabel("\n\nMakanan tidak ditemukan.\nCoba kata kunci lain atau ubah filter.")
         empty.setAlignment(Qt.AlignCenter)
         empty.setStyleSheet(f"color: {GRAY_TEXT}; font-size: 13px; padding: 40px;")
         self._result_layout.insertWidget(0, empty)
 
-    # ── Callback ke MainWindow ────────────────────────────────────────────────
-
+    #kalo foodcard di klik akan trigger tambah makanan 
     def _on_card_click(self, makanan: dict):
-        """
-        Dikirim ke MainWindow via callback yang diinjeksikan saat SearchPage dibuat.
-        MainWindow kemudian meneruskan ke LogPage milik Irfan.
-        """
         print(f"[SearchPage] Dipilih: {makanan.get('food_name')}")
         if self._callback:
             self._callback(makanan)
