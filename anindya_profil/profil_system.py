@@ -210,3 +210,25 @@ class ProfilSystem:
 
         print(f"Profil berhasil diupdate!")
         return True
+    
+    def deleteProfil(self):
+        # Cek dulu apakah ada user yang aktif
+        # Tidak bisa hapus kalau belum ada profil
+        if self.current_profil is None:
+            print("Error: Belum ada profil yang aktif.")
+            return False
+
+        # Simpan dulu nama dan id sebelum dihapus
+        # Karena setelah dihapus current_profil jadi None
+        id_user = self.current_profil['id_user']
+        nama    = self.current_profil['full_name']
+
+        # Panggil delete_user() untuk hapus dari database
+        # Otomatis hapus semua log harian user ini juga
+        self.data_helper.delete_user(id_user)
+
+        # Kosongkan current_profil karena user sudah dihapus
+        self.current_profil = None
+
+        print(f"Profil '{nama}' berhasil dihapus.")
+        return True
