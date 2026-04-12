@@ -53,3 +53,31 @@ class ProfilSystem:
 
         print("Semua input valid.")
         return True
+    
+    def createProfil(self, data):
+        # validasi dulu sebelum simpan ke database
+        # Kalau gagal, hentikan proses dan return False
+        if not self.validasiInput(data):
+            return False
+
+        # siapkan data sesuai format database 
+        # .strip() untuk hapus spasi di awal/akhir teks
+        user_data = {
+            'full_name' : data['full_name'].strip(),
+            'age'       : data['age'],
+            'gender'    : data['gender'],
+            'weight'    : data['weight'],
+            'height'    : data['height'],
+            'email'     : data['email'].strip(),
+            'password'  : data['password']
+        }
+
+        # panggil create_user() 
+        # create_user() mengembalikan id_user (angka unik tiap user)
+        id_user = self.data_helper.create_user(user_data)
+
+        # simpan profil yang baru dibuat ke current_profil
+        self.current_profil = self.data_helper.get_user_by_id(id_user)
+
+        print(f"Profil berhasil dibuat! ID user: {id_user}")
+        return True
