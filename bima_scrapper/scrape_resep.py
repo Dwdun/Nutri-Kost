@@ -52,7 +52,7 @@ def scrape_cookpad():
             if ingredients_div:
                 lis = ingredients_div.find_all('li')
                 for li in lis:
-                    bahan_text = ' '.join(li.get_text(strip=True).split())
+                    bahan_text = ' '.join(li.get_text(separator=" ",strip=True).split())
                     bahan_detail.append(bahan_text)
             
             langkah_langkah = []
