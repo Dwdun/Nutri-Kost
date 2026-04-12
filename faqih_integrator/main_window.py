@@ -6,19 +6,18 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QFont
 
-# ── Palet warna NutriKost ─────────────────────────────────────────────────────
-# Didefinisikan di sini agar mudah diganti sekaligus jika desain berubah.
-SIDEBAR_BG     = "#1A7A34"   # hijau utama — warna brand NutriKost
-SIDEBAR_HOVER  = "#155f28"   # sedikit lebih gelap saat kursor di atas tombol
-SIDEBAR_ACTIVE = "#0f4a1f"   # paling gelap — menandai halaman yang sedang dibuka
+#collor pallete
+SIDEBAR_BG     = "#1A7A34"   
+SIDEBAR_HOVER  = "#155f28"   
+SIDEBAR_ACTIVE = "#0f4a1f"   
 SIDEBAR_TEXT   = "#ffffff"
-SIDEBAR_WIDTH  = 210         # lebar sidebar dalam pixel
-CONTENT_BG     = "#f5f7f5"   # abu-abu sangat muda untuk area konten
+SIDEBAR_WIDTH  = 210            
+CONTENT_BG     = "#f5f7f5"   
 HEADER_BG      = "#ffffff"
 ACCENT_GREEN   = "#1A7A34"
 
-# ── Komponen: Tombol Sidebar ──────────────────────────────────────────────────
 
+#tombol navbar/sidebar
 class SidebarButton(QPushButton):
 
     def __init__(self, icon_text: str, label: str, parent=None):
@@ -30,12 +29,13 @@ class SidebarButton(QPushButton):
         self.setFont(QFont("Montserrat Alternates", 11))
         self._apply_style(active=False)
 
+    #ubah state saat di klik atau aktif
     def set_active(self, active: bool):
         self._apply_style(active)
 
+    #style UI
     def _apply_style(self, active: bool):
         bg     = SIDEBAR_ACTIVE if active else SIDEBAR_BG
-        # Garis putih tipis di sisi kiri = indikator visual halaman aktif
         border = "border-left: 4px solid #ffffff;" if active else "border-left: 4px solid transparent;"
         weight = "bold" if active else "normal"
         self.setStyleSheet(f"""
@@ -54,44 +54,25 @@ class SidebarButton(QPushButton):
             }}
         """)
 
-
-# ── Window Utama ──────────────────────────────────────────────────────────────
-
 class MainWindow(QMainWindow):
-    """
-    Kerangka utama aplikasi NutriKost.
-
-    Layout:
-        ┌──────────┬──────────────────────────────┐
-        │          │  Header (judul halaman)       │
-        │ Sidebar  ├──────────────────────────────┤
-        │          │                              │
-        │          │   Area Konten (QStackedWidget)│
-        │          │   — hanya 1 halaman tampil   │
-        └──────────┴──────────────────────────────┘
-
-    Cara kerja routing:
-        navigate("search") → sidebar tombol Search jadi active
-            → stack menampilkan SearchPage
-            → judul header berubah jadi "Cari Makanan"
-    """
-
-    # Daftar halaman: (ikon, label sidebar, page_key)
-    # page_key adalah ID internal yang dipakai navigate() dan setupRouting()
+    #daftar halaman
     PAGES = [
-        ("🏠", "Dashboard",    "dashboard"),
-        ("🔍", "Cari Makanan", "search"),
-        ("📋", "Log Harian",   "log"),
-        ("🍽️", "Rekomendasi",  "rekomendasi"),
-        ("👤", "Profil",       "profil"),
+        ("", "Dashboard",    "dashboard"),
+        ("", "Cari Makanan", "search"),
+        ("", "Log Harian",   "log"),
+        ("", "Rekomendasi Resep",  "rekomendasi"),
+        ("", "Profil",       "profil"),
+        ("", "Visualisasi",   "visualisasi"),
     ]
 
+    #judul
     PAGE_TITLES = {
         "dashboard":   "Dashboard",
         "search":      "Cari Makanan",
         "log":         "Log Harian",
         "rekomendasi": "Rekomendasi Resep",
         "profil":      "Profil",
+        "visualisasi" : "Visualisasi",
     }
 
     def __init__(self):
@@ -100,20 +81,17 @@ class MainWindow(QMainWindow):
         self.setMinimumSize(1000, 640)
         self.resize(1200, 720)
 
-        # Dua dict ini adalah "daftar isi" navigasi:
-        # _sidebar_buttons: page_key → tombol sidebar (untuk set_active)
-        # _page_widgets   : page_key → widget halaman (untuk QStackedWidget)
+        #dict untuk referensi tombol dan widget
         self._sidebar_buttons: dict[str, SidebarButton] = {}
         self._page_widgets:    dict[str, QWidget]       = {}
 
         self._build_ui()
         self.setupRouting()
 
-        # Buka halaman Search sebagai tampilan awal
-        self.navigate("search")
+        # Buka halaman dashboard sebagai tampilan awal
+        self.navigate("dashboard")
 
-    # ── Membangun Tampilan ────────────────────────────────────────────────────
-
+    #setup layout navbar
     def _build_ui(self):
         """Susun layout root: sidebar (kiri) + area konten (kanan)."""
         root = QWidget()
@@ -121,19 +99,22 @@ class MainWindow(QMainWindow):
 
         root_layout = QHBoxLayout(root)
         root_layout.setContentsMargins(0, 0, 0, 0)
-        root_layout.setSpacing(0)   # tidak ada celah antara sidebar dan konten
+        root_layout.setSpacing(0)  
 
+        #add sidebar ke layout
         root_layout.addWidget(self._build_sidebar())
 
-        # Area konten = header di atas + stack halaman di bawah
+        #setup area content
         content_area = QWidget()
         content_area.setStyleSheet(f"background-color: {CONTENT_BG};")
         content_layout = QVBoxLayout(content_area)
         content_layout.setContentsMargins(0, 0, 0, 0)
         content_layout.setSpacing(0)
+
+        #header judul halaman
         content_layout.addWidget(self._build_header())
 
-        # QStackedWidget: wadah semua halaman, hanya 1 yang terlihat
+        # QStackedWidget: cuma satu halaman yang keliatan dalam satu waktu
         self._stack = QStackedWidget()
         self._stack.setStyleSheet("background-color: transparent;")
         content_layout.addWidget(self._stack)
@@ -141,7 +122,7 @@ class MainWindow(QMainWindow):
         root_layout.addWidget(content_area, stretch=1)  # konten mengisi sisa lebar
 
     def _build_sidebar(self) -> QWidget:
-        """Buat sidebar: logo brand di atas + tombol navigasi + versi di bawah."""
+        #bikin navbar berisi logo, tombol menu, versi apk
         sidebar = QWidget()
         sidebar.setFixedWidth(SIDEBAR_WIDTH)
         sidebar.setStyleSheet(f"background-color: {SIDEBAR_BG};")
@@ -151,20 +132,18 @@ class MainWindow(QMainWindow):
         layout.setSpacing(0)
 
         # Brand / logo teks
-        brand = QLabel("🥗  NutriKost")
+        brand = QLabel("NutriKost")
         brand.setAlignment(Qt.AlignCenter)
         brand.setFixedHeight(64)
-        brand.setFont(QFont("Montserrat Alternates", 14, QFont.Bold))
+        brand.setFont(QFont("Montserrat Alternates", 16, QFont.Bold))
         brand.setStyleSheet(
             f"color: white; background-color: {SIDEBAR_BG}; border-bottom: 1px solid #145e27;"
         )
         layout.addWidget(brand)
 
-        # Buat tombol untuk setiap halaman yang terdaftar di PAGES
+        #loop bikin tombol dari list PAGES di atas
         for icon, label, page_key in self.PAGES:
             btn = SidebarButton(icon, label)
-            # lambda dengan default arg (k=page_key) mencegah closure bug —
-            # tanpa itu semua tombol akan navigate ke page_key terakhir di loop
             btn.clicked.connect(lambda checked, k=page_key: self.navigate(k))
             self._sidebar_buttons[page_key] = btn
             layout.addWidget(btn)
@@ -179,10 +158,7 @@ class MainWindow(QMainWindow):
         return sidebar
 
     def _build_header(self) -> QWidget:
-        """
-        Bar tipis di atas area konten yang menampilkan judul halaman aktif.
-        Judul diupdate otomatis oleh navigate().
-        """
+        #nampilin judul halaman aktif
         header = QFrame()
         header.setFixedHeight(52)
         header.setStyleSheet(f"""
@@ -204,60 +180,41 @@ class MainWindow(QMainWindow):
 
         return header
 
-    # ── Mendaftarkan Halaman ──────────────────────────────────────────────────
-
+    #INTEGRASI SISTEM
     def setupRouting(self):
-        """
-        Tempat semua halaman didaftarkan ke QStackedWidget.
 
-        PANDUAN INTEGRASI untuk anggota lain:
-        Ketika halaman kalian sudah siap, uncomment baris import + _add_page,
-        dan hapus baris placeholder di bawahnya.
-
-        Contoh untuk Irfan:
-            # Sebelum (hapus ini):
-            self._add_page("log", self._placeholder("📋  Log Harian", "Modul Irfan"))
-
-            # Sesudah (aktifkan ini):
-            from log_page import LogPage
-            self._add_page("log", LogPage())
-        """
-
-        # ── Halaman Search (Faqih) — SUDAH AKTIF ─────────────────────────
+        #Halaman Search
         from search_page import SearchPage
         self._add_page("search", SearchPage(on_pilih_makanan=self._on_pilih_makanan))
 
-        # ── Halaman Log Harian (Irfan) ────────────────────────────────────
-        # from log_page import LogPage
+        # Halaman Log Harian
+        # from log_page import LogPage #sementara di komen dulu
         # self._add_page("log", LogPage())
-        self._add_page("log", self._placeholder("📋  Log Harian", "Modul Irfan"))
+        self._add_page("log", self._placeholder("  Log Harian", "Modul Irfan"))
 
         # ── Halaman Rekomendasi Resep (Bima) ──────────────────────────────
         # from rekomendasi_page import RekomendasiPage
         # self._add_page("rekomendasi", RekomendasiPage())
-        self._add_page("rekomendasi", self._placeholder("🍽️  Rekomendasi Resep", "Modul Bima"))
+        self._add_page("rekomendasi", self._placeholder(" Rekomendasi Resep", "Modul Bima"))
 
         # ── Halaman Profil (Anin) ─────────────────────────────────────────
         # from profil_page import ProfilPage
         # self._add_page("profil", ProfilPage())
-        self._add_page("profil", self._placeholder("👤  Profil", "Modul Anin"))
+        self._add_page("profil", self._placeholder("  Profil", "Modul Anin"))
 
         # ── Dashboard (Fatih) ─────────────────────────────────────────────
         # from dashboard import DashboardUI
         # self._add_page("dashboard", DashboardUI())
-        self._add_page("dashboard", self._placeholder("🏠  Dashboard", "Modul Fatih"))
+        self._add_page("dashboard", self._placeholder("  Dashboard", "Modul Fatih"))
 
     def _add_page(self, key: str, widget: QWidget):
-        """Daftarkan widget ke stack dan simpan referensinya di _page_widgets."""
+        #daftarin widget halaman ke stack
         self._page_widgets[key] = widget
         self._stack.addWidget(widget)
 
     @staticmethod
     def _placeholder(title: str, owner: str) -> QWidget:
-        """
-        Widget sementara untuk halaman yang belum diintegrasikan.
-        Menampilkan pesan agar jelas halaman mana yang masih kosong.
-        """
+        #tampilan smentara page kosong
         w = QWidget()
         layout = QVBoxLayout(w)
         layout.setAlignment(Qt.AlignCenter)
@@ -275,54 +232,28 @@ class MainWindow(QMainWindow):
 
         return w
 
-    # ── Navigasi ──────────────────────────────────────────────────────────────
-
     def navigate(self, page_key: str):
-        """
-        Pindah ke halaman berdasarkan page_key.
-
-        Yang dilakukan:
-        - Semua tombol sidebar di-nonaktifkan, lalu tombol page_key diaktifkan
-        - QStackedWidget menampilkan widget yang sesuai
-        - Judul di header diperbarui
-        """
+        #fungsi buat pindah halaman
         if page_key not in self._page_widgets:
             return
 
-        # Reset semua tombol ke inactive, lalu aktifkan yang sesuai
+        #Reset semua tombol ke inactive, lalu aktifkan yang sesuai
         for key, btn in self._sidebar_buttons.items():
             btn.set_active(key == page_key)
 
+        #ganti halaman dan update header page
         self._stack.setCurrentWidget(self._page_widgets[page_key])
         self._page_title.setText(self.PAGE_TITLES.get(page_key, page_key.title()))
 
-    # ── Callback Antar Modul ──────────────────────────────────────────────────
-
+    #CALLBACK INTEGRASI (untuk add makanan)
     def _on_pilih_makanan(self, makanan: dict):
-        """
-        Dipanggil oleh SearchPage saat user menekan tombol '+ Pilih' pada sebuah makanan.
-
-        Alur:
-        SearchPage._on_card_click()
-            → callback(makanan)
-            → MainWindow._on_pilih_makanan(makanan)   ← di sini
-            → navigate("log")
-            → LogPage.show_tambah_makan(makanan)      ← milik Irfan
-
-        Parameter makanan berisi dict:
-        { code, food_name, cal, protein, fat, carb }
-
-        CATATAN UNTUK IRFAN:
-        Tambahkan method ini di class LogPage milik kamu:
-            def show_tambah_makan(self, makanan: dict):
-                # isi dropdown nama makanan dengan makanan["food_name"]
-                # isi preview nutrisi dengan makanan["cal"], ["protein"], dst
-        Method ini akan otomatis terpanggil dari sini setelah LogPage diintegrasikan.
-        """
+        #pindahin user ke halaman log harian dan bawa data makanannya
         print(f"[MainWindow] Makanan dipilih → {makanan.get('food_name')} ({makanan.get('cal')} kkal)")
 
+        #pindah ke halaman log
         self.navigate("log")
 
+        #open data makanan ke fungsi show tambah makanan
         log_widget = self._page_widgets.get("log")
         if hasattr(log_widget, "show_tambah_makan"):
             log_widget.show_tambah_makan(makanan)
