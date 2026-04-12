@@ -146,7 +146,11 @@ class NutrikostApp(QMainWindow):
     def muat_database(self):
         """Memuat data dari nutrikost.db ke memori"""
         try:
-            conn = sqlite3.connect('nutrikost.db')
+            # Cari path absolut untuk nutrikost.db
+            base_dir = os.path.dirname(os.path.abspath(__file__))
+            db_path = os.path.join(base_dir, 'nutrikost.db')
+            
+            conn = sqlite3.connect(db_path)
             cursor = conn.cursor()
             cursor.execute("SELECT code, food_name, cal, protein, carb, fat FROM Makanan")
             baris_db = cursor.fetchall()
@@ -183,14 +187,18 @@ class NutrikostApp(QMainWindow):
             QApplication.setOverrideCursor(Qt.WaitCursor)
             self.btn_scrape.setText("⏳ Sedang Mengambil Resep Baru... Mohon Tunggu")
             self.btn_scrape.setEnabled(False)
-            QApplication.processEvents() # Paksa refresh UI agar teks berubah
+            QApplication.processEvents() 
 
             # Panggil fungsi dari scrape_resep.py
             scrape_cookpad() 
 
-            # Muat ulang file JSON
-            if os.path.exists('Resep.json'):
-                with open('Resep.json', 'r', encoding='utf-8') as f:
+            # Cari path absolut untuk Resep.json
+            base_dir = os.path.dirname(os.path.abspath(__file__))
+            json_path = os.path.join(base_dir, 'Resep.json')
+
+            # Muat ulang file JSON menggunakan path absolut
+            if os.path.exists(json_path):
+                with open(json_path, 'r', encoding='utf-8') as f:
                     self.resep_data = json.load(f)
                 
                 self.tabel_resep.setRowCount(len(self.resep_data))
@@ -200,7 +208,7 @@ class NutrikostApp(QMainWindow):
 
                 QMessageBox.information(self, "Selesai", f"Berhasil men-scrape {len(self.resep_data)} resep terbaru!")
             else:
-                QMessageBox.warning(self, "File Hilang", "Resep.json tidak ditemukan setelah scraping.")
+                QMessageBox.warning(self, "File Hilang", f"Resep.json tidak ditemukan di:\n{json_path}")
 
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Terjadi kesalahan saat pemrosesan: {e}")
