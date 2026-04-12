@@ -166,3 +166,47 @@ class ProfilSystem:
         print(f"Target kalori harian: {total_kalori} kkal")
 
         return total_kalori
+    
+    def updateProfil(self, data):
+        # Cek dulu apakah ada user yang aktif
+        if self.current_profil is None:
+            print("Error: Belum ada profil yang aktif.")
+            return False
+
+        # Validasi field yang mau diupdate
+        if 'weight' in data:
+            if not isinstance(data['weight'], (int, float)) or data['weight'] <= 0 or data['weight'] > 300:
+                print("Validasi gagal: Berat badan tidak valid.")
+                return False
+
+        if 'height' in data:
+            if not isinstance(data['height'], (int, float)) or data['height'] <= 0 or data['height'] > 300:
+                print("Validasi gagal: Tinggi badan tidak valid.")
+                return False
+
+        if 'age' in data:
+            if not isinstance(data['age'], int) or data['age'] <= 0 or data['age'] > 120:
+                print("Validasi gagal: Usia tidak valid.")
+                return False
+
+        if 'gender' in data:
+            if data['gender'] not in ['Male', 'Female']:
+                print("Validasi gagal: Gender harus 'Male' atau 'Female'.")
+                return False
+
+        if 'full_name' in data:
+            if not data['full_name'] or not data['full_name'].strip():
+                print("Validasi gagal: Nama tidak boleh kosong.")
+                return False
+
+        # Ambil id_user dari current_profil
+        id_user = self.current_profil['id_user']
+
+        # Panggil update_user() untuk update ke database
+        self.data_helper.update_user(id_user, data)
+
+        # Update current_profil dengan data terbaru
+        self.current_profil = self.data_helper.get_user_by_id(id_user)
+
+        print(f"Profil berhasil diupdate!")
+        return True
