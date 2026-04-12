@@ -5,18 +5,10 @@ from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLineEdit, QPushButton,
     QLabel, QScrollArea, QFrame, QComboBox
 )
-from PyQt5.QtCore import Qt, QTimer, pyqtSignal
+from PyQt5.QtCore import Qt, QTimer, QDate, pyqtSignal
 from PyQt5.QtGui import QFont
 
-# models.py sudah di-inject ke sys.path oleh main.py, jadi import langsung
-try:
-    from models import DBHelper
-    _DB_AVAILABLE = True
-except ImportError:
-    # Halaman tetap jalan dengan data dummy — berguna saat develop tanpa DB Bima
-    _DB_AVAILABLE = False
-    print("[SearchPage] WARNING: models.py tidak ditemukan, pakai dummy data.")
-
+from models import DBHelper
 
 # ── Palet warna ───────────────────────────────────────────────────────────────
 GREEN_PRIMARY = "#1A7A34"
@@ -59,6 +51,14 @@ SORT_OPTIONS = [
     ("Lemak ↓",   "fat",     True),
 ]
 
+LOG_WAKTU_OPTIONS = [
+    ("Semua Waktu",  None),
+    ("Sarapan",      "Sarapan"),
+    ("Makan Siang",  "Makan Siang"),
+    ("Makan Malam",  "Makan Malam"),
+    ("Snack",        "Snack"),
+    ("Minuman",      "Minuman"),
+]
 
 # ── Komponen: Chip Filter ─────────────────────────────────────────────────────
 
@@ -222,11 +222,15 @@ class SearchPage(QWidget):
         super().__init__(parent)
         self._callback    = on_pilih_makanan
         self._all_results: List[dict] = []   # cache hasil pencarian terakhir dari DB
+        self._all_logs:    List[dict] = []   # cache log harian untuk filter waktu
         self._active_chip = "Semua"
         self._sort_key    = "cal"
         self._sort_desc   = False
+        self._active_waktu: str | None = None  # None = semua waktu, str = category log
 
-        self._db = DBHelper() if _DB_AVAILABLE else None
+        import os
+        print("DB path:", os.path.join(os.path.dirname(os.path.abspath(__file__)), "nutrikost.db"))
+        self._db = DBHelper()
 
         # QTimer sebagai debounce: cegah query ke DB setiap kali user mengetik satu huruf.
         # Timer di-reset tiap ada perubahan teks; query baru dijalankan setelah 400ms diam.
@@ -237,7 +241,7 @@ class SearchPage(QWidget):
 
         self._build_ui()
         self._do_search()   # load awal: tampilkan semua makanan tanpa filter
-
+        self._load_logs()   # load awal: ambil semua log harian ke cache
     # ── Membangun Tampilan ────────────────────────────────────────────────────
 
     def _build_ui(self):
@@ -306,7 +310,63 @@ class SearchPage(QWidget):
         self._chips["Semua"].set_active(True)
         root.addLayout(chip_row)
 
-        # Baris 3: label status (jumlah hasil / pesan error)
+        # Baris 3: filter log berdasarkan waktu makan
+        log_row = QHBoxLayout()
+        log_row.setSpacing(8)
+
+        log_lbl = QLabel("Filter Log:")
+        log_lbl.setStyleSheet(f"color: {GRAY_TEXT}; font-size: 12px;")
+        log_row.addWidget(log_lbl)
+
+        self._waktu_combo = QComboBox()
+        self._waktu_combo.setFixedHeight(32)
+        self._waktu_combo.setMinimumWidth(150)
+        self._waktu_combo.setStyleSheet(f"""
+            QComboBox {{
+                border: 1.5px solid {GRAY_BORDER};
+                border-radius: 8px;
+                padding: 0 10px;
+                background: white;
+                font-size: 12px;
+            }}
+            QComboBox:focus {{ border-color: {GREEN_PRIMARY}; }}
+            QComboBox::drop-down {{ border: none; width: 24px; }}
+        """)
+        # Simpan nilai category sebagai data — None untuk "Semua Waktu"
+        for label, val in LOG_WAKTU_OPTIONS:
+            self._waktu_combo.addItem(label, val)
+        self._waktu_combo.currentIndexChanged.connect(self._on_waktu_changed)
+        log_row.addWidget(self._waktu_combo)
+
+        # Tombol refresh manual — berguna saat log baru ditambahkan dari halaman Irfan
+        refresh_btn = QPushButton("↻  Refresh Log")
+        refresh_btn.setFixedHeight(32)
+        refresh_btn.setCursor(Qt.PointingHandCursor)
+        refresh_btn.setStyleSheet(f"""
+            QPushButton {{
+                border: 1.5px solid {GRAY_BORDER};
+                border-radius: 8px;
+                padding: 0 12px;
+                background: white;
+                color: {GRAY_TEXT};
+                font-size: 12px;
+            }}
+            QPushButton:hover {{
+                border-color: {GREEN_PRIMARY};
+                color: {GREEN_PRIMARY};
+            }}
+        """)
+        refresh_btn.clicked.connect(self._load_logs)
+        log_row.addWidget(refresh_btn)
+
+        # Label jumlah log yang cocok
+        self._log_count = QLabel("")
+        self._log_count.setStyleSheet(f"color: {GRAY_TEXT}; font-size: 11px;")
+        log_row.addWidget(self._log_count)
+        log_row.addStretch()
+        root.addLayout(log_row)
+
+        # Baris 4: label status (jumlah hasil / pesan error)
         self._status = QLabel("Memuat data...")
         self._status.setStyleSheet(f"color: {GRAY_TEXT}; font-size: 12px;")
         root.addWidget(self._status)
@@ -344,6 +404,11 @@ class SearchPage(QWidget):
         self._sort_key, self._sort_desc = self._sort_combo.currentData()
         self._render(self._filter_sort(self._all_results))
 
+    def _on_waktu_changed(self, _index: int):
+        """Ambil nilai category dari combo waktu lalu re-filter log."""
+        self._active_waktu = self._waktu_combo.currentData()  # None atau string category
+        self._update_log_display()
+
     # ── Logika Pencarian & Filter ─────────────────────────────────────────────
 
     def _do_search(self):
@@ -356,15 +421,67 @@ class SearchPage(QWidget):
         """
         query = self._search_input.text().strip()
 
-        if self._db:
-            raw = self._db.search_makanan(query) if query else self._db.get_all_makanan()
-        else:
-            # Fallback: filter manual dari DUMMY_MAKANAN
-            q   = query.lower()
-            raw = [m for m in DUMMY_MAKANAN if not q or q in m["food_name"].lower()]
+        raw = self._db.search_makanan(query) if query else self._db.get_all_makanan()
 
         self._all_results = raw
         self._render(self._filter_sort(raw))
+
+    def filterLogBerWaktu(self, waktu: str | None) -> List[dict]:
+        """
+        Filter log harian berdasarkan kategori waktu makan.
+
+        Sesuai diagram class: filterLogBerWaktu(waktu: String) : List<LogHarian>
+
+        Parameter:
+            waktu : string kategori ("Sarapan", "Makan Siang", dll)
+                    atau None untuk mengembalikan semua log.
+
+        Return:
+            List dict log harian yang cocok, diambil dari cache _all_logs.
+            Setiap dict berisi kolom dari tabel LogHarian + food_name dari JOIN Makanan.
+
+        Catatan:
+            Fungsi ini bekerja dari cache _all_logs (diisi oleh _load_logs).
+            Panggil _load_logs() terlebih dahulu jika data mungkin sudah berubah.
+        """
+        if waktu is None:
+            return list(self._all_logs)
+        return [
+            log for log in self._all_logs
+            if log.get("category", "").lower() == waktu.lower()
+        ]
+
+    def _load_logs(self):
+        """
+        Ambil semua log harian dari DB ke cache _all_logs, lalu update tampilan.
+
+        Dipanggil saat:
+        - Pertama kali halaman dibuat (via _do_search awal)
+        - User klik tombol Refresh Log
+        - Dipanggil dari luar (misal LogPage Irfan setelah simpan log baru)
+        """
+
+        self._all_logs = self._db.get_all_logs()
+
+        self._update_log_display()
+
+    def _update_log_display(self):
+        """
+        Update label jumlah log sesuai filter waktu yang aktif.
+        Dipanggil setiap kali _all_logs atau _active_waktu berubah.
+        """
+        filtered = self.filterLogBerWaktu(self._active_waktu)
+        total    = len(self._all_logs)
+        shown    = len(filtered)
+
+        if total == 0:
+            self._log_count.setText("Belum ada log hari ini")
+        elif self._active_waktu is None:
+            self._log_count.setText(f"{total} log harian tersimpan")
+        else:
+            self._log_count.setText(
+                f"{shown} dari {total} log · waktu: {self._active_waktu}"
+            )
 
     def _filter_sort(self, data: List[dict]) -> List[dict]:
         cfg = FILTER_CHIPS.get(self._active_chip, {"type": "semua"})

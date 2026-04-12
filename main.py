@@ -10,11 +10,16 @@ sys.path.insert(0, os.path.join(BASE, "anindya_profil"))    # profil_page (nanti
 sys.path.insert(0, os.path.join(BASE, "fatih_GUI"))         # dashboard, chart (nanti)
 
 from PyQt5.QtWidgets import QApplication
+from PyQt5.QtGui import QFontDatabase
+
 from main_window import MainWindow
 
 def main():
     app = QApplication(sys.argv)
     app.setApplicationName("NutriKost")
+
+    font_id = QFontDatabase.addApplicationFont("assets/MontserratAlternates-Regular.ttf")
+    QFontDatabase.addApplicationFont("assets/MontserratAlternates-Bold.ttf")
 
     # Fusion: tampilan lintas OS yang konsisten (Windows, Linux, Mac sama ratanya)
     app.setStyle("Fusion")

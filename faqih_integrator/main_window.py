@@ -1,343 +1,341 @@
-from __future__ import annotations
-from typing import Callable, List
+"""
+main_window.py — Window Utama NutriKost
+========================================
+Bertanggung jawab atas dua hal besar:
+1. Tampilan: sidebar hijau di kiri + area konten di kanan
+2. Routing: menentukan halaman mana yang tampil saat tombol sidebar diklik
+
+Pola yang dipakai adalah QStackedWidget — semua halaman ditumpuk,
+hanya satu yang terlihat pada satu waktu. navigate() yang mengatur giliran.
+
+Simpan di: faqih_integrator/main_window.py
+Faqih (PM & System Integrator)
+"""
 
 from PyQt5.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLineEdit, QPushButton,
-    QLabel, QScrollArea, QFrame, QComboBox
+    QMainWindow, QWidget, QHBoxLayout, QVBoxLayout,
+    QPushButton, QLabel, QStackedWidget, QFrame
 )
-from PyQt5.QtCore import Qt, QTimer, pyqtSignal
-from PyQt5.QtGui import QFonta
+from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QFont
 
-# models.py sudah di-inject ke sys.path oleh main.py, jadi import langsung
-try:
-    from models import DBHelper
-    _DB_AVAILABLE = True
-except ImportError:
-    # Halaman tetap jalan dengan data dummy — berguna saat develop tanpa DB Bima
-    _DB_AVAILABLE = False
-    print("[SearchPage] WARNING: models.py tidak ditemukan, pakai dummy data.")
+# ── Palet warna NutriKost ─────────────────────────────────────────────────────
+# Didefinisikan di sini agar mudah diganti sekaligus jika desain berubah.
+SIDEBAR_BG     = "#1A7A34"   # hijau utama — warna brand NutriKost
+SIDEBAR_HOVER  = "#155f28"   # sedikit lebih gelap saat kursor di atas tombol
+SIDEBAR_ACTIVE = "#0f4a1f"   # paling gelap — menandai halaman yang sedang dibuka
+SIDEBAR_TEXT   = "#ffffff"
+SIDEBAR_WIDTH  = 210         # lebar sidebar dalam pixel
+CONTENT_BG     = "#f5f7f5"   # abu-abu sangat muda untuk area konten
+HEADER_BG      = "#ffffff"
+ACCENT_GREEN   = "#1A7A34"
 
-# ── Palet warna ───────────────────────────────────────────────────────────────
-GREEN_PRIMARY = "#1A7A34"
-GREEN_LIGHT   = "#EAF5EE"
-GRAY_BG       = "#f5f7f5"
-GRAY_CARD     = "#ffffff"
-GRAY_BORDER   = "#e0e0e0"
-GRAY_TEXT     = "#6c757d"
-RED_SOFT      = "#dc3545"
+# ── Komponen: Tombol Sidebar ──────────────────────────────────────────────────
 
+class SidebarButton(QPushButton):
 
-# ── Konfigurasi Filter Chip ───────────────────────────────────────────────────
-# Format: label yang tampil → keyword pencarian (string kosong = tampilkan semua)
-# Untuk satu kategori yang punya banyak sinonim, pisahkan dengan spasi.
-# Contoh: "Protein" → cari makanan yang namanya mengandung salah satu dari kata-kata ini.
-FILTER_CHIPS = {
-    "Semua":          {"type": "semua"},
-    "Protein Tinggi": {"type": "nutrisi", "key": "protein", "min": 15.0},
-    "Karbo Tinggi":   {"type": "nutrisi", "key": "carb",    "min": 38.0},
-    "Lemak Rendah":   {"type": "nutrisi", "key": "fat",     "max": 2.0},
-    "Rendah Kalori":  {"type": "nutrisi", "key": "cal",     "max": 100.0},
-    "Sayur & Buah":   {"type": "nama",    "keywords": ["sayur", "buah", "wortel", "bayam",
-                                                        "kangkung", "tomat", "jagung",
-                                                        "pisang", "jeruk", "mangga", "apel"]},
-    "Minuman":        {"type": "nama",    "keywords": ["teh", "kopi", "susu", "jus",
-                                                        "air", "minuman", "sirup", "soda"]},
-}
-
-# ── Konfigurasi Sorting ───────────────────────────────────────────────────────
-# (label tampilan, key dict makanan, apakah descending?)
-# Key harus sesuai dengan nama kolom yang dikembalikan DBHelper: cal, protein, carb, fat
-SORT_OPTIONS = [
-    ("Kalori ↑",  "cal",     False),   # terendah dulu
-    ("Kalori ↓",  "cal",     True),    # tertinggi dulu
-    ("Protein ↑", "protein", False),
-    ("Protein ↓", "protein", True),
-    ("Karbo ↑",   "carb",    False),
-    ("Karbo ↓",   "carb",    True),
-    ("Lemak ↑",   "fat",     False),
-    ("Lemak ↓",   "fat",     True),
-]
-
-# ── Komponen: Chip Filter ─────────────────────────────────────────────────────
-
-class ChipButton(QPushButton):
-    """
-    Tombol kecil berbentuk pil untuk filter kategori makanan.
-
-    Mirip tag/badge yang bisa diklik — satu chip aktif pada satu waktu.
-    Tampilan berubah (hijau/putih) mengikuti state aktif/tidak.
-    """
-
-    def __init__(self, label: str, parent=None):
-        super().__init__(label, parent)
+    def __init__(self, icon_text: str, label: str, parent=None):
+        super().__init__(parent)
+        # Format teks: "  🔍  Cari Makanan" — spasi kiri berfungsi sebagai padding visual
+        self.setText(f"  {icon_text}  {label}")
         self.setCursor(Qt.PointingHandCursor)
-        self.setFixedHeight(30)
+        self.setFixedHeight(46)
+        self.setFont(QFont("Montserrat Alternates", 11))
         self._apply_style(active=False)
 
     def set_active(self, active: bool):
         self._apply_style(active)
 
     def _apply_style(self, active: bool):
-        if active:
-            self.setStyleSheet(f"""
-                QPushButton {{
-                    background-color: {GREEN_PRIMARY};
-                    color: white;
-                    border: 1.5px solid {GREEN_PRIMARY};
-                    border-radius: 15px;
-                    padding: 0 14px;
-                    font-weight: bold;
-                    font-size: 12px;
-                }}
-            """)
-        else:
-            self.setStyleSheet(f"""
-                QPushButton {{
-                    background-color: white;
-                    color: #444;
-                    border: 1.5px solid {GRAY_BORDER};
-                    border-radius: 15px;
-                    padding: 0 14px;
-                    font-size: 12px;
-                }}
-                QPushButton:hover {{
-                    border-color: {GREEN_PRIMARY};
-                    color: {GREEN_PRIMARY};
-                }}
-            """)
-
-
-# ── Komponen: Card Makanan ────────────────────────────────────────────────────
-
-class FoodCard(QFrame):
-    """
-    Card yang merepresentasikan satu item makanan di hasil pencarian.
-
-    Menampilkan: ikon · nama · ringkasan nutrisi (kal, protein, karbo, lemak)
-    User bisa klik card atau tombol '+ Pilih' — keduanya emit signal clicked(dict).
-
-    Signal clicked membawa dict makanan lengkap ke SearchPage,
-    lalu diteruskan ke MainWindow dan akhirnya ke LogPage (Irfan).
-    """
-
-    # Signal ini membawa data makanan (dict) saat card diklik
-    clicked = pyqtSignal(dict)
-
-    def __init__(self, makanan: dict, parent=None):
-        super().__init__(parent)
-        self._data = makanan
-        self._build()
-
-    def _build(self):
-        self.setFixedHeight(80)
-        self.setCursor(Qt.PointingHandCursor)
+        bg     = SIDEBAR_ACTIVE if active else SIDEBAR_BG
+        # Garis putih tipis di sisi kiri = indikator visual halaman aktif
+        border = "border-left: 4px solid #ffffff;" if active else "border-left: 4px solid transparent;"
+        weight = "bold" if active else "normal"
         self.setStyleSheet(f"""
-            FoodCard {{
-                background-color: {GRAY_CARD};
-                border: 1px solid {GRAY_BORDER};
-                border-radius: 10px;
-            }}
-            FoodCard:hover {{
-                border: 1.5px solid {GREEN_PRIMARY};
-                background-color: {GREEN_LIGHT};
-            }}
-        """)
-
-        layout = QHBoxLayout(self)
-        layout.setContentsMargins(14, 10, 14, 10)
-        layout.setSpacing(14)
-
-        # Ikon makanan — sementara pakai emoji, bisa diganti gambar asli nanti
-        icon = QLabel("🍽️")
-        icon.setFixedSize(46, 46)
-        icon.setAlignment(Qt.AlignCenter)
-        icon.setStyleSheet(f"background-color: {GREEN_LIGHT}; border-radius: 8px; font-size: 22px;")
-        layout.addWidget(icon)
-
-        # Blok teks: nama + ringkasan nutrisi
-        info = QVBoxLayout()
-        info.setSpacing(2)
-
-        name = QLabel(self._data.get("food_name", "-"))
-        name.setFont(QFont("Segoe UI", 11, QFont.Bold))
-        name.setStyleSheet("color: #1a1a1a;")
-        info.addWidget(name)
-
-        # Nilai nutrisi semua per 100g — sesuai standar DBHelper Bima
-        nutrisi = QLabel(
-            f"{self._data.get('cal', 0):.0f} kal  ·  "
-            f"P {self._data.get('protein', 0):.1f}g  ·  "
-            f"K {self._data.get('carb', 0):.1f}g  ·  "
-            f"L {self._data.get('fat', 0):.1f}g"
-        )
-        nutrisi.setStyleSheet(f"color: {GRAY_TEXT}; font-size: 11px;")
-        info.addWidget(nutrisi)
-        layout.addLayout(info, stretch=1)
-
-        # Tombol pilih — klik ini yang memicu alur ke Log Harian
-        btn = QPushButton("+ Pilih")
-        btn.setFixedSize(72, 32)
-        btn.setCursor(Qt.PointingHandCursor)
-        btn.setStyleSheet(f"""
             QPushButton {{
-                background-color: {GREEN_PRIMARY};
-                color: white;
+                background-color: {bg};
+                color: {SIDEBAR_TEXT};
+                text-align: left;
+                padding-left: 16px;
                 border: none;
-                border-radius: 6px;
-                font-weight: bold;
-                font-size: 12px;
+                {border}
+                border-radius: 0px;
+                font-weight: {weight};
             }}
-            QPushButton:hover {{ background-color: #155f28; }}
+            QPushButton:hover {{
+                background-color: {SIDEBAR_HOVER};
+            }}
         """)
-        # emit signal dengan data makanan lengkap
-        btn.clicked.connect(lambda: self.clicked.emit(self._data))
-        layout.addWidget(btn)
-
-    def mousePressEvent(self, _event):
-        # Klik di mana saja pada card juga trigger signal yang sama
-        self.clicked.emit(self._data)
 
 
-# ── Halaman Utama ─────────────────────────────────────────────────────────────
+# ── Window Utama ──────────────────────────────────────────────────────────────
 
-class SearchPage(QWidget):
+class MainWindow(QMainWindow):
     """
-    Halaman pencarian makanan utama.
+    Kerangka utama aplikasi NutriKost.
 
-    Alur data:
-        User ketik → debounce 400ms → _do_search() → DB / dummy
-            → _all_results disimpan
-            → _filter_sort() terapkan chip + sort
-            → _render() tampilkan FoodCard
+    Layout:
+        ┌──────────┬──────────────────────────────┐
+        │          │  Header (judul halaman)       │
+        │ Sidebar  ├──────────────────────────────┤
+        │          │                              │
+        │          │   Area Konten (QStackedWidget)│
+        │          │   — hanya 1 halaman tampil   │
+        └──────────┴──────────────────────────────┘
 
-    Parameter:
-        on_pilih_makanan: Callable[[dict], None]
-            Fungsi yang dipanggil saat user memilih makanan.
-            Diisi oleh MainWindow saat SearchPage dibuat.
+    Cara kerja routing:
+        navigate("search") → sidebar tombol Search jadi active
+            → stack menampilkan SearchPage
+            → judul header berubah jadi "Cari Makanan"
     """
 
-    def __init__(self, on_pilih_makanan: Callable[[dict], None] = None, parent=None):
-        super().__init__(parent)
-        self._callback    = on_pilih_makanan
-        self._all_results: List[dict] = []   # cache hasil pencarian terakhir dari DB
-        self._active_chip = "Semua"
-        self._sort_key    = "cal"
-        self._sort_desc   = False
+    # Daftar halaman: (ikon, label sidebar, page_key)
+    # page_key adalah ID internal yang dipakai navigate() dan setupRouting()
+    PAGES = [
+        ("🏠", "Dashboard",    "dashboard"),
+        ("🔍", "Cari Makanan", "search"),
+        ("📋", "Log Harian",   "log"),
+        ("🍽️", "Rekomendasi",  "rekomendasi"),
+        ("👤", "Profil",       "profil"),
+    ]
 
-        self._db = DBHelper() if _DB_AVAILABLE else None
+    PAGE_TITLES = {
+        "dashboard":   "Dashboard",
+        "search":      "Cari Makanan",
+        "log":         "Log Harian",
+        "rekomendasi": "Rekomendasi Resep",
+        "profil":      "Profil",
+    }
 
-        # QTimer sebagai debounce: cegah query ke DB setiap kali user mengetik satu huruf.
-        # Timer di-reset tiap ada perubahan teks; query baru dijalankan setelah 400ms diam.
-        self._timer = QTimer()
-        self._timer.setSingleShot(True)
-        self._timer.setInterval(400)
-        self._timer.timeout.connect(self._do_search)
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("NutriKost — Pemantau Gizi Mahasiswa Kos")
+        self.setMinimumSize(1000, 640)
+        self.resize(1200, 720)
+
+        # Dua dict ini adalah "daftar isi" navigasi:
+        # _sidebar_buttons: page_key → tombol sidebar (untuk set_active)
+        # _page_widgets   : page_key → widget halaman (untuk QStackedWidget)
+        self._sidebar_buttons: dict[str, SidebarButton] = {}
+        self._page_widgets:    dict[str, QWidget]       = {}
 
         self._build_ui()
-        self._do_search()   # load awal: tampilkan semua makanan tanpa filter
+        self.setupRouting()
+
+        # Buka halaman Search sebagai tampilan awal
+        self.navigate("search")
 
     # ── Membangun Tampilan ────────────────────────────────────────────────────
 
     def _build_ui(self):
-        self.setStyleSheet(f"background-color: {GRAY_BG};")
-        root = QVBoxLayout(self)
-        root.setContentsMargins(24, 20, 24, 20)
-        root.setSpacing(14)
+        """Susun layout root: sidebar (kiri) + area konten (kanan)."""
+        root = QWidget()
+        self.setCentralWidget(root)
 
-        # Baris 1: search bar + dropdown sort
-        top = QHBoxLayout()
-        top.setSpacing(10)
+        root_layout = QHBoxLayout(root)
+        root_layout.setContentsMargins(0, 0, 0, 0)
+        root_layout.setSpacing(0)   # tidak ada celah antara sidebar dan konten
 
-        self._search_input = QLineEdit()
-        self._search_input.setPlaceholderText("🔍  Cari nama makanan...")
-        self._search_input.setFixedHeight(40)
-        self._search_input.setStyleSheet(f"""
-            QLineEdit {{
-                border: 1.5px solid {GRAY_BORDER};
-                border-radius: 8px;
-                padding: 0 14px;
-                background: white;
-                font-size: 13px;
+        root_layout.addWidget(self._build_sidebar())
+
+        # Area konten = header di atas + stack halaman di bawah
+        content_area = QWidget()
+        content_area.setStyleSheet(f"background-color: {CONTENT_BG};")
+        content_layout = QVBoxLayout(content_area)
+        content_layout.setContentsMargins(0, 0, 0, 0)
+        content_layout.setSpacing(0)
+        content_layout.addWidget(self._build_header())
+
+        # QStackedWidget: wadah semua halaman, hanya 1 yang terlihat
+        self._stack = QStackedWidget()
+        self._stack.setStyleSheet("background-color: transparent;")
+        content_layout.addWidget(self._stack)
+
+        root_layout.addWidget(content_area, stretch=1)  # konten mengisi sisa lebar
+
+    def _build_sidebar(self) -> QWidget:
+        """Buat sidebar: logo brand di atas + tombol navigasi + versi di bawah."""
+        sidebar = QWidget()
+        sidebar.setFixedWidth(SIDEBAR_WIDTH)
+        sidebar.setStyleSheet(f"background-color: {SIDEBAR_BG};")
+
+        layout = QVBoxLayout(sidebar)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+
+        # Brand / logo teks
+        brand = QLabel("🥗  NutriKost")
+        brand.setAlignment(Qt.AlignCenter)
+        brand.setFixedHeight(64)
+        brand.setFont(QFont("Montserrat Alternates", 14, QFont.Bold))
+        brand.setStyleSheet(
+            f"color: white; background-color: {SIDEBAR_BG}; border-bottom: 1px solid #145e27;"
+        )
+        layout.addWidget(brand)
+
+        # Buat tombol untuk setiap halaman yang terdaftar di PAGES
+        for icon, label, page_key in self.PAGES:
+            btn = SidebarButton(icon, label)
+            # lambda dengan default arg (k=page_key) mencegah closure bug —
+            # tanpa itu semua tombol akan navigate ke page_key terakhir di loop
+            btn.clicked.connect(lambda checked, k=page_key: self.navigate(k))
+            self._sidebar_buttons[page_key] = btn
+            layout.addWidget(btn)
+
+        layout.addStretch()   # dorong elemen versi ke bawah
+
+        version = QLabel("v1.0 · A1 POLBAN")
+        version.setAlignment(Qt.AlignCenter)
+        version.setStyleSheet("color: rgba(255,255,255,0.45); font-size: 10px; padding: 8px;")
+        layout.addWidget(version)
+
+        return sidebar
+
+    def _build_header(self) -> QWidget:
+        """
+        Bar tipis di atas area konten yang menampilkan judul halaman aktif.
+        Judul diupdate otomatis oleh navigate().
+        """
+        header = QFrame()
+        header.setFixedHeight(52)
+        header.setStyleSheet(f"""
+            QFrame {{
+                background-color: {HEADER_BG};
+                border-bottom: 1px solid #e0e0e0;
             }}
-            QLineEdit:focus {{ border-color: {GREEN_PRIMARY}; }}
         """)
-        # Setiap perubahan teks me-restart timer debounce
-        self._search_input.textChanged.connect(lambda _: self._timer.start())
-        top.addWidget(self._search_input, stretch=1)
+        layout = QHBoxLayout(header)
+        layout.setContentsMargins(24, 0, 24, 0)
 
-        sort_lbl = QLabel("Urutkan:")
-        sort_lbl.setStyleSheet(f"color: {GRAY_TEXT}; font-size: 12px;")
-        top.addWidget(sort_lbl)
+        self._page_title = QLabel("Cari Makanan")
+        self._page_title.setFont(QFont("Montserrat Alternates", 14, QFont.Bold))
+        self._page_title.setStyleSheet(
+            f"color: {ACCENT_GREEN}; background: transparent; border: none;"
+        )
+        layout.addWidget(self._page_title)
+        layout.addStretch()
 
-        self._sort_combo = QComboBox()
-        self._sort_combo.setFixedHeight(40)
-        self._sort_combo.setMinimumWidth(130)
-        self._sort_combo.setStyleSheet(f"""
-            QComboBox {{
-                border: 1.5px solid {GRAY_BORDER};
-                border-radius: 8px;
-                padding: 0 10px;
-                background: white;
-                font-size: 12px;
-            }}
-            QComboBox:focus {{ border-color: {GREEN_PRIMARY}; }}
-            QComboBox::drop-down {{ border: none; width: 24px; }}
-        """)
-        # Simpan (key, desc) sebagai data item — diambil kembali saat sort berubah
-        for label, key, desc in SORT_OPTIONS:
-            self._sort_combo.addItem(label, (key, desc))
-        self._sort_combo.currentIndexChanged.connect(self._on_sort_changed)
-        top.addWidget(self._sort_combo)
-        root.addLayout(top)
+        return header
 
-        # Baris 2: filter chip
-        chip_row = QHBoxLayout()
-        chip_row.setSpacing(8)
-        self._chips: dict[str, ChipButton] = {}
-        for label in FILTER_CHIPS:
-            chip = ChipButton(label)
-            # default arg l=label penting agar setiap lambda capture nilai yang benar
-            chip.clicked.connect(lambda _, l=label: self._on_chip_click(l))
-            self._chips[label] = chip
-            chip_row.addWidget(chip)
-        chip_row.addStretch()
-        self._chips["Semua"].set_active(True)
-        root.addLayout(chip_row)
+    # ── Mendaftarkan Halaman ──────────────────────────────────────────────────
 
-        # Baris 3: label status (jumlah hasil / pesan error)
-        self._status = QLabel("Memuat data...")
-        self._status.setStyleSheet(f"color: {GRAY_TEXT}; font-size: 12px;")
-        root.addWidget(self._status)
+    def setupRouting(self):
+        """
+        Tempat semua halaman didaftarkan ke QStackedWidget.
 
-        # Area scroll untuk daftar FoodCard
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        scroll.setFrameShape(QFrame.NoFrame)
-        scroll.setStyleSheet("background: transparent;")
-        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        PANDUAN INTEGRASI untuk anggota lain:
+        Ketika halaman kalian sudah siap, uncomment baris import + _add_page,
+        dan hapus baris placeholder di bawahnya.
 
-        self._result_container = QWidget()
-        self._result_container.setStyleSheet("background: transparent;")
-        self._result_layout = QVBoxLayout(self._result_container)
-        self._result_layout.setContentsMargins(0, 4, 0, 4)
-        self._result_layout.setSpacing(8)
-        # Stretch di akhir mendorong card ke atas, bukan terpusat di tengah
-        self._result_layout.addStretch()
+        Contoh untuk Irfan:
+            # Sebelum (hapus ini):
+            self._add_page("log", self._placeholder("📋  Log Harian", "Modul Irfan"))
 
-        scroll.setWidget(self._result_container)
-        root.addWidget(scroll, stretch=1)
+            # Sesudah (aktifkan ini):
+            from log_page import LogPage
+            self._add_page("log", LogPage())
+        """
 
-    # ── Event Handler ─────────────────────────────────────────────────────────
+        # ── Halaman Search (Faqih) — SUDAH AKTIF ─────────────────────────
+        from search_page import SearchPage
+        self._add_page("search", SearchPage(on_pilih_makanan=self._on_pilih_makanan))
 
-    def _on_chip_click(self, label: str):
-        """Ganti chip aktif lalu re-filter data yang sudah ada di cache."""
-        self._active_chip = label
-        for k, c in self._chips.items():
-            c.set_active(k == label)
-        # Tidak perlu query DB ulang — cukup filter dari _all_results
-        self._render(self._filter_sort(self._all_results))
+        # ── Halaman Log Harian (Irfan) ────────────────────────────────────
+        # from log_page import LogPage
+        # self._add_page("log", LogPage())
+        self._add_page("log", self._placeholder("📋  Log Harian", "Modul Irfan"))
 
-    def _on_sort_changed(self, _index: int):
-        """Ambil (key, desc) dari item combo yang dipilih lalu re-sort."""
-        self._sort_key, self._sort_desc = self._sort_combo.currentData()
-        self._render(self._filter_sort(self._all_results))
+        # ── Halaman Rekomendasi Resep (Bima) ──────────────────────────────
+        # from rekomendasi_page import RekomendasiPage
+        # self._add_page("rekomendasi", RekomendasiPage())
+        self._add_page("rekomendasi", self._placeholder("🍽️  Rekomendasi Resep", "Modul Bima"))
+
+        # ── Halaman Profil (Anin) ─────────────────────────────────────────
+        # from profil_page import ProfilPage
+        # self._add_page("profil", ProfilPage())
+        self._add_page("profil", self._placeholder("👤  Profil", "Modul Anin"))
+
+        # ── Dashboard (Fatih) ─────────────────────────────────────────────
+        # from dashboard import DashboardUI
+        # self._add_page("dashboard", DashboardUI())
+        self._add_page("dashboard", self._placeholder("🏠  Dashboard", "Modul Fatih"))
+
+    def _add_page(self, key: str, widget: QWidget):
+        """Daftarkan widget ke stack dan simpan referensinya di _page_widgets."""
+        self._page_widgets[key] = widget
+        self._stack.addWidget(widget)
+
+    @staticmethod
+    def _placeholder(title: str, owner: str) -> QWidget:
+        """
+        Widget sementara untuk halaman yang belum diintegrasikan.
+        Menampilkan pesan agar jelas halaman mana yang masih kosong.
+        """
+        w = QWidget()
+        layout = QVBoxLayout(w)
+        layout.setAlignment(Qt.AlignCenter)
+
+        lbl = QLabel(title)
+        lbl.setAlignment(Qt.AlignCenter)
+        lbl.setFont(QFont("Montserrat Alternates", 18))
+        lbl.setStyleSheet("color: #bbb;")
+        layout.addWidget(lbl)
+
+        sub = QLabel(f"({owner} — belum diintegrasikan)")
+        sub.setAlignment(Qt.AlignCenter)
+        sub.setStyleSheet("color: #ccc; font-size: 12px;")
+        layout.addWidget(sub)
+
+        return w
+
+    # ── Navigasi ──────────────────────────────────────────────────────────────
+
+    def navigate(self, page_key: str):
+        """
+        Pindah ke halaman berdasarkan page_key.
+
+        Yang dilakukan:
+        - Semua tombol sidebar di-nonaktifkan, lalu tombol page_key diaktifkan
+        - QStackedWidget menampilkan widget yang sesuai
+        - Judul di header diperbarui
+        """
+        if page_key not in self._page_widgets:
+            return
+
+        # Reset semua tombol ke inactive, lalu aktifkan yang sesuai
+        for key, btn in self._sidebar_buttons.items():
+            btn.set_active(key == page_key)
+
+        self._stack.setCurrentWidget(self._page_widgets[page_key])
+        self._page_title.setText(self.PAGE_TITLES.get(page_key, page_key.title()))
+
+    # ── Callback Antar Modul ──────────────────────────────────────────────────
+
+    def _on_pilih_makanan(self, makanan: dict):
+        """
+        Dipanggil oleh SearchPage saat user menekan tombol '+ Pilih' pada sebuah makanan.
+
+        Alur:
+        SearchPage._on_card_click()
+            → callback(makanan)
+            → MainWindow._on_pilih_makanan(makanan)   ← di sini
+            → navigate("log")
+            → LogPage.show_tambah_makan(makanan)      ← milik Irfan
+
+        Parameter makanan berisi dict:
+        { code, food_name, cal, protein, fat, carb }
+
+        CATATAN UNTUK IRFAN:
+        Tambahkan method ini di class LogPage milik kamu:
+            def show_tambah_makan(self, makanan: dict):
+                # isi dropdown nama makanan dengan makanan["food_name"]
+                # isi preview nutrisi dengan makanan["cal"], ["protein"], dst
+        Method ini akan otomatis terpanggil dari sini setelah LogPage diintegrasikan.
+        """
+        print(f"[MainWindow] Makanan dipilih → {makanan.get('food_name')} ({makanan.get('cal')} kkal)")
+
+        self.navigate("log")
+
+        log_widget = self._page_widgets.get("log")
+        if hasattr(log_widget, "show_tambah_makan"):
+            log_widget.show_tambah_makan(makanan)
