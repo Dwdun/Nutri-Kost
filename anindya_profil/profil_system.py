@@ -53,3 +53,78 @@ class ProfilSystem:
 
         print("Semua input valid.")
         return True
+    
+    def createProfil(self, data):
+        # validasi dulu sebelum simpan ke database
+        # Kalau gagal, hentikan proses dan return False
+        if not self.validasiInput(data):
+            return False
+
+        # siapkan data sesuai format database 
+        # .strip() untuk hapus spasi di awal/akhir teks
+        user_data = {
+            'full_name' : data['full_name'].strip(),
+            'age'       : data['age'],
+            'gender'    : data['gender'],
+            'weight'    : data['weight'],
+            'height'    : data['height'],
+            'email'     : data['email'].strip(),
+            'password'  : data['password']
+        }
+
+        # panggil create_user() 
+        # create_user() mengembalikan id_user (angka unik tiap user)
+        id_user = self.data_helper.create_user(user_data)
+
+        # simpan profil yang baru dibuat ke current_profil
+        self.current_profil = self.data_helper.get_user_by_id(id_user)
+
+        print(f"Profil berhasil dibuat! ID user: {id_user}")
+        return True
+    
+    def readProfil(self):
+        # Cek dulu apakah current_profil sudah ada
+        # current_profil diisi waktu createProfil() dipanggil
+        if self.current_profil is None:
+            print("Belum ada profil yang aktif.")
+            return None
+
+        # Ambil data terbaru dari database
+        # Pakai id_user dari current_profil untuk cari datanya
+        id_user = self.current_profil['id_user']
+        profil = self.data_helper.get_user_by_id(id_user)
+
+        # Update current_profil dengan data terbaru
+        self.current_profil = profil
+
+        print(f"Profil ditemukan: {profil['full_name']}")
+        return profil
+    
+    def calculatorBMI(self, berat, tinggi):
+        # Validasi input: berat dan tinggi tidak boleh 0 atau negatif
+        if berat <= 0 or tinggi <= 0:
+            print("Error: Berat dan tinggi harus lebih dari 0.")
+            return None
+
+        # Konversi tinggi dari cm ke meter
+        tinggi_meter = tinggi / 100
+
+        # Hitung BMI dengan rumus
+        # round() untuk bulatkan 2 angka di belakang koma
+        bmi = round(berat / (tinggi_meter ** 2), 2)
+
+        # Tentukan status berdasarkan nilai BMI
+        # Standar WHO (World Health Organization)
+        if bmi < 18.5:
+            status = "Kurus"
+        elif bmi < 25.0:
+            status = "Normal"
+        elif bmi < 30.0:
+            status = "Gemuk"
+        else:
+            status = "Obesitas"
+
+        print(f"BMI kamu: {bmi} → {status}")
+
+        # Return string gabungan nilai BMI dan statusnya
+        return f"{bmi} ({status})"
