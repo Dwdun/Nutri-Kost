@@ -63,6 +63,14 @@ class DBHelper:
         cursor.execute(query, (new_porsi, new_waktu, log_id))
         self.conn.commit()
 
+    # --- DELETE (D) ---
+    def DeleteLog(self, log_idx: int):
+        """Menghapus entri log berdasarkan ID"""
+        query = "DELETE FROM daily_logs WHERE id = ?"
+        cursor = self.conn.cursor()
+        cursor.execute(query, (log_idx,))
+        self.conn.commit()
+
     
 
     
