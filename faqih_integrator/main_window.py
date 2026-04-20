@@ -22,7 +22,6 @@ class SidebarButton(QPushButton):
 
     def __init__(self, icon_text: str, label: str, parent=None):
         super().__init__(parent)
-        # Format teks: "  🔍  Cari Makanan" — spasi kiri berfungsi sebagai padding visual
         self.setText(f"  {icon_text}  {label}")
         self.setCursor(Qt.PointingHandCursor)
         self.setFixedHeight(46)

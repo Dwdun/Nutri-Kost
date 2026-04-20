@@ -4,8 +4,8 @@ import sqlite3
 import re
 import os
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
-                             QPushButton, QTableWidget, QTableWidgetItem, 
-                             QDialog, QLabel, QHeaderView, QMessageBox)
+                            QPushButton, QTableWidget, QTableWidgetItem, 
+                            QDialog, QLabel, QHeaderView, QMessageBox)
 from PyQt5.QtCore import Qt
 from thefuzz import process
 
