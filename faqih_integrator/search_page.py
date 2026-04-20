@@ -3,7 +3,7 @@ from typing import Callable, List
 
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLineEdit, QPushButton,
-    QLabel, QScrollArea, QFrame, QComboBox
+    QLabel, QScrollArea, QFrame, QComboBox, QSizePolicy
 )
 from PyQt5.QtCore import Qt, QTimer, QDate, pyqtSignal
 from PyQt5.QtGui import QFont
@@ -172,13 +172,18 @@ class FoodCard(QFrame):
 
 #Page Utama Searching filtering dan sorting
 class SearchPage(QWidget):
+    PAGE_SIZE = 20
     def __init__(self, on_pilih_makanan: Callable[[dict], None] = None, parent=None):
         super().__init__(parent)
         self._callback    = on_pilih_makanan
-        self._all_results: List[dict] = []   # cache hasil pencarian terakhir dari DB
+        self._all_results = []   # cache hasil pencarian terakhir dari DB
         self._active_chip = "Semua"
         self._sort_key    = "cal"
         self._sort_desc   = False
+        self._current_page   = 1      # lagi di halaman berapa sekarang
+        self._total_pages    = 1      # total halaman yang ada di DB
+        self._total_items    = 0      # total semua item di DB (misal 9800)
+        self._is_search_mode = False  # True kalau user lagi ngetik keyword
 
         self._db = DBHelper()
 
@@ -282,7 +287,22 @@ class SearchPage(QWidget):
         self._result_layout.addStretch()
 
         scroll.setWidget(self._result_container)
+        # Row baru di bawah scroll area
+        pagination_row = QHBoxLayout()
+
         root.addWidget(scroll, stretch=1)
+
+        self._pagination_label = QLabel("")   # "Menampilkan 20 dari 9800 makanan"
+        pagination_row.addWidget(self._pagination_label)
+
+        pagination_row.addStretch()
+
+        self._load_more_btn = QPushButton("Muat 20 Lagi ↓")
+        self._load_more_btn.clicked.connect(self._load_next_page)
+        self._load_more_btn.hide()  # disembunyikan dulu sampai data dimuat
+        pagination_row.addWidget(self._load_more_btn)
+
+        root.addLayout(pagination_row)
 
     #kalo chip di klik , re filter data
     def _on_chip_click(self, label: str):
@@ -301,11 +321,21 @@ class SearchPage(QWidget):
     def _do_search(self):
         query = self._search_input.text().strip()
 
-        raw = self._db.search_makanan(query) if query else self._db.get_all_makanan()
-
-        #simpan  hasilnya di memory, show ke layar
-        self._all_results = raw
-        self._render(self._filter_sort(raw))
+        if query:
+            # Mode search: ambil semua hasil keyword (jumlahnya kecil, aman)
+            self._is_search_mode = True
+            raw = self._db.search_makanan(query)
+            self._all_results = raw
+            self._total_items = len(raw)
+            self._total_pages = 1
+            self._current_page = 1
+            self._update_pagination_ui(hide_btn=True)  # sembunyikan tombol Load More
+            self._render(self._filter_sort(raw), append=False)
+        else:
+            # Mode browse: pakai pagination, ambil 20 dulu
+            self._is_search_mode = False
+            self._current_page = 1
+            self._fetch_page(page=1, append=False)
     
     #sorting makanan sesuai kandungan makronutrien dan kalori
     def _filter_sort(self, data: List[dict]) -> List[dict]:
@@ -323,15 +353,16 @@ class SearchPage(QWidget):
         #sorted sesuai pilihan 
         return sorted(data, key=lambda m: m.get(self._sort_key, 0) or 0, reverse=self._sort_desc)
 
-    def _render(self, results: List[dict]):
-        # reset foodcard
-        while self._result_layout.count() > 1:
-            item = self._result_layout.takeAt(0)
-            if item.widget():
-                item.widget().deleteLater()
+    def _render(self, results: List[dict], append: bool = False):
+        if not append:
+            # reset foodcard
+            while self._result_layout.count() > 1:
+                item = self._result_layout.takeAt(0)
+                if item.widget():
+                    item.widget().deleteLater()
 
-        #validasi nama makanan jika tidak ada
-        if not results:
+            #validasi nama makanan jika tidak ada
+        if not results and not append:
             self._show_empty_state()
             self._status.setText(" Makanan tidak ditemukan.")
             self._status.setStyleSheet(f"color: {RED_SOFT}; font-size: 12px;")
@@ -365,3 +396,47 @@ class SearchPage(QWidget):
         print(f"[SearchPage] Dipilih: {makanan.get('food_name')}")
         if self._callback:
             self._callback(makanan)
+
+    def _fetch_page(self, page: int, append: bool):
+        hasil = self._db.get_all_makanan_paginated(page=page, per_page=self.PAGE_SIZE)
+
+        new_data   = hasil["data"]
+        pagination = hasil["pagination"]
+
+        self._total_items = pagination["total_items"]
+        self._total_pages = pagination["total_pages"]
+
+        if append:
+            self._all_results.extend(new_data)   # tambahkan ke cache
+            self._render(self._filter_sort(new_data), append=True)
+        else:
+            self._all_results = new_data          # reset cache
+            self._render(self._filter_sort(new_data), append=False)
+
+        self._update_pagination_ui(hide_btn=False)
+
+    def _load_next_page(self):
+        if self._current_page < self._total_pages:
+            self._current_page += 1
+            self._fetch_page(page=self._current_page, append=True)
+
+    def _update_pagination_ui(self, hide_btn: bool = False):
+        if hide_btn or self._is_search_mode:
+            self._load_more_btn.hide()
+            self._pagination_label.setText("")
+            return
+
+        shown = len(self._all_results)
+        total = self._total_items
+        self._pagination_label.setText(f"Menampilkan {shown} dari {total} makanan")
+
+        if self._current_page >= self._total_pages:
+            self._load_more_btn.setEnabled(False)
+            self._load_more_btn.setText("Semua data sudah dimuat ✓")
+            self._load_more_btn.show()
+        else:
+            self._load_more_btn.setEnabled(True)
+            remaining = self._total_items - len(self._all_results)
+            self._load_more_btn.setText(f"Muat 20 Lagi ↓  (sisa ±{remaining})")
+            self._load_more_btn.show()
+
