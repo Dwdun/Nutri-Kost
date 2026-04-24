@@ -172,7 +172,7 @@ class FoodCard(QFrame):
 
 #Page Utama Searching filtering dan sorting
 class SearchPage(QWidget):
-    PAGE_SIZE = 20
+    PER_PAGE = 20
     def __init__(self, on_pilih_makanan: Callable[[dict], None] = None, parent=None):
         super().__init__(parent)
         self._callback    = on_pilih_makanan
@@ -183,7 +183,7 @@ class SearchPage(QWidget):
         self._current_page   = 1      # lagi di halaman berapa sekarang
         self._total_pages    = 1      # total halaman yang ada di DB
         self._total_items    = 0      # total semua item di DB (misal 9800)
-        self._is_search_mode = False  # True kalau user lagi ngetik keyword
+        self._is_searching = False  # True kalau sedang menampilkan hasil search
 
         self._db = DBHelper()
 
@@ -292,17 +292,68 @@ class SearchPage(QWidget):
 
         root.addWidget(scroll, stretch=1)
 
-        self._pagination_label = QLabel("")   # "Menampilkan 20 dari 9800 makanan"
+        pagination_row.addStretch()
+
+        self._pagination_label = QLabel("")
+        self._pagination_label.setStyleSheet(f"color: {GRAY_TEXT}; font-size: 11px;")
         pagination_row.addWidget(self._pagination_label)
 
         pagination_row.addStretch()
 
-        self._load_more_btn = QPushButton("Muat 20 Lagi ↓")
-        self._load_more_btn.clicked.connect(self._load_next_page)
-        self._load_more_btn.hide()  # disembunyikan dulu sampai data dimuat
-        pagination_row.addWidget(self._load_more_btn)
+        self._prev_btn = QPushButton("← Prev")
+        self._prev_btn.setFixedHeight(34)
+        self._prev_btn.setCursor(Qt.PointingHandCursor)
+        self._prev_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: white;
+                color: {GREEN_PRIMARY};
+                border: 1.5px solid {GREEN_PRIMARY};
+                border-radius: 8px;
+                padding: 0 14px;
+                font-weight: bold;
+                font-size: 12px;
+            }}
+            QPushButton:hover {{ background-color: {GREEN_LIGHT}; }}
+            QPushButton:disabled {{
+                color: {GRAY_TEXT};
+                border-color: {GRAY_BORDER};
+            }}
+        """)
+        self._prev_btn.clicked.connect(lambda: self._go_to_page(self._current_page - 1))
+        self._prev_btn.hide()
+        pagination_row.addWidget(self._prev_btn)
 
-        root.addLayout(pagination_row)
+        self._page_label = QLabel("")
+        self._page_label.setAlignment(Qt.AlignCenter)
+        self._page_label.setFixedWidth(90)
+        self._page_label.setStyleSheet(f"color: {GRAY_TEXT}; font-size: 12px;")
+        self._page_label.hide()
+        pagination_row.addWidget(self._page_label)
+
+        self._next_btn = QPushButton("Next →")
+        self._next_btn.setFixedHeight(34)
+        self._next_btn.setCursor(Qt.PointingHandCursor)
+        self._next_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {GREEN_PRIMARY};
+                color: white;
+                border: none;
+                border-radius: 8px;
+                padding: 0 14px;
+                font-weight: bold;
+                font-size: 12px;
+            }}
+            QPushButton:hover {{ background-color: #155f28; }}
+            QPushButton:disabled {{
+                background-color: {GRAY_BORDER};
+                color: white;
+            }}
+        """)
+        self._next_btn.clicked.connect(lambda: self._go_to_page(self._current_page + 1))
+        self._next_btn.hide()   
+        pagination_row.addWidget(self._next_btn)
+
+        root.addLayout(pagination_row)    
 
     #kalo chip di klik , re filter data
     def _on_chip_click(self, label: str):
@@ -322,26 +373,19 @@ class SearchPage(QWidget):
         query = self._search_input.text().strip()
 
         if query:
-            # Mode search: ambil semua hasil keyword (jumlahnya kecil, aman)
-            self._is_search_mode = True
+            self._is_searching = True
             raw = self._db.search_makanan(query)
             self._all_results = raw
-            self._total_items = len(raw)
-            self._total_pages = 1
-            self._current_page = 1
-            self._update_pagination_ui(hide_btn=True)  # sembunyikan tombol Load More
-            self._render(self._filter_sort(raw), append=False)
+            self._update_pagination_ui()
+            self._render(self._filter_sort(raw))
         else:
-            # Mode browse: pakai pagination, ambil 20 dulu
-            self._is_search_mode = False
+            self._is_searching = False
             self._current_page = 1
-            self._fetch_page(page=1, append=False)
-    
-    #sorting makanan sesuai kandungan makronutrien dan kalori
+            self._fetch_page(page=1)
+
     def _filter_sort(self, data: List[dict]) -> List[dict]:
         field, threshold, operator = FILTER_CHIPS.get(self._active_chip, ("", 0, ""))
 
-        #proses sesuai chip yang aktif
         if operator == "gte":
             data = [m for m in data if (m.get(field) or 0) >= threshold]
         elif operator == "lte":
@@ -350,55 +394,52 @@ class SearchPage(QWidget):
             kws = CHIP_NAME_KEYWORDS[self._active_chip].lower().split()
             data = [m for m in data if any(k in m.get("food_name", "").lower() for k in kws)]
 
-        #sorted sesuai pilihan 
         return sorted(data, key=lambda m: m.get(self._sort_key, 0) or 0, reverse=self._sort_desc)
 
-    def _render(self, results: List[dict], append: bool = False):
-        if not append:
-            # reset foodcard
-            while self._result_layout.count() > 1:
-                item = self._result_layout.takeAt(0)
-                if item.widget():
-                    item.widget().deleteLater()
+    def _render(self, results: List[dict]):
+        while self._result_layout.count() > 1:
+            item = self._result_layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
 
-            #validasi nama makanan jika tidak ada
-        if not results and not append:
+        if not results:
             self._show_empty_state()
             self._status.setText(" Makanan tidak ditemukan.")
             self._status.setStyleSheet(f"color: {RED_SOFT}; font-size: 12px;")
             return
 
-        # Update label status
-        q     = self._search_input.text().strip()
-        chip  = self._active_chip
-        info  = f"{len(results)} makanan ditemukan"
-        if q:              info += f" untuk \"{q}\""
-        if chip != "Semua": info += f" · filter: {chip}"
+        q    = self._search_input.text().strip()
+        chip = self._active_chip
+
+        if self._is_searching:
+            info = f"{len(results)} makanan ditemukan untuk \"{q}\""
+        else:
+            info = f"Halaman {self._current_page} dari {self._total_pages}  ·  {self._total_items} makanan"
+
+        if chip != "Semua":
+            info += f"  ·  filter: {chip}"
+
         self._status.setText(info)
         self._status.setStyleSheet(f"color: {GRAY_TEXT}; font-size: 12px;")
 
-        #render list ke foodcard per baris makanan
         for mkn in results:
             card = FoodCard(mkn)
             card.clicked.connect(self._on_card_click)
-            # insertWidget(count-1) = sisipkan sebelum stretch agar card tetap di atas
             self._result_layout.insertWidget(self._result_layout.count() - 1, card)
 
-    #searching gagal
     def _show_empty_state(self):
         empty = QLabel("\n\nMakanan tidak ditemukan.\nCoba kata kunci lain atau ubah filter.")
         empty.setAlignment(Qt.AlignCenter)
         empty.setStyleSheet(f"color: {GRAY_TEXT}; font-size: 13px; padding: 40px;")
         self._result_layout.insertWidget(0, empty)
 
-    #kalo foodcard di klik akan trigger tambah makanan 
     def _on_card_click(self, makanan: dict):
         print(f"[SearchPage] Dipilih: {makanan.get('food_name')}")
         if self._callback:
             self._callback(makanan)
 
-    def _fetch_page(self, page: int, append: bool):
-        hasil = self._db.get_all_makanan_paginated(page=page, per_page=self.PAGE_SIZE)
+    def _fetch_page(self, page: int):
+        hasil = self._db.get_all_makanan_paginated(page=page, per_page=self.PER_PAGE)
 
         new_data   = hasil["data"]
         pagination = hasil["pagination"]
@@ -406,37 +447,31 @@ class SearchPage(QWidget):
         self._total_items = pagination["total_items"]
         self._total_pages = pagination["total_pages"]
 
-        if append:
-            self._all_results.extend(new_data)   # tambahkan ke cache
-            self._render(self._filter_sort(new_data), append=True)
-        else:
-            self._all_results = new_data          # reset cache
-            self._render(self._filter_sort(new_data), append=False)
+        self._all_results = new_data
+        self._render(self._filter_sort(new_data))
+        self._update_pagination_ui()
 
-        self._update_pagination_ui(hide_btn=False)
+    def _go_to_page(self, page: int):
+        if page < 1 or page > self._total_pages:
+            return
+        self._current_page = page
+        self._fetch_page(page)
 
-    def _load_next_page(self):
-        if self._current_page < self._total_pages:
-            self._current_page += 1
-            self._fetch_page(page=self._current_page, append=True)
-
-    def _update_pagination_ui(self, hide_btn: bool = False):
-        if hide_btn or self._is_search_mode:
-            self._load_more_btn.hide()
+    def _update_pagination_ui(self):
+        if self._is_searching:
+            self._prev_btn.hide()
+            self._next_btn.hide()
+            self._page_label.hide()
             self._pagination_label.setText("")
             return
 
-        shown = len(self._all_results)
-        total = self._total_items
-        self._pagination_label.setText(f"Menampilkan {shown} dari {total} makanan")
+        self._pagination_label.setText(f"Menampilkan {len(self._all_results)} dari {self._total_items} makanan")
 
-        if self._current_page >= self._total_pages:
-            self._load_more_btn.setEnabled(False)
-            self._load_more_btn.setText("Semua data sudah dimuat ✓")
-            self._load_more_btn.show()
-        else:
-            self._load_more_btn.setEnabled(True)
-            remaining = self._total_items - len(self._all_results)
-            self._load_more_btn.setText(f"Muat 20 Lagi ↓  (sisa ±{remaining})")
-            self._load_more_btn.show()
+        self._page_label.setText(f"{self._current_page} / {self._total_pages}")
+        self._page_label.show()
 
+        self._prev_btn.setEnabled(self._current_page > 1)
+        self._prev_btn.show()
+
+        self._next_btn.setEnabled(self._current_page < self._total_pages)
+        self._next_btn.show()
