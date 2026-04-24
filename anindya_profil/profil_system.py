@@ -232,3 +232,27 @@ class ProfilSystem:
 
         print(f"Profil '{nama}' berhasil dihapus.")
         return True
+    
+    def getRealisasiKalori(self):
+        # Cek dulu apakah ada user yang aktif
+        if self.current_profil is None:
+            print("Error: Belum ada profil yang aktif.")
+            return 0.0
+
+        # Ambil id_user dari current_profil
+        id_user = self.current_profil['id_user']
+
+        # Ambil tanggal hari ini format 'YYYY-MM-DD'
+        from datetime import date
+        hari_ini = str(date.today())
+
+        # Panggil get_daily_summary()
+        # Mengembalikan dict berisi total kalori, protein, karbo, lemak
+        ringkasan = self.data_helper.get_daily_summary(id_user, hari_ini)
+
+        # Ambil hanya total kalorinya saja
+        # Kalau belum ada log hari ini, return 0
+        total_kalori = ringkasan['total_cal'] or 0.0
+
+        print(f"Kalori hari ini: {total_kalori} kkal")
+        return float(total_kalori)
