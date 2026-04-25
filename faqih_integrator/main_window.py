@@ -192,9 +192,8 @@ class MainWindow(QMainWindow):
         self._add_page("log", self._placeholder("  Log Harian", "Modul Irfan"))
 
         # ── Halaman Rekomendasi Resep (Bima) ──────────────────────────────
-        # from rekomendasi_page import RekomendasiPage
-        # self._add_page("rekomendasi", RekomendasiPage())
-        self._add_page("rekomendasi", self._placeholder(" Rekomendasi Resep", "Modul Bima"))
+        from rekomendasi_page import RekomendasiPage
+        self._add_page("rekomendasi", RekomendasiPage())
 
         # ── Halaman Profil (Anin) ─────────────────────────────────────────
         # from profil_page import ProfilPage
@@ -206,6 +205,10 @@ class MainWindow(QMainWindow):
         # self._add_page("dashboard", DashboardUI())
         self._add_page("dashboard", self._placeholder("  Dashboard", "Modul Fatih"))
 
+        # ── Halaman Visualisasi ───────────────────────────────────────────
+        # from visualisasi_page import VisualisasiPage
+        # self._add_page("visualisasi", VisualisasiPage())
+        self._add_page("visualisasi", self._placeholder("  Visualisasi", "Modul Fatih"))
     def _add_page(self, key: str, widget: QWidget):
         #daftarin widget halaman ke stack
         self._page_widgets[key] = widget
