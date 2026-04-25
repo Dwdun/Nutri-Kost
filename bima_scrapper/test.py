@@ -163,7 +163,7 @@ class NutrikostApp(QMainWindow):
         main_widget = QWidget()
         layout = QVBoxLayout()
 
-        self.btn_scrape = QPushButton("🔄 Perbarui & Muat Resep dari Cookpad")
+        self.btn_scrape = QPushButton("Perbarui & Muat Resep dari Cookpad")
         self.btn_scrape.setStyleSheet("padding: 12px; font-weight: bold; background-color: #2E7D32; color: white;")
         self.btn_scrape.clicked.connect(self.proses_muat_data)
         layout.addWidget(self.btn_scrape)
@@ -185,7 +185,7 @@ class NutrikostApp(QMainWindow):
         try:
             # Feedback visual: Ubah kursor dan teks tombol
             QApplication.setOverrideCursor(Qt.WaitCursor)
-            self.btn_scrape.setText("⏳ Sedang Mengambil Resep Baru... Mohon Tunggu")
+            self.btn_scrape.setText("Sedang Mengambil Resep Baru... Mohon Tunggu")
             self.btn_scrape.setEnabled(False)
             QApplication.processEvents() 
 
@@ -215,7 +215,7 @@ class NutrikostApp(QMainWindow):
         finally:
             # Kembalikan keadaan tombol dan kursor
             QApplication.restoreOverrideCursor()
-            self.btn_scrape.setText("🔄 Perbarui & Muat Resep dari Cookpad")
+            self.btn_scrape.setText(" Perbarui & Muat Resep dari Cookpad")
             self.btn_scrape.setEnabled(True)
 
     def buka_detail_resep(self, row, column):
