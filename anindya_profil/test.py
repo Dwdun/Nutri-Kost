@@ -116,10 +116,10 @@ class ProfilTestApp(QMainWindow):
         # ===== BARIS TOMBOL AKSI =====
         btn_row = QHBoxLayout()
 
-        self.btn_create = QPushButton("+ Buat Profil")
-        self.btn_edit   = QPushButton("✏️ Edit Profil")
-        self.btn_delete = QPushButton("🗑️ Hapus Profil")
-        self.btn_refresh= QPushButton("🔄 Refresh")
+        self.btn_create = QPushButton("Buat Profil")
+        self.btn_edit   = QPushButton("Edit Profil")
+        self.btn_delete = QPushButton("Hapus Profil")
+        self.btn_refresh= QPushButton("Refresh")
 
         # Style tombol
         for btn in [self.btn_create, self.btn_edit, self.btn_delete, self.btn_refresh]:
@@ -193,7 +193,7 @@ class ProfilTestApp(QMainWindow):
         id_user = int(self.tabel.item(row, 0).text())
         self._sistem.current_profil = self._sistem.data_helper.get_user_by_id(id_user)
         nama = self.tabel.item(row, 1).text()
-        self.label_status.setText(f"✅ Profil aktif: {nama}")
+        self.label_status.setText(f"Profil aktif: {nama}")
 
     def aksi_create(self):
         dialog = FormProfilDialog(parent=self)
@@ -215,13 +215,13 @@ class ProfilTestApp(QMainWindow):
                     # Tampilkan hasil sekaligus di popup
                     QMessageBox.information(
                         self, "Profil Berhasil Dibuat!",
-                        f"✅ Profil berhasil dibuat!\n\n"
-                        f"⚖️  BMI kamu        : {bmi}\n"
-                        f"🔥  Target kalori   : {kalori} kkal/hari"
+                        f"Profil berhasil dibuat!\n\n"
+                        f"BMI kamu        : {bmi}\n"
+                        f"Target kalori   : {kalori} kkal/hari"
                     )
                     self.refresh_tabel()
                 else:
-                    QMessageBox.warning(self, "Gagal", "❌ Validasi gagal! Cek kembali inputan kamu.")
+                    QMessageBox.warning(self, "Gagal", "Validasi gagal! Cek kembali inputan kamu.")
             except ValueError:
                 QMessageBox.warning(self, "Error", "Usia, berat, dan tinggi harus berupa angka!")
 
@@ -236,10 +236,10 @@ class ProfilTestApp(QMainWindow):
                 data  = dialog.get_data()
                 hasil = self._sistem.updateProfil(data)
                 if hasil:
-                    QMessageBox.information(self, "Berhasil", "✅ Profil berhasil diupdate!")
+                    QMessageBox.information(self, "Berhasil", "Profil berhasil diupdate!")
                     self.refresh_tabel()
                 else:
-                    QMessageBox.warning(self, "Gagal", "❌ Update gagal! Cek kembali inputan kamu.")
+                    QMessageBox.warning(self, "Gagal", "Update gagal! Cek kembali inputan kamu.")
             except ValueError:
                 QMessageBox.warning(self, "Error", "Usia, berat, dan tinggi harus berupa angka!")
 
@@ -256,7 +256,7 @@ class ProfilTestApp(QMainWindow):
         )
         if konfirmasi == QMessageBox.Yes:
             self._sistem.deleteProfil()
-            QMessageBox.information(self, "Berhasil", "✅ Profil berhasil dihapus!")
+            QMessageBox.information(self, "Berhasil", "Profil berhasil dihapus!")
             self.refresh_tabel()
 
 
