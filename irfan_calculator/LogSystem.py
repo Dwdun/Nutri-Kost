@@ -10,9 +10,12 @@ class LogSystem:
         db_path = os.path.join(base_dir, "..", "bima_scrapper", db_name)
         db_path = os.path.abspath(db_path)
 
-        # SAFETY CATCH: Force an error if the path is wrong
+        # CHECK BEFORE CONNECTING
         if not os.path.exists(db_path):
-            raise FileNotFoundError(f"Database not found at: {db_path}\nCheck your folder structure!")
+            print(f"CRITICAL ERROR: Database file missing at {db_path}")
+            # This stops the app immediately with a clear message 
+            # instead of letting it create an empty file.
+            raise FileNotFoundError(f"Could not find the database at {db_path}")
 
         self.conn = sqlite3.connect(db_path)
         self.conn.row_factory = sqlite3.Row
@@ -46,14 +49,6 @@ class LogSystem:
                 fat REAL
             )
         ''')
-
-        # dummy data if empty
-        cursor.execute("SELECT COUNT(*) FROM Makanan")
-        if cursor.fetchone()[0] == 0:
-            data = [
-            ]
-            cursor.executemany("INSERT INTO Makanan VALUES (?,?,?,?,?,?)", data)
-
         self.conn.commit()
 
     # --- CREATE ---
