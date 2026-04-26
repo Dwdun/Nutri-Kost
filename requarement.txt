@@ -1,0 +1,25 @@
+# ==============================================================
+# Nutri-Kost : yang perlu diinstalasi untuk menjalankan aplikasi
+# ==============================================================
+
+# GUI Framework :
+PyQt5>=5.15.0          # Framework utama untuk tampilan desktop (MainWindow, widget, dll)
+
+# Fuzzy String Matching :
+thefuzz>=0.22.0        # Pencarian makanan dengan pencocokan nama yang tidak persis
+python-Levenshtein>=0.25.0  # Akselerasi thefuzz (opsional tapi sangat direkomendasikan)
+
+# Web Scraping :
+requests>=2.31.0       # HTTP request untuk scraper (USDA, TKPI, Cookpad)
+beautifulsoup4>=4.12.0 # Parsing HTML hasil scraping
+
+# Database :
+# sqlite3 sudah built-in di Python (tidak perlu install)
+
+# Catatan Instalasi :
+# Jalankan perintah berikut untuk menginstal semua dependensi:
+#
+#   pip install -r requirements.txt
+#
+# Pastikan Python versi 3.8 atau lebih baru sudah terinstal.
+# Untuk cek versi Python: python --version
