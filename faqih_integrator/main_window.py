@@ -62,6 +62,7 @@ class MainWindow(QMainWindow):
         ("", "Rekomendasi Resep",  "rekomendasi"),
         ("", "Profil",       "profil"),
         ("", "Visualisasi",   "visualisasi"),
+        ("", "Setting",         "setting"),
     ]
 
     #judul
@@ -72,6 +73,7 @@ class MainWindow(QMainWindow):
         "rekomendasi": "Rekomendasi Resep",
         "profil":      "Profil",
         "visualisasi" : "Visualisasi",
+        "setting":     "Pengaturan",
     }
 
     def __init__(self):
@@ -205,10 +207,15 @@ class MainWindow(QMainWindow):
         # self._add_page("dashboard", DashboardUI())
         self._add_page("dashboard", self._placeholder("  Dashboard", "Modul Fatih"))
 
-        # ── Halaman Visualisasi ───────────────────────────────────────────
+        # ── Halaman Visualisasi (Fatih) ───────────────────────────────────────────
         # from visualisasi_page import VisualisasiPage
         # self._add_page("visualisasi", VisualisasiPage())
         self._add_page("visualisasi", self._placeholder("  Visualisasi", "Modul Fatih"))
+    
+        # ── Halaman Pengaturan (Faqih) ────────────────────────────────────
+        from setting_page import SettingPage
+        self._add_page("setting", SettingPage())
+
     def _add_page(self, key: str, widget: QWidget):
         #daftarin widget halaman ke stack
         self._page_widgets[key] = widget
