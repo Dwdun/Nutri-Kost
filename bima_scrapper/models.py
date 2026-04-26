@@ -103,6 +103,39 @@ class DBHelper:
         rows = cursor.fetchall()
         conn.close()
         return [dict(row) for row in rows]
+    
+    # ==========================================
+    # PAGINATION HELPER
+    # ==========================================
+    def get_all_makanan_paginated(self, page=1, per_page=10):
+        offset = (page - 1) * per_page
+
+        conn = self._get_connection()
+        
+        cursor_total = conn.execute("SELECT COUNT(*) FROM Makanan")
+        total_items = cursor_total.fetchone()[0]
+
+        query = "SELECT * FROM Makanan LIMIT ? OFFSET ?"
+        cursor = conn.execute(query, (per_page, offset))
+        rows = cursor.fetchall()
+        conn.close()
+
+        start_item = offset + 1 if total_items > 0 else 0
+        end_item = offset + len(rows)
+        
+        total_pages = (total_items + per_page - 1) // per_page
+
+        return {
+            "data": [dict(row) for row in rows],
+            "pagination": {
+                "current_page": page,
+                "per_page": per_page,
+                "total_items": total_items,
+                "total_pages": total_pages,
+                "showing_start": start_item, # Menampilkan dari nomor urut sekian
+                "showing_end": end_item      # Sampai nomor urut sekian
+            }
+        }
 
     # ==========================================
     # CRUD: LOG HARIAN (MEAL LOG)
