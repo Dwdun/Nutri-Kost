@@ -31,7 +31,7 @@ class TambahDialog(QDialog):
         self.porsi.setPlaceholderText("gram")
 
         self.waktu = QComboBox()
-        self.waktu.addItems(["Sarapan", "Makan Siang", "Makan Malam", "Snack"])
+        self.waktu.addItems(["Sarapan", "Makan Siang", "Makan Malam", "Snack", "Minuman"])
 
         col1 = QVBoxLayout()
         col1.addWidget(QLabel("Porsi"))
@@ -46,7 +46,7 @@ class TambahDialog(QDialog):
         layout.addLayout(row)
 
         # preview
-        self.preview = QLabel("Kalori: 0 kcal\nProtein: 0 g\nKarbo: 0 g\nLemak: 0 g")
+        self.preview = QLabel("Kalori: 0\nProtein: 0\nKarbo: 0\nLemak: 0")
         layout.addWidget(self.preview)
 
         # buttons
@@ -93,7 +93,28 @@ class TambahDialog(QDialog):
             "waktu": self.waktu.currentText()
         }
 
+# ================== DIALOG EDIT ==================
+class EditDialog(TambahDialog):
+    def __init__(self, db, current_data):
+        super().__init__(db)
+        self.setWindowTitle("Edit Log Makanan")
+        
+        # Set the current values
+        index = self.nama.findData(current_data['food_code'])
+        self.nama.setCurrentIndex(index)
+        self.nama.setEnabled(False)  # <--- User cannot change the food
+        
+        self.porsi.setText(str(current_data['porsi']))
+        self.waktu.setCurrentText(current_data['waktu_makan'])
+        
+        self.update_preview()
 
+    def get_updated_data(self):
+        return {
+            "porsi": float(self.porsi.text()),
+            "waktu": self.waktu.currentText()
+        }
+    
 # ================== MAIN WINDOW ==================
 class MainWindow(QWidget):
     def __init__(self):
@@ -145,12 +166,31 @@ class MainWindow(QWidget):
             for col, val in enumerate(values):
                 self.table.setItem(row, col, QTableWidgetItem(val))
 
-            # delete button
+            # 1. Create a container widget and a horizontal layout
+            action_widget = QWidget()
+            action_layout = QHBoxLayout(action_widget)
+            action_layout.setContentsMargins(2, 2, 2, 2)
+            action_layout.setSpacing(5)
+
+            # 2. Create the Edit button
+            btn_edit = QPushButton("Edit")
+            btn_edit.setStyleSheet("background-color: #1A7A34; color: white;") # Optional: make it orange
+            btn_edit.clicked.connect(
+                lambda _, d=row_data: self.open_edit_dialog(d)
+            )
+
+            # 3. Create the Delete button
             btn_delete = QPushButton("Hapus")
+            btn_delete.setStyleSheet("background-color: #d9534f; color: white;") # Optional: make it red
             btn_delete.clicked.connect(
                 lambda _, id=row_data["log_id"]: self.delete_data(id)
             )
-            self.table.setCellWidget(row, 7, btn_delete)
+
+            # 4. Add buttons to layout, then set the container to the table cell
+            action_layout.addWidget(btn_edit)
+            action_layout.addWidget(btn_delete)
+            
+            self.table.setCellWidget(row, 7, action_widget)
 
     def delete_data(self, log_id):
         self.db.DeleteLog(log_id)
@@ -169,6 +209,21 @@ class MainWindow(QWidget):
                 str(date.today())
             )
 
+            self.load_data()
+
+    def open_edit_dialog(self, current_data):
+        dialog = EditDialog(self.db, current_data)
+
+        if dialog.exec_():
+            new_data = dialog.get_updated_data()
+            
+            self.db.UpdateLog(
+                log_id=current_data["log_id"],
+                food_code=current_data["food_code"],
+                porsi=new_data["porsi"],
+                waktu_makan=new_data["waktu"],
+                tanggal=str(date.today())
+            )
             self.load_data()
 
 
