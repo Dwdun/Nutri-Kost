@@ -1,70 +1,5 @@
 {
-    "Bayi / Anak": [
-        {
-            "kelompok_umur": "0 - 5 bulan",
-            "cal": 550.0,
-            "protein": 9.0,
-            "fat": 31.0,
-            "carb": 59.0,
-            "fiber": 0.0,
-            "water": 700.0
-        },
-        {
-            "kelompok_umur": "6 - 11 bulan",
-            "cal": 800.0,
-            "protein": 15.0,
-            "fat": 35.0,
-            "carb": 105.0,
-            "fiber": 11.0,
-            "water": 900.0
-        },
-        {
-            "kelompok_umur": "1 - 3 tahun",
-            "cal": 1350.0,
-            "protein": 20.0,
-            "fat": 45.0,
-            "carb": 215.0,
-            "fiber": 19.0,
-            "water": 1150.0
-        },
-        {
-            "kelompok_umur": "4 - 6 tahun",
-            "cal": 1400.0,
-            "protein": 25.0,
-            "fat": 50.0,
-            "carb": 220.0,
-            "fiber": 20.0,
-            "water": 1450.0
-        },
-        {
-            "kelompok_umur": "7 - 9 tahun",
-            "cal": 1650.0,
-            "protein": 40.0,
-            "fat": 55.0,
-            "carb": 250.0,
-            "fiber": 23.0,
-            "water": 1650.0
-        }
-    ],
     "Laki-laki": [
-        {
-            "kelompok_umur": "10 - 12 tahun",
-            "cal": 2000.0,
-            "protein": 50.0,
-            "fat": 65.0,
-            "carb": 300.0,
-            "fiber": 28.0,
-            "water": 1850.0
-        },
-        {
-            "kelompok_umur": "13 - 15 tahun",
-            "cal": 2400.0,
-            "protein": 70.0,
-            "fat": 80.0,
-            "carb": 350.0,
-            "fiber": 34.0,
-            "water": 2100.0
-        },
         {
             "kelompok_umur": "16 - 18 tahun",
             "cal": 2650.0,
@@ -121,24 +56,6 @@
         }
     ],
     "Perempuan": [
-        {
-            "kelompok_umur": "10 - 12 tahun",
-            "cal": 1900.0,
-            "protein": 55.0,
-            "fat": 65.0,
-            "carb": 280.0,
-            "fiber": 27.0,
-            "water": 1850.0
-        },
-        {
-            "kelompok_umur": "13 - 15 tahun",
-            "cal": 2050.0,
-            "protein": 65.0,
-            "fat": 70.0,
-            "carb": 300.0,
-            "fiber": 29.0,
-            "water": 2100.0
-        },
         {
             "kelompok_umur": "16 - 18 tahun",
             "cal": 2100.0,
