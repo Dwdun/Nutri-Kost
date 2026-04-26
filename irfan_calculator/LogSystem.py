@@ -1,14 +1,27 @@
+import os
 import sqlite3
 
 class LogSystem:
-    def __init__(self, db_name="nutrisi.db"):
-        self.conn = sqlite3.connect(db_name)
+    def __init__(self, db_name="nutrikost.db"):
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        
+        # Go up one level, then into the target folder
+        # Change "bima_scrapper" if your folder name is different
+        db_path = os.path.join(base_dir, "..", "bima_scrapper", db_name)
+        db_path = os.path.abspath(db_path)
+
+        # SAFETY CATCH: Force an error if the path is wrong
+        if not os.path.exists(db_path):
+            raise FileNotFoundError(f"Database not found at: {db_path}\nCheck your folder structure!")
+
+        self.conn = sqlite3.connect(db_path)
         self.conn.row_factory = sqlite3.Row
         self._create_table_log()
         self._create_table_makanan()
-
+        
     def _create_table_log(self):
         cursor = self.conn.cursor()
+        
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS LogHarian (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -38,9 +51,6 @@ class LogSystem:
         cursor.execute("SELECT COUNT(*) FROM Makanan")
         if cursor.fetchone()[0] == 0:
             data = [
-                ("NP", "Nasi Putih", 260, 4.8, 57, 0.4),
-                ("TG", "Telur Goreng", 92, 6.3, 0.4, 7.2),
-                ("AB", "Ayam Bakar", 280, 31.2, 0, 16)
             ]
             cursor.executemany("INSERT INTO Makanan VALUES (?,?,?,?,?,?)", data)
 
@@ -61,10 +71,14 @@ class LogSystem:
         query = """
             SELECT 
                 l.id as log_id,
+                l.food_code,
                 m.food_name,
                 l.porsi,
                 l.waktu_makan,
-                m.cal, m.protein, m.carb, m.fat
+                ROUND(m.cal * (l.porsi / 100.0), 2) as cal,
+                ROUND(m.protein * (l.porsi / 100.0), 2) as protein,
+                ROUND(m.carb * (l.porsi / 100.0), 2) as carb,
+                ROUND(m.fat * (l.porsi / 100.0), 2) as fat
             FROM LogHarian l
             JOIN Makanan m ON l.food_code = m.code
         """
@@ -72,6 +86,7 @@ class LogSystem:
         cursor.execute(query)
         return [dict(row) for row in cursor.fetchall()]
     
+    # --- UPDATE ---
     def UpdateLog(self, log_id: int, food_code: str, porsi: float, waktu_makan: str, tanggal: str):
         query = """
             UPDATE LogHarian 
