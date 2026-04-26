@@ -13,6 +13,10 @@ python-Levenshtein>=0.25.0  # Akselerasi thefuzz (opsional tapi sangat direkomen
 requests>=2.31.0       # HTTP request untuk scraper (USDA, TKPI, Cookpad)
 beautifulsoup4>=4.12.0 # Parsing HTML hasil scraping
 
+#AI Analisis Bahan dan nutrisi:
+google-generativeai
+openai
+
 # Database :
 # sqlite3 sudah built-in di Python (tidak perlu install)
 
