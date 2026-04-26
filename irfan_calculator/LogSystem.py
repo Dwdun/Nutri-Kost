@@ -1,13 +1,30 @@
+import os
 import sqlite3
 
-class DBHelper:
-    def __init__(self, db_name="nutrisi.db"):
-        self.conn = sqlite3.connect(db_name)
-        self.conn.row_factory = sqlite3.Row 
+class LogSystem:
+    def __init__(self, db_name="nutrikost.db"):
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        
+        # Go up one level, then into the target folder
+        # Change "bima_scrapper" if your folder name is different
+        db_path = os.path.join(base_dir, "..", "bima_scrapper", db_name)
+        db_path = os.path.abspath(db_path)
 
+        # CHECK BEFORE CONNECTING
+        if not os.path.exists(db_path):
+            print(f"CRITICAL ERROR: Database file missing at {db_path}")
+            # This stops the app immediately with a clear message 
+            # instead of letting it create an empty file.
+            raise FileNotFoundError(f"Could not find the database at {db_path}")
+
+        self.conn = sqlite3.connect(db_path)
+        self.conn.row_factory = sqlite3.Row
+        self._create_table_log()
+        self._create_table_makanan()
+        
     def _create_table_log(self):
-        """Membuat tabel log jika belum ada"""
         cursor = self.conn.cursor()
+        
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS LogHarian (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -20,56 +37,77 @@ class DBHelper:
         ''')
         self.conn.commit()
 
-    # --- CREATE (C) ---
-    def CreateLog(self, makanan_id: int, porsi: float, kategori_waktu: str, tanggal: str):
-        """Menyimpan makanan yang dipilih ke log harian"""
+    def _create_table_makanan(self):
+        cursor = self.conn.cursor()
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS Makanan (
+                code TEXT PRIMARY KEY,
+                food_name TEXT,
+                cal REAL,
+                protein REAL,
+                carb REAL,
+                fat REAL
+            )
+        ''')
+        self.conn.commit()
+
+    # --- CREATE ---
+    def CreateLog(self, food_code, porsi, waktu_makan, tanggal):
         query = """
-            INSERT INTO daily_logs (makanan_id, porsi, kategori_waktu, tanggal)
+            INSERT INTO LogHarian (food_code, porsi, waktu_makan, tanggal)
             VALUES (?, ?, ?, ?)
         """
         cursor = self.conn.cursor()
-        cursor.execute(query, (makanan_id, porsi, kategori_waktu, tanggal))
+        cursor.execute(query, (food_code, porsi, waktu_makan, tanggal))
         self.conn.commit()
 
-    # --- READ (R) ---
+    # --- READ ---
     def ReadLog(self):
-        """Mengambil semua makanan yang dimakan HARI INI beserta detail nutrisinya"""
         query = """
             SELECT 
                 l.id as log_id,
+                l.food_code,
                 m.food_name,
-                m.cal, m.protein, m.carb, m.fat,
-                l.serving_size,
-                l.meal_time
-            FROM daily_logs l
-            JOIN makanan m ON l.food_id = m.id
-            WHERE l.log_date = CURRENT_DATE
+                l.porsi,
+                l.waktu_makan,
+                ROUND(m.cal * (l.porsi / 100.0), 2) as cal,
+                ROUND(m.protein * (l.porsi / 100.0), 2) as protein,
+                ROUND(m.carb * (l.porsi / 100.0), 2) as carb,
+                ROUND(m.fat * (l.porsi / 100.0), 2) as fat
+            FROM LogHarian l
+            JOIN Makanan m ON l.food_code = m.code
         """
         cursor = self.conn.cursor()
         cursor.execute(query)
         return [dict(row) for row in cursor.fetchall()]
-
-    # --- UPDATE (U) ---
-    def UpdateLog(self, log_id: int, new_porsi: float, new_waktu: str):
-        """Mengubah porsi atau waktu makan pada log yang sudah ada"""
+    
+    # --- UPDATE ---
+    def UpdateLog(self, log_id: int, food_code: str, porsi: float, waktu_makan: str, tanggal: str):
         query = """
-            UPDATE daily_logs 
-            SET serving_size = ?, meal_time = ? 
+            UPDATE LogHarian 
+            SET food_code = ?, porsi = ?, waktu_makan = ?, tanggal = ?
             WHERE id = ?
         """
         cursor = self.conn.cursor()
-        cursor.execute(query, (new_porsi, new_waktu, log_id))
+        cursor.execute(query, (food_code, porsi, waktu_makan, tanggal, log_id))
         self.conn.commit()
 
-    # --- DELETE (D) ---
-    def DeleteLog(self, log_idx: int):
-        """Menghapus entri log berdasarkan ID"""
-        query = "DELETE FROM daily_logs WHERE id = ?"
+    # --- DELETE ---
+    def DeleteLog(self, log_id):
+        query = "DELETE FROM LogHarian WHERE id = ?"
         cursor = self.conn.cursor()
-        cursor.execute(query, (log_idx,))
+        cursor.execute(query, (log_id,))
         self.conn.commit()
 
-    def kalkulator_nutrisi(self, code: str, porsi_user: float):
+    # --- GET ALL FOODS ---
+    def GetAllFoods(self):
+        query = "SELECT * FROM Makanan"
+        cursor = self.conn.cursor()
+        cursor.execute(query)
+        return cursor.fetchall()
+
+    # --- NUTRITION CALC ---
+    def kalkulator_nutrisi(self, code, porsi_user):
         query = "SELECT * FROM Makanan WHERE code = ?"
         cursor = self.conn.cursor()
         cursor.execute(query, (code,))
@@ -81,14 +119,8 @@ class DBHelper:
         multiplier = porsi_user / 100.0
 
         return {
-            "name": makanan["food_name"],
-            "porsi": porsi_user,
             "cal": round(makanan["cal"] * multiplier, 2),
             "protein": round(makanan["protein"] * multiplier, 2),
-            "fat": round(makanan["fat"] * multiplier, 2),
             "carb": round(makanan["carb"] * multiplier, 2),
-            "fiber": round(makanan["fiber"] * multiplier, 2),
-            "water": round(makanan["water"] * multiplier, 2)
+            "fat": round(makanan["fat"] * multiplier, 2),
         }
-
-    
