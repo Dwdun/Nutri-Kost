@@ -22,9 +22,9 @@ class ProfilSystem:
             print("Usia tidak valid (harus 1-120).")
             return False
 
-        # Cek gender: hanya boleh 'Male' atau 'Female'
-        if data.get('gender') not in ['Male', 'Female']:
-            print("Gender harus 'Male' atau 'Female'.")
+        # Cek gender: hanya boleh 'Laki-laki' atau 'Perempuan'
+        if data.get('gender') not in ['Laki-laki', 'Perempuan']:
+            print("Gender harus 'Laki-laki' atau 'Perempuan'.")
             return False
 
         # Cek berat badan: tidak boleh 0 atau negatif
@@ -135,13 +135,13 @@ class ProfilSystem:
             print("Error: BB, TB, dan usia harus lebih dari 0.")
             return None
 
-        if jk not in ['Male', 'Female']:
-            print("Error: Gender harus 'Male' atau 'Female'.")
+        if jk not in ['Laki-laki', 'Perempuan']:
+            print("Error: Gender harus 'Laki-laki' atau 'Perempuan'.")
             return None
 
         # Hitung BMR berdasarkan jenis kelamin
         # Rumus berbeda untuk laki-laki dan perempuan
-        if jk == 'Male':
+        if jk == 'Laki-laki':
             # Rumus untuk laki-laki
             bmr = 88.362 + (13.397 * bb) + (4.799 * tb) - (5.677 * usia)
         else:
@@ -190,8 +190,8 @@ class ProfilSystem:
                 return False
 
         if 'gender' in data:
-            if data['gender'] not in ['Male', 'Female']:
-                print("Validasi gagal: Gender harus 'Male' atau 'Female'.")
+            if data['gender'] not in ['Laki-laki', 'Perempuan']:
+                print("Validasi gagal: Gender harus 'Laki-laki' atau 'Perempuan'.")
                 return False
 
         if 'full_name' in data:
@@ -274,8 +274,8 @@ class ProfilSystem:
 
         # akg itu list of dict, contoh isinya:
         # [
-        #   {'kelompok_umur': '19 - 29 tahun', 'gender': 'Male', 'cal': 2650, ...},
-        #   {'kelompok_umur': '19 - 29 tahun', 'gender': 'Female', 'cal': 2250, ...},
+        #   {'kelompok_umur': '19 - 29 tahun', 'gender': 'Laki-laki', 'cal': 2650, ...},
+        #   {'kelompok_umur': '19 - 29 tahun', 'gender': 'Perempuan', 'cal': 2250, ...},
         # ]
 
         # Cari data AKG yang cocok dengan usia dan gender user

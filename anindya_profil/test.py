@@ -45,7 +45,7 @@ class FormProfilDialog(QDialog):
         self.input_pass.setEchoMode(QLineEdit.Password)
 
         self.combo_gender = QComboBox()
-        self.combo_gender.addItems(["Male", "Female"])
+        self.combo_gender.addItems(["Laki-laki", "Perempuan"])
 
         # Kalau mode edit, isi form dengan data yang ada
         if self.profil:
@@ -54,7 +54,7 @@ class FormProfilDialog(QDialog):
             self.input_bb.setText(str(self.profil.get('weight', '')))
             self.input_tb.setText(str(self.profil.get('height', '')))
             self.input_email.setText(str(self.profil.get('email', '')))
-            self.combo_gender.setCurrentText(self.profil.get('gender', 'Male'))
+            self.combo_gender.setCurrentText(self.profil.get('gender', 'Laki-laki'))
 
         form.addRow("Nama Lengkap :", self.input_nama)
         form.addRow("Usia         :", self.input_usia)
