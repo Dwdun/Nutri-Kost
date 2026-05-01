@@ -21,8 +21,8 @@ RED_HOVER     = "#b91c1c"
 
 # ── Widget toggle on/off ──────────────────────────────────────────────────────
 class ToggleSwitch(QPushButton):
-    """Tombol toggle custom yang menyerupai switch on/off."""
 
+    #inisialisasi tombol toggle
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setCheckable(True)
@@ -31,6 +31,7 @@ class ToggleSwitch(QPushButton):
         self.toggled.connect(self._update_style)
         self._update_style(False)
 
+    #ubah tampilan visual sesuai state
     def _update_style(self, checked: bool):
         if checked:
             self.setStyleSheet("""
@@ -68,10 +69,10 @@ class ToggleSwitch(QPushButton):
             self.setText("  ")
 
 
-# ── Satu baris item pengaturan (label + deskripsi + aksi) ────────────────────
+# ── Card Settings ────────────────────
 class SettingItem(QFrame):
-    """Card satu item pengaturan dengan label, deskripsi, dan widget aksi."""
 
+    #inisialisasi card
     def __init__(self, title: str, description: str, action_widget: QWidget, parent=None):
         super().__init__(parent)
         self.setStyleSheet(f"""
@@ -107,7 +108,7 @@ class SettingItem(QFrame):
         layout.addWidget(action_widget, alignment=Qt.AlignVCenter | Qt.AlignRight)
 
 
-# ── Section header (judul kelompok pengaturan) ────────────────────────────────
+# ── Section header ────────────────────────────────
 def _make_section_label(text: str) -> QLabel:
     lbl = QLabel(text)
     lbl.setFont(QFont("Montserrat Alternates", 11, QFont.Bold))
@@ -118,19 +119,8 @@ def _make_section_label(text: str) -> QLabel:
 
 # ── Halaman Pengaturan ────────────────────────────────────────────────────────
 class SettingPage(QWidget):
-    """
-    Halaman Pengaturan NutriKost.
 
-    Fitur:
-    - Toggle notifikasi Pengingat Makan
-    - Toggle notifikasi Peringatan Kalori
-    - Export seluruh log harian ke CSV
-    - Hapus semua data (ProfilUser + LogHarian)
-
-    Preferensi toggle disimpan via QSettings (persisten antar sesi).
-    Akses database via DBHelper dari bima_scrapper/models.py.
-    """
-
+    #inisialisasi page
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setStyleSheet(f"background-color: {CONTENT_BG};")
@@ -211,7 +201,7 @@ class SettingPage(QWidget):
 
         main_layout.addSpacing(20)
 
-        # ── Seksi Data ────────────────────────────────────────────────────────
+        # ── Section Data ────────────────────────────────────────────────────────
         main_layout.addWidget(_make_section_label("Data"))
         main_layout.addSpacing(6)
 
@@ -271,11 +261,9 @@ class SettingPage(QWidget):
 
     # ── Preferensi ────────────────────────────────────────────────────────────
     def _save_preference(self, key: str, value: bool):
-        """Simpan nilai toggle ke QSettings."""
         self._settings.setValue(key, value)
 
     def _load_preferences(self):
-        """Muat nilai toggle dari QSettings saat halaman dibuka."""
         notif_makan  = self._settings.value("notif_makan",  False, type=bool)
         notif_kalori = self._settings.value("notif_kalori", False, type=bool)
 
@@ -291,7 +279,6 @@ class SettingPage(QWidget):
 
     # ── Export CSV ────────────────────────────────────────────────────────────
     def exportToCSV(self):
-        """Export semua log harian ke file CSV yang dipilih user."""
         if self._db is None:
             QMessageBox.warning(self, "Error", "Database tidak tersedia.")
             return
@@ -329,7 +316,6 @@ class SettingPage(QWidget):
 
     # ── Hapus Semua Data ──────────────────────────────────────────────────────
     def deleteAllData(self):
-        """Hapus seluruh data log dan profil setelah konfirmasi user."""
         reply = QMessageBox.warning(
             self,
             "Hapus Semua Data",
