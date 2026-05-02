@@ -1,7 +1,7 @@
 import sys
 import os
 
-sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'scrapper'))
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'bima_scrapper'))
 from models import DBHelper, JsonHelper
 
 class ProfilSystem:
@@ -267,44 +267,31 @@ class ProfilSystem:
         usia   = self.current_profil['age']
         gender = self.current_profil['gender']
 
-        # Baca data AKG dari file akg.json 
-        # menggunakan JsonHelper
+        # Konversi gender ke key yang ada di akg.json
+        if gender == 'Laki-laki':
+            kategori = 'Laki-laki'
+        else:
+            kategori = 'Perempuan'
+
+        # Baca data AKG dari file akg.json
         jh  = JsonHelper()
         akg = jh.get_akg()
 
-        # akg itu list of dict, contoh isinya:
-        # [
-        #   {'kelompok_umur': '19 - 29 tahun', 'gender': 'Laki-laki', 'cal': 2650, ...},
-        #   {'kelompok_umur': '19 - 29 tahun', 'gender': 'Perempuan', 'cal': 2250, ...},
-        # ]
-
-        # Cari data AKG yang cocok dengan usia dan gender user
-        for data_akg in akg:
-            # Ambil batas bawah dan atas dari kelompok umur
-            # Contoh: '19 - 29 tahun' → batas_bawah=19, batas_atas=29
+        # Strukturnya: {'Laki-laki': [...], 'Perempuan': [...]}
+        # Jadi harus masuk ke key-nya dulu
+        for data_akg in akg[kategori]:
             kelompok = data_akg.get('kelompok_umur', '')
-            gender_akg = data_akg.get('gender', '')
-
-            # Cek apakah gender cocok
-            if gender_akg != gender:
-                continue
-
-            # Pecah kelompok umur jadi angka
-            # Contoh: '19 - 29 tahun' → ['19', '29']
             try:
-                bagian = kelompok.replace('tahun', '').strip().split('-')
+                bagian      = kelompok.replace('tahun', '').strip().split('-')
                 batas_bawah = int(bagian[0].strip())
                 batas_atas  = int(bagian[1].strip())
 
-                # Cek apakah usia user masuk kelompok ini
                 if batas_bawah <= usia <= batas_atas:
-                    print(f"AKG ditemukan untuk usia {usia}, gender {gender}")
+                    print(f"AKG ditemukan untuk usia {usia}, kategori {kategori}")
                     print(f"Kebutuhan kalori: {data_akg.get('cal')} kkal")
                     return data_akg
-
             except:
                 continue
 
-        # Kalau tidak ketemu
         print("Data AKG tidak ditemukan.")
         return None
