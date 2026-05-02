@@ -223,13 +223,13 @@ class DashboardPage(PageTemplate):
             line_idx = (i * 2) + 1  # Data rows: 1, 3, 5, 7...
             row_idx = line_idx + 1 # Line rows: 2, 4, 6, 8...
 
-            total_calories += entry.get('cal', 0)
-
+            total_calories += entry.get('cal') or 0
+            
             # Create data labels
             data = [
                 entry['food_name'], 
-                entry['waktu_makan'], 
-                f"{entry['porsi']}g", 
+                entry['meal_time'], 
+                f"{entry['portion']}g",  
                 f"{entry['cal']} kcal",
                 f"{entry['protein']}g", 
                 f"{entry['carb']}g", 
@@ -250,7 +250,7 @@ class DashboardPage(PageTemplate):
                 QPushButton { background-color: #1A7A34; color: white; border-radius: 6px;}
                 QPushButton:hover { background-color: white; color: #1A7A34; border: 1px solid #1A7A34; }
             """)
-            btn_edit.clicked.connect(lambda _, id=entry['log_id']: self.delete_entry(id))
+            btn_edit.clicked.connect(lambda _, id=entry['id_log']: self.delete_entry(id))
             self.rows_layout.addWidget(btn_edit, row_idx, 7)
 
             # Delete Button
@@ -260,7 +260,7 @@ class DashboardPage(PageTemplate):
                 QPushButton { background-color: #E03030; color: white; border-radius: 6px;}
                 QPushButton:hover { background-color: white; color: #E03030; border: 1px solid #E03030; }
             """)
-            btn_delete.clicked.connect(lambda _, id=entry['log_id']: self.delete_entry(id))
+            btn_delete.clicked.connect(lambda _, id=entry['id_log']: self.delete_entry(id))
             self.rows_layout.addWidget(btn_delete, row_idx, 8)
 
             # --- THE BORDER/SEPARATOR ---
@@ -283,11 +283,27 @@ class DashboardPage(PageTemplate):
         dialog = TambahDialog(self.db)
         if dialog.exec_():
             res = dialog.get_data()
-            self.db.CreateLog(res['code'], res['porsi'], res['waktu'], str(date.today()))
+
+            # calculate nutrition
+            nutrisi = self.db.kalkulator_nutrisi(res['code'], res['porsi'])
+
+            if nutrisi:
+                self.db.CreateLog(
+                    1,  # TEMP id_user (replace if you have auth)
+                    res['code'],
+                    res['waktu'],
+                    res['porsi'],
+                    nutrisi['cal'],
+                    nutrisi['protein'],
+                    nutrisi['carb'],
+                    nutrisi['fat'],
+                    res['waktu']  # category (you were using same value anyway)
+                )
+
             self.load_data()
 
-    def delete_entry(self, log_id):
-        self.db.DeleteLog(log_id)
+    def delete_entry(self, id_log):
+        self.db.DeleteLog(id_log)
         self.load_data()
 
 if __name__ == '__main__':
