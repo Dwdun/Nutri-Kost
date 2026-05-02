@@ -1,79 +1,150 @@
-
 from PyQt5.QtWidgets import (
     QMainWindow, QWidget, QHBoxLayout, QVBoxLayout,
-    QPushButton, QLabel, QStackedWidget, QFrame
+    QPushButton, QLabel, QStackedWidget, QFrame, QSizePolicy
 )
-from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QFont
+from PyQt5.QtCore import Qt, QSize, QPropertyAnimation, QEasingCurve
+from PyQt5.QtGui import QFont, QPixmap, QIcon, QCursor, QPainter, QColor
+import os
 
-#collor pallete
+# collor pallete
 SIDEBAR_BG     = "#1A7A34"   
-SIDEBAR_HOVER  = "#155f28"   
-SIDEBAR_ACTIVE = "#0f4a1f"   
+SIDEBAR_HOVER  = "#3C8E52"   
+SIDEBAR_ACTIVE = "#5EA271"   
 SIDEBAR_TEXT   = "#ffffff"
-SIDEBAR_WIDTH  = 210            
-CONTENT_BG     = "#f5f7f5"   
+SIDEBAR_EXP    = 280            
+SIDEBAR_COL    = 76
+CONTENT_BG     = "#F2F4F0"   
 HEADER_BG      = "#ffffff"
 ACCENT_GREEN   = "#1A7A34"
 
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+ICONS_DIR = os.path.join(BASE_DIR, '..', 'assets', 'icons')
+PATTERN_PATH = os.path.join(BASE_DIR, '..', 'assets', 'pattern.png')
 
-#tombol navbar/sidebar
-class SidebarButton(QPushButton):
-
-    def __init__(self, icon_text: str, label: str, parent=None):
+class PatternWidget(QWidget):
+    def __init__(self, parent=None):
         super().__init__(parent)
-        self.setText(f"  {icon_text}  {label}")
+        raw = QPixmap(PATTERN_PATH)
+        if not raw.isNull():
+            self._tile = raw.scaled(150, 150, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+        else:
+            self._tile = QPixmap()
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.fillRect(self.rect(), QColor(CONTENT_BG))
+        if not self._tile.isNull():
+            painter.setOpacity(0.1)
+            tw = self._tile.width()
+            th = self._tile.height()
+            x = 0
+            while x < self.width():
+                y = 0
+                while y < self.height():
+                    painter.drawPixmap(x, y, self._tile)
+                    y += th
+                x += tw
+        painter.end()
+
+class NavItem(QPushButton):
+    def __init__(self, icon_filename: str, label: str, parent=None):
+        super().__init__(parent)
         self.setCursor(Qt.PointingHandCursor)
-        self.setFixedHeight(46)
-        self.setFont(QFont("Montserrat Alternates", 11))
+        self.setFixedHeight(48)
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self._collapsed = False
+        
+        self._layout = QHBoxLayout(self)
+        self._layout.setContentsMargins(0, 0, 16, 0)
+        self._layout.setSpacing(0)
+
+        self.icon_lbl = QLabel()
+        self.icon_lbl.setFixedWidth(SIDEBAR_COL)
+        self.icon_lbl.setAlignment(Qt.AlignCenter)
+        self.icon_lbl.setStyleSheet("background: transparent;")
+        if icon_filename:
+            path = os.path.join(ICONS_DIR, icon_filename)
+            if os.path.exists(path):
+                pix = QPixmap(path).scaled(22, 22, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+                self.icon_lbl.setPixmap(pix)
+            else:
+                self.icon_lbl.setText("•")
+                self.icon_lbl.setStyleSheet("color: white; background: transparent; font-size: 16px;")
+
+        self.text_lbl = QLabel(label)
+        self.text_lbl.setFont(QFont("Poppins", 10))
+        self.text_lbl.setStyleSheet("color: white; background: transparent;")
+
+        self._layout.addWidget(self.icon_lbl)
+        self._layout.addWidget(self.text_lbl, 1)
+
         self._apply_style(active=False)
 
-    #ubah state saat di klik atau aktif
     def set_active(self, active: bool):
         self._apply_style(active)
+        font = QFont("Poppins", 10, QFont.Bold if active else QFont.Normal)
+        self.text_lbl.setFont(font)
 
-    #style UI
     def _apply_style(self, active: bool):
-        bg     = SIDEBAR_ACTIVE if active else SIDEBAR_BG
-        border = "border-left: 4px solid #ffffff;" if active else "border-left: 4px solid transparent;"
-        weight = "bold" if active else "normal"
+        bg     = SIDEBAR_ACTIVE if active else "transparent"
+        border = "border-left: 3px solid #ffffff;" if active else "border-left: 3px solid transparent;"
         self.setStyleSheet(f"""
             QPushButton {{
                 background-color: {bg};
-                color: {SIDEBAR_TEXT};
-                text-align: left;
-                padding-left: 16px;
                 border: none;
                 {border}
-                border-radius: 0px;
-                font-weight: {weight};
             }}
             QPushButton:hover {{
                 background-color: {SIDEBAR_HOVER};
             }}
         """)
 
+    def set_collapsed(self, collapsed: bool):
+        self._collapsed = collapsed
+        self.text_lbl.setVisible(not collapsed)
+
+
+class SectionLabel(QLabel):
+    def __init__(self, text: str, parent=None):
+        super().__init__(text, parent)
+        self.setFont(QFont("Poppins", 8, QFont.Medium))
+        self.setFixedHeight(32)
+        self.setContentsMargins(SIDEBAR_COL, 0, 0, 0)
+        self.setAlignment(Qt.AlignVCenter | Qt.AlignLeft)
+        self.setStyleSheet("color: rgba(255,255,255,0.55); background: transparent;")
+        self._full_text = text
+
+    def set_collapsed(self, collapsed: bool):
+        self.setText("" if collapsed else self._full_text)
+
+
 class MainWindow(QMainWindow):
-    #daftar halaman
-    PAGES = [
-        ("", "Dashboard",    "dashboard"),
-        ("", "Cari Makanan", "search"),
-        ("", "Log Harian",   "log"),
-        ("", "Rekomendasi Resep",  "rekomendasi"),
-        ("", "Profil",       "profil"),
-        ("", "Visualisasi",   "visualisasi"),
-        ("", "Setting",         "setting"),
+    # Struktur menu
+    MENU_UTAMA = [
+        ("material-symbols_home-rounded.png", "Home Dashboard", "dashboard"),
+        ("fe_search.png", "Cari Makanan", "search"),
+        ("material-symbols_list-alt-rounded.png", "Log Makanan", "log"),
+        ("iconamoon_history-bold.png", "Riwayat", "riwayat"),
+        ("fluent_bowl-salad-24-filled.png", "Resep Makanan", "rekomendasi"),
+    ]
+    
+    VISUALISASI = [
+        ("material-symbols_bar-chart-rounded.png", "Kalori Mingguan", "kalori_mingguan"),
+        ("fa7-solid_chart-pie.png", "Komposisi Gizi", "komposisi_gizi"),
+        ("mingcute_list-ordered-fill.png", "Top 10 Makanan", "top_10_makanan"),
     ]
 
-    #judul
     PAGE_TITLES = {
-        "dashboard":   "Dashboard",
-        "search":      "Cari Makanan",
-        "log":         "Log Harian",
-        "rekomendasi": "Rekomendasi Resep",
-        "profil":      "Profil",
-        "visualisasi" : "Visualisasi",
-        "setting":     "Pengaturan",
+        "dashboard":       "Home Dashboard",
+        "search":          "Cari Makanan",
+        "log":             "Log Makanan",
+        "riwayat":         "Riwayat",
+        "rekomendasi":     "Rekomendasi Resep",
+        "kalori_mingguan": "Kalori Mingguan",
+        "komposisi_gizi":  "Komposisi Gizi",
+        "top_10_makanan":  "Top 10 Makanan",
+        "profil":          "Profil",
+        "setting":         "Pengaturan",
     }
 
     def __init__(self):
@@ -82,187 +153,289 @@ class MainWindow(QMainWindow):
         self.setMinimumSize(1000, 640)
         self.resize(1200, 720)
 
-        #dict untuk referensi tombol dan widget
-        self._sidebar_buttons: dict[str, SidebarButton] = {}
-        self._page_widgets:    dict[str, QWidget]       = {}
+        self._sidebar_buttons: dict[str, NavItem] = {}
+        self._page_widgets: dict[str, QWidget] = {}
+        self._section_labels: list[SectionLabel] = []
+        self._collapsed = False
 
         self._build_ui()
         self.setupRouting()
-
-        # Buka halaman dashboard sebagai tampilan awal
         self.navigate("dashboard")
 
-    #setup layout navbar
     def _build_ui(self):
-        """Susun layout root: sidebar (kiri) + area konten (kanan)."""
         root = QWidget()
         self.setCentralWidget(root)
-
-        root_layout = QHBoxLayout(root)
+        root_layout = QVBoxLayout(root)
         root_layout.setContentsMargins(0, 0, 0, 0)
         root_layout.setSpacing(0)  
 
-        #add sidebar ke layout
-        root_layout.addWidget(self._build_sidebar())
+        # Header
+        header = QFrame()
+        header.setFixedHeight(76)
+        header.setStyleSheet(f"background-color: {SIDEBAR_BG}; border: none;")
+        h_layout = QHBoxLayout(header)
+        h_layout.setContentsMargins(16, 0, 24, 0)
+        h_layout.setSpacing(16)
 
-        #setup area content
-        content_area = QWidget()
-        content_area.setStyleSheet(f"background-color: {CONTENT_BG};")
+        toggle_btn = QPushButton("☰")
+        toggle_btn.setFixedSize(36, 36)
+        toggle_btn.setFont(QFont("Segoe UI Symbol", 16))
+        toggle_btn.setCursor(Qt.PointingHandCursor)
+        toggle_btn.setStyleSheet(f"""
+            QPushButton {{ color: white; background: transparent; border: none; border-radius: 6px; }}
+            QPushButton:hover {{ background: {SIDEBAR_HOVER}; }}
+            QPushButton:pressed {{ background: {SIDEBAR_ACTIVE}; }}
+        """)
+        toggle_btn.clicked.connect(self._toggle_sidebar)
+
+        self._page_title = QLabel("NutriKos — Cari Makanan")
+        self._page_title.setFont(QFont("Poppins", 11, QFont.Bold))
+        self._page_title.setStyleSheet("color: white; background: transparent; border: none;")
+        self._page_title.setAlignment(Qt.AlignCenter)
+
+        h_layout.addWidget(toggle_btn)
+        h_layout.addWidget(self._page_title, 1)
+        root_layout.addWidget(header)
+
+        # Body Container
+        body_container = QWidget()
+        body_layout = QHBoxLayout(body_container)
+        body_layout.setContentsMargins(0, 0, 0, 0)
+        body_layout.setSpacing(0)
+
+        # Sidebar
+        self.sidebar = QWidget()
+        self.sidebar.setFixedWidth(SIDEBAR_EXP)
+        self.sidebar.setStyleSheet(f"background-color: {SIDEBAR_BG};")
+        
+        self._anim = QPropertyAnimation(self.sidebar, b"minimumWidth")
+        self._anim.setDuration(280)
+        self._anim.setEasingCurve(QEasingCurve.InOutCubic)
+        self._anim_max = QPropertyAnimation(self.sidebar, b"maximumWidth")
+        self._anim_max.setDuration(280)
+        self._anim_max.setEasingCurve(QEasingCurve.InOutCubic)
+
+        sb_layout = QVBoxLayout(self.sidebar)
+        sb_layout.setContentsMargins(0, 0, 0, 0)
+        sb_layout.setSpacing(0)
+
+        # Brand / Logo
+        logo_widget = QWidget()
+        logo_widget.setFixedHeight(76)
+        logo_layout = QHBoxLayout(logo_widget)
+        logo_layout.setContentsMargins(0, 0, 0, 0)
+        logo_layout.setSpacing(0)
+
+        logo_icon = QLabel()
+        logo_icon.setFixedSize(SIDEBAR_COL, 76)
+        logo_icon.setAlignment(Qt.AlignCenter)
+        path = os.path.join(ICONS_DIR, 'Logo.png')
+        if os.path.exists(path):
+            logo_icon.setPixmap(QPixmap(path).scaled(32, 32, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+        
+        self._logo_text = QLabel()
+        self._logo_text.setAlignment(Qt.AlignVCenter | Qt.AlignLeft)
+        text_path = os.path.join(ICONS_DIR, 'Logo text.png')
+        if os.path.exists(text_path):
+            self._logo_text.setPixmap(QPixmap(text_path).scaled(140, 28, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+        else:
+            self._logo_text.setText("NUTRIKOST")
+            self._logo_text.setFont(QFont("Montserrat Alternates", 13, QFont.Bold))
+            self._logo_text.setStyleSheet("color: white; letter-spacing: 1px;")
+
+        logo_layout.addWidget(logo_icon)
+        logo_layout.addWidget(self._logo_text, 1)
+        sb_layout.addWidget(logo_widget)
+
+        # Divider
+        divider = QFrame()
+        divider.setFrameShape(QFrame.HLine)
+        divider.setFixedHeight(1)
+        divider.setStyleSheet("background: rgba(255,255,255,0.25); border: none;")
+        sb_layout.addWidget(divider)
+        sb_layout.addSpacing(16)
+
+        # Menu Utama
+        lbl_menu = SectionLabel("Menu Utama")
+        self._section_labels.append(lbl_menu)
+        sb_layout.addWidget(lbl_menu)
+
+        for icon, label, key in self.MENU_UTAMA:
+            btn = NavItem(icon, label)
+            btn.clicked.connect(lambda checked, k=key: self.navigate(k))
+            self._sidebar_buttons[key] = btn
+            sb_layout.addWidget(btn)
+
+        sb_layout.addSpacing(16)
+
+        # Visualisasi
+        lbl_vis = SectionLabel("Visualisasi")
+        self._section_labels.append(lbl_vis)
+        sb_layout.addWidget(lbl_vis)
+
+        for icon, label, key in self.VISUALISASI:
+            btn = NavItem(icon, label)
+            btn.clicked.connect(lambda checked, k=key: self.navigate(k))
+            self._sidebar_buttons[key] = btn
+            sb_layout.addWidget(btn)
+
+        sb_layout.addStretch()
+
+        # Pengaturan
+        btn_setting = NavItem("solar_settings-bold.png", "Pengaturan")
+        btn_setting.clicked.connect(lambda checked, k="setting": self.navigate(k))
+        self._sidebar_buttons["setting"] = btn_setting
+        sb_layout.addWidget(btn_setting)
+
+        # Divider before profile
+        div_prof = QFrame()
+        div_prof.setFrameShape(QFrame.HLine)
+        div_prof.setFixedHeight(1)
+        div_prof.setStyleSheet("background: rgba(255,255,255,0.25); border: none;")
+        sb_layout.addWidget(div_prof)
+
+        # Profile area
+        self._prof_btn = QPushButton()
+        self._prof_btn.setFixedHeight(64)
+        self._prof_btn.setCursor(Qt.PointingHandCursor)
+        self._prof_btn.setStyleSheet(f"""
+            QPushButton {{ background: transparent; border: none; }}
+            QPushButton:hover {{ background: {SIDEBAR_HOVER}; }}
+        """)
+        self._prof_btn.clicked.connect(lambda: self.navigate("profil"))
+        self._sidebar_buttons["profil"] = self._prof_btn  # just to keep track
+
+        prof_lay = QHBoxLayout(self._prof_btn)
+        prof_lay.setContentsMargins(0, 0, 8, 0)
+        prof_lay.setSpacing(0)
+
+        prof_icon = QLabel()
+        prof_icon.setFixedSize(SIDEBAR_COL, 64)
+        prof_icon.setAlignment(Qt.AlignCenter)
+        prof_path = os.path.join(ICONS_DIR, 'gg_profile.png')
+        if os.path.exists(prof_path):
+            prof_icon.setPixmap(QPixmap(prof_path).scaled(26, 26, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+        
+        self._prof_info = QWidget()
+        info_lay = QVBoxLayout(self._prof_info)
+        info_lay.setContentsMargins(0, 0, 0, 0)
+        info_lay.setSpacing(1)
+        info_lay.setAlignment(Qt.AlignVCenter)
+
+        u_lbl = QLabel("Profile")
+        u_lbl.setFont(QFont("Poppins", 10, QFont.Bold))
+        u_lbl.setStyleSheet("color: white;")
+        e_lbl = QLabel("username@gmail.com")
+        e_lbl.setFont(QFont("Poppins", 8))
+        e_lbl.setStyleSheet("color: rgba(255,255,255,0.55);")
+
+        info_lay.addWidget(u_lbl)
+        info_lay.addWidget(e_lbl)
+
+        self._logout_icon = QLabel()
+        self._logout_icon.setFixedSize(36, 36)
+        self._logout_icon.setAlignment(Qt.AlignCenter)
+        logout_path = os.path.join(ICONS_DIR, 'material-symbols_logout-rounded.png')
+        if os.path.exists(logout_path):
+            self._logout_icon.setPixmap(QPixmap(logout_path).scaled(20, 20, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+
+        prof_lay.addWidget(prof_icon)
+        prof_lay.addWidget(self._prof_info, 1)
+        prof_lay.addWidget(self._logout_icon)
+
+        sb_layout.addWidget(self._prof_btn)
+        body_layout.addWidget(self.sidebar)
+
+        # Content Area
+        content_area = PatternWidget()
         content_layout = QVBoxLayout(content_area)
         content_layout.setContentsMargins(0, 0, 0, 0)
         content_layout.setSpacing(0)
 
-        #header judul halaman
-        content_layout.addWidget(self._build_header())
-
-        # QStackedWidget: cuma satu halaman yang keliatan dalam satu waktu
         self._stack = QStackedWidget()
         self._stack.setStyleSheet("background-color: transparent;")
-        content_layout.addWidget(self._stack)
+        content_layout.addWidget(self._stack, 1)
 
-        root_layout.addWidget(content_area, stretch=1)  # konten mengisi sisa lebar
+        body_layout.addWidget(content_area, stretch=1)
+        root_layout.addWidget(body_container, stretch=1)
 
-    def _build_sidebar(self) -> QWidget:
-        #bikin navbar berisi logo, tombol menu, versi apk
-        sidebar = QWidget()
-        sidebar.setFixedWidth(SIDEBAR_WIDTH)
-        sidebar.setStyleSheet(f"background-color: {SIDEBAR_BG};")
+    def _toggle_sidebar(self):
+        self._collapsed = not self._collapsed
+        target_w = SIDEBAR_COL if self._collapsed else SIDEBAR_EXP
+        current_w = self.sidebar.width()
 
-        layout = QVBoxLayout(sidebar)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(0)
+        self._anim.stop()
+        self._anim_max.stop()
+        self._anim.setStartValue(current_w)
+        self._anim.setEndValue(target_w)
+        self._anim_max.setStartValue(current_w)
+        self._anim_max.setEndValue(target_w)
+        self._anim.start()
+        self._anim_max.start()
 
-        # Brand / logo teks
-        brand = QLabel("NutriKost")
-        brand.setAlignment(Qt.AlignCenter)
-        brand.setFixedHeight(64)
-        brand.setFont(QFont("Montserrat Alternates", 16, QFont.Bold))
-        brand.setStyleSheet(
-            f"color: white; background-color: {SIDEBAR_BG}; border-bottom: 1px solid #145e27;"
-        )
-        layout.addWidget(brand)
+        self._logo_text.setVisible(not self._collapsed)
+        for lbl in self._section_labels:
+            lbl.set_collapsed(self._collapsed)
+        self._prof_info.setVisible(not self._collapsed)
+        self._logout_icon.setVisible(not self._collapsed)
 
-        #loop bikin tombol dari list PAGES di atas
-        for icon, label, page_key in self.PAGES:
-            btn = SidebarButton(icon, label)
-            btn.clicked.connect(lambda checked, k=page_key: self.navigate(k))
-            self._sidebar_buttons[page_key] = btn
-            layout.addWidget(btn)
+        for key, btn in self._sidebar_buttons.items():
+            if isinstance(btn, NavItem):
+                btn.set_collapsed(self._collapsed)
 
-        layout.addStretch()   # dorong elemen versi ke bawah
-
-        version = QLabel("v1.0 · A1 POLBAN")
-        version.setAlignment(Qt.AlignCenter)
-        version.setStyleSheet("color: rgba(255,255,255,0.45); font-size: 10px; padding: 8px;")
-        layout.addWidget(version)
-
-        return sidebar
-
-    def _build_header(self) -> QWidget:
-        #nampilin judul halaman aktif
-        header = QFrame()
-        header.setFixedHeight(52)
-        header.setStyleSheet(f"""
-            QFrame {{
-                background-color: {HEADER_BG};
-                border-bottom: 1px solid #e0e0e0;
-            }}
-        """)
-        layout = QHBoxLayout(header)
-        layout.setContentsMargins(24, 0, 24, 0)
-
-        self._page_title = QLabel("Cari Makanan")
-        self._page_title.setFont(QFont("Montserrat Alternates", 14, QFont.Bold))
-        self._page_title.setStyleSheet(
-            f"color: {ACCENT_GREEN}; background: transparent; border: none;"
-        )
-        layout.addWidget(self._page_title)
-        layout.addStretch()
-
-        return header
-
-    #INTEGRASI SISTEM
     def setupRouting(self):
-
-        #Halaman Search
         from search_page import SearchPage
         self._add_page("search", SearchPage(on_pilih_makanan=self._on_pilih_makanan))
-
-        # Halaman Log Harian
-        # from log_page import LogPage #sementara di komen dulu
-        # self._add_page("log", LogPage())
-        self._add_page("log", self._placeholder("  Log Harian", "Modul Irfan"))
-
-        # ── Halaman Rekomendasi Resep (Bima) ──────────────────────────────
+        
+        self._add_page("dashboard", self._placeholder("Dashboard", "Modul Fatih"))
+        self._add_page("log", self._placeholder("Log Makanan", "Modul Irfan"))
+        self._add_page("riwayat", self._placeholder("Riwayat", "Modul Irfan"))
+        
         from rekomendasi_page import RekomendasiPage
         self._add_page("rekomendasi", RekomendasiPage())
-
-        # ── Halaman Profil (Anin) ─────────────────────────────────────────
-        # from profil_page import ProfilPage
-        # self._add_page("profil", ProfilPage())
-        self._add_page("profil", self._placeholder("  Profil", "Modul Anin"))
-
-        # ── Dashboard (Fatih) ─────────────────────────────────────────────
-        # from dashboard import DashboardUI
-        # self._add_page("dashboard", DashboardUI())
-        self._add_page("dashboard", self._placeholder("  Dashboard", "Modul Fatih"))
-
-        # ── Halaman Visualisasi (Fatih) ───────────────────────────────────────────
-        # from visualisasi_page import VisualisasiPage
-        # self._add_page("visualisasi", VisualisasiPage())
-        self._add_page("visualisasi", self._placeholder("  Visualisasi", "Modul Fatih"))
-    
-        # ── Halaman Pengaturan (Faqih) ────────────────────────────────────
+        
+        self._add_page("kalori_mingguan", self._placeholder("Kalori Mingguan", "Modul Fatih"))
+        self._add_page("komposisi_gizi", self._placeholder("Komposisi Gizi", "Modul Fatih"))
+        self._add_page("top_10_makanan", self._placeholder("Top 10 Makanan", "Modul Fatih"))
+        
+        self._add_page("profil", self._placeholder("Profil", "Modul Anin"))
+        
         from setting_page import SettingPage
         self._add_page("setting", SettingPage())
 
     def _add_page(self, key: str, widget: QWidget):
-        #daftarin widget halaman ke stack
         self._page_widgets[key] = widget
         self._stack.addWidget(widget)
 
     @staticmethod
     def _placeholder(title: str, owner: str) -> QWidget:
-        #tampilan smentara page kosong
         w = QWidget()
         layout = QVBoxLayout(w)
         layout.setAlignment(Qt.AlignCenter)
-
         lbl = QLabel(title)
         lbl.setAlignment(Qt.AlignCenter)
-        lbl.setFont(QFont("Montserrat Alternates", 18))
-        lbl.setStyleSheet("color: #bbb;")
+        lbl.setFont(QFont("Montserrat Alternates", 18, QFont.Bold))
+        lbl.setStyleSheet("color: #888;")
         layout.addWidget(lbl)
-
         sub = QLabel(f"({owner} — belum diintegrasikan)")
         sub.setAlignment(Qt.AlignCenter)
-        sub.setStyleSheet("color: #ccc; font-size: 12px;")
+        sub.setStyleSheet("color: #aaa; font-size: 13px;")
         layout.addWidget(sub)
-
         return w
 
     def navigate(self, page_key: str):
-        #fungsi buat pindah halaman
         if page_key not in self._page_widgets:
             return
-
-        #Reset semua tombol ke inactive, lalu aktifkan yang sesuai
         for key, btn in self._sidebar_buttons.items():
-            btn.set_active(key == page_key)
-
-        #ganti halaman dan update header page
+            if isinstance(btn, NavItem):
+                btn.set_active(key == page_key)
         self._stack.setCurrentWidget(self._page_widgets[page_key])
-        self._page_title.setText(self.PAGE_TITLES.get(page_key, page_key.title()))
+        title_text = self.PAGE_TITLES.get(page_key, page_key.title())
+        self._page_title.setText(f"NutriKos — {title_text}")
 
-    #CALLBACK INTEGRASI (untuk add makanan)
     def _on_pilih_makanan(self, makanan: dict):
-        #pindahin user ke halaman log harian dan bawa data makanannya
         print(f"[MainWindow] Makanan dipilih → {makanan.get('food_name')} ({makanan.get('cal')} kkal)")
-
-        #pindah ke halaman log
         self.navigate("log")
-
-        #open data makanan ke fungsi show tambah makanan
         log_widget = self._page_widgets.get("log")
         if hasattr(log_widget, "show_tambah_makan"):
             log_widget.show_tambah_makan(makanan)

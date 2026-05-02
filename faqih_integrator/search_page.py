@@ -3,22 +3,22 @@ from typing import Callable, List
 
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLineEdit, QPushButton,
-    QLabel, QScrollArea, QFrame, QComboBox, QSizePolicy
+    QLabel, QScrollArea, QFrame, QComboBox, QSizePolicy, QGridLayout
 )
-from PyQt5.QtCore import Qt, QTimer, QDate, pyqtSignal
-from PyQt5.QtGui import QFont
+from PyQt5.QtCore import Qt, QTimer, QDate, pyqtSignal, QPoint, QRect, QSize
+from PyQt5.QtGui import QFont, QCursor
 
 from models import DBHelper
 
-# collor pallate
+# collor pallate matching template_halaman.py
 GREEN_PRIMARY = "#1A7A34"
-GREEN_LIGHT   = "#CAEED4"
-GRAY_BG       = "#f5f7f5"
+GREEN_LIGHT   = "#E8F5E9"
+GRAY_BG       = "transparent"
 GRAY_CARD     = "#ffffff"
-GRAY_BORDER   = "#e0e0e0"
+GRAY_BORDER   = "#e2e8e4"
 GRAY_TEXT     = "#6c757d"
 RED_SOFT      = "#E03030"
-
+C_TEXT_DARK   = "#1C1C1C"
 
 #konfigurasi parameter chip filter makanan
 FILTER_CHIPS = {
@@ -27,12 +27,12 @@ FILTER_CHIPS = {
     "Karbo Tinggi":  ("carb",    40.0, "gte"), 
     "Lemak Rendah":  ("fat",     5.0,  "lte"), #less than or equal
     "Rendah Kalori": ("cal",     100.0,"lte"),
-    "Sayur & Buah":  ("",        0,    ""),
+    "Sayur dan Buah":("",        0,    ""),
     "Minuman":       ("",        0,    ""),
 }
 
 CHIP_NAME_KEYWORDS = {
-    "Sayur & Buah": "sayur buah",
+    "Sayur dan Buah": "sayur buah",
     "Minuman":      "minuman teh kopi susu jus air",
 }
 
@@ -54,7 +54,7 @@ class ChipButton(QPushButton):
     def __init__(self, label: str, parent=None):
         super().__init__(label, parent)
         self.setCursor(Qt.PointingHandCursor)
-        self.setFixedHeight(30)
+        self.setFixedHeight(34)
         self._apply_style(active=False)
 
     def set_active(self, active: bool):
@@ -68,10 +68,10 @@ class ChipButton(QPushButton):
                 QPushButton {{
                     background-color: {GREEN_PRIMARY};
                     color: white;
-                    border: 1.5px solid {GREEN_PRIMARY};
-                    border-radius: 15px;
-                    padding: 0 14px;
-                    font-weight: bold;
+                    border: 1px solid {GREEN_PRIMARY};
+                    border-radius: 17px;
+                    padding: 0 16px;
+                    font-weight: 600;
                     font-size: 12px;
                 }}
             """)
@@ -80,15 +80,16 @@ class ChipButton(QPushButton):
             self.setStyleSheet(f"""
                 QPushButton {{
                     background-color: white;
-                    color: #444;
-                    border: 1.5px solid {GRAY_BORDER};
-                    border-radius: 15px;
-                    padding: 0 14px;
+                    color: #555555;
+                    border: 1px solid {GRAY_BORDER};
+                    border-radius: 17px;
+                    padding: 0 16px;
                     font-size: 12px;
                 }}
                 QPushButton:hover {{
                     border-color: {GREEN_PRIMARY};
                     color: {GREEN_PRIMARY};
+                    background-color: #fcfcfc;
                 }}
             """)
 
@@ -103,13 +104,12 @@ class FoodCard(QFrame):
         self._build()
 
     def _build(self):
-        self.setFixedHeight(80)
         self.setCursor(Qt.PointingHandCursor)
         self.setStyleSheet(f"""
             FoodCard {{
                 background-color: {GRAY_CARD};
-                border: 1px solid {GRAY_BORDER};
-                border-radius: 10px;
+                border: 1px solid rgba(0,0,0,0.06);
+                border-radius: 12px;
             }}
             FoodCard:hover {{
                 border: 1.5px solid {GREEN_PRIMARY};
@@ -117,57 +117,41 @@ class FoodCard(QFrame):
             }}
         """)
 
-        layout = QHBoxLayout(self)
-        layout.setContentsMargins(14, 10, 14, 10)
-        layout.setSpacing(14)
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(16, 16, 16, 16)
+        layout.setSpacing(10)
 
-        icon = QLabel("🍽️")
-        icon.setFixedSize(46, 46)
-        icon.setAlignment(Qt.AlignCenter)
-        icon.setStyleSheet(f"background-color: {GREEN_LIGHT}; border-radius: 8px; font-size: 22px;")
-        layout.addWidget(icon)
-
-        # Blok teks nama + ringkasan nutrisi
-        info = QVBoxLayout()
-        info.setSpacing(2)
-
+        # Name
         name = QLabel(self._data.get("food_name", "-"))
-        name.setFont(QFont("Montserrat Alternates", 11, QFont.Bold))
-        name.setStyleSheet("color: #1a1a1a;")
-        info.addWidget(name)
+        name.setFont(QFont("Montserrat Alternates", 13, QFont.Bold))
+        name.setStyleSheet(f"color: {C_TEXT_DARK}; border: none; background: transparent;")
+        name.setWordWrap(True)
+        layout.addWidget(name)
 
-        # status kalori dan nutrisi makronutrien per 100g
-        nutrisi = QLabel(
-            f"{self._data.get('cal', 0):.0f} kal  ·  "
-            f"P {self._data.get('protein', 0):.1f}g  ·  "
-            f"K {self._data.get('carb', 0):.1f}g  ·  "
-            f"L {self._data.get('fat', 0):.1f}g"
-        )
-        nutrisi.setStyleSheet(f"color: {GRAY_TEXT}; font-size: 11px;")
-        info.addWidget(nutrisi)
-        layout.addLayout(info, 1)
+        # Kalori per 100g
+        cal_label = QLabel(f"{self._data.get('cal', 0):.0f} kal per 100 gram")
+        cal_label.setStyleSheet("color: #888888; font-size: 11px; border: none; background: transparent;")
+        layout.addWidget(cal_label)
 
-        # Tombol pilih memicu log harian
-        btn = QPushButton("+ Pilih")
-        btn.setFixedSize(72, 32)
-        btn.setCursor(Qt.PointingHandCursor)
-        btn.setStyleSheet(f"""
-            QPushButton {{
-                background-color: {GREEN_PRIMARY};
-                color: white;
-                border: none;
-                border-radius: 6px;
-                font-weight: bold;
-                font-size: 12px;
-            }}
-            QPushButton:hover {{ background-color: #155f28; }}
-        """)
-        # emit signal dengan data makanan lengkap
-        btn.clicked.connect(lambda: self.clicked.emit(self._data))
-        layout.addWidget(btn)
+        # Macros container
+        macros_layout = QHBoxLayout()
+        macros_layout.setSpacing(8)
+
+        def make_macro_lbl(title, val, color):
+            lbl = QLabel(f"{title}: {val:.1f}g")
+            lbl.setAlignment(Qt.AlignCenter)
+            lbl.setStyleSheet(f"background-color: {color}; color: white; border-radius: 6px; padding: 4px 8px; font-size: 10px; font-weight: bold; border: none;")
+            return lbl
+
+        macros_layout.addWidget(make_macro_lbl("Protein", self._data.get('protein', 0), "#1A7A34")) # Green
+        macros_layout.addWidget(make_macro_lbl("Karbohidrat", self._data.get('carb', 0), "#2B73B6")) # Blue
+        macros_layout.addWidget(make_macro_lbl("Lemak", self._data.get('fat', 0), "#E29E21")) # Yellow
+        macros_layout.addStretch()
+
+        layout.addLayout(macros_layout)
 
     def mousePressEvent(self, _event):
-        # Klik di mana saja pada card juga trigger signal yang sama
+        # Klik di mana saja pada card memicu signal
         self.clicked.emit(self._data)
 
 #Page Utama Searching filtering dan sorting
@@ -201,49 +185,71 @@ class SearchPage(QWidget):
     def _build_ui(self):
         self.setStyleSheet(f"background-color: {GRAY_BG};")
         root = QVBoxLayout(self)
-        root.setContentsMargins(24, 20, 24, 20)
-        root.setSpacing(14)
+        root.setContentsMargins(32, 28, 32, 28)
+        root.setSpacing(20)
 
         # Baris 1: search bar + dropdown sort
         top = QHBoxLayout()
-        top.setSpacing(10)
+        top.setSpacing(12)
 
         self._search_input = QLineEdit()
-        self._search_input.setPlaceholderText(" Cari nama makanan...")
-        self._search_input.setFixedHeight(40)
+        self._search_input.setPlaceholderText(" 🔍  Cari nama makanan...")
+        self._search_input.setFixedHeight(44)
         self._search_input.setStyleSheet(f"""
             QLineEdit {{
-                border: 1.5px solid {GRAY_BORDER};
-                border-radius: 8px;
-                padding: 0 14px;
+                border: 1px solid {GRAY_BORDER};
+                border-radius: 12px;
+                padding: 0 16px;
                 background: white;
                 font-size: 13px;
+                color: {C_TEXT_DARK};
             }}
-            QLineEdit:focus {{ border-color: {GREEN_PRIMARY}; }}
+            QLineEdit:focus {{ border: 1.5px solid {GREEN_PRIMARY}; }}
         """)
 
         # Setiap perubahan teks me-restart timer debounce
         self._search_input.textChanged.connect(lambda _: self._timer.start())
         top.addWidget(self._search_input, stretch=1)
 
+        self._search_btn = QPushButton("Cari")
+        self._search_btn.setFixedHeight(44)
+        self._search_btn.setCursor(Qt.PointingHandCursor)
+        self._search_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {GREEN_PRIMARY};
+                color: white;
+                border: none;
+                border-radius: 12px;
+                padding: 0 20px;
+                font-weight: 600;
+                font-size: 13px;
+            }}
+            QPushButton:hover {{ background-color: #155f28; }}
+        """)
+        self._search_btn.clicked.connect(self._do_search)
+        top.addWidget(self._search_btn)
+
         sort_lbl = QLabel("Urutkan:")
-        sort_lbl.setStyleSheet(f"color: {GRAY_TEXT}; font-size: 12px;")
+        sort_lbl.setStyleSheet(f"color: {GRAY_TEXT}; font-size: 13px;")
         top.addWidget(sort_lbl)
 
         #dropdown sorting
         self._sort_combo = QComboBox()
-        self._sort_combo.setFixedHeight(40)
-        self._sort_combo.setMinimumWidth(130)
+        self._sort_combo.setFixedHeight(44)
+        self._sort_combo.setMinimumWidth(140)
+        self._sort_combo.setCursor(Qt.PointingHandCursor)
         self._sort_combo.setStyleSheet(f"""
             QComboBox {{
-                border: 1.5px solid {GRAY_BORDER};
-                border-radius: 8px;
-                padding: 0 10px;
+                border: 1px solid {GRAY_BORDER};
+                border-radius: 12px;
+                padding: 0 16px;
                 background: white;
-                font-size: 12px;
+                font-size: 13px;
+                color: {C_TEXT_DARK};
             }}
-            QComboBox:focus {{ border-color: {GREEN_PRIMARY}; }}
-            QComboBox::drop-down {{ border: none; width: 24px; }}
+            QComboBox:focus {{ border: 1.5px solid {GREEN_PRIMARY}; }}
+            QComboBox::drop-down {{ border: none; width: 30px; }}
+            QComboBox::down-arrow {{ image: none; }} /* bisa diganti dgn icon panah */
         """)
 
         for label, key, desc in SORT_OPTIONS:
@@ -252,9 +258,9 @@ class SearchPage(QWidget):
         top.addWidget(self._sort_combo)
         root.addLayout(top)
 
-        # Baris 2: filter chip
+        # Baris 2: filter chip di bawah search bar
         chip_row = QHBoxLayout()
-        chip_row.setSpacing(8)
+        chip_row.setSpacing(10)
         self._chips: dict[str, ChipButton] = {}
         for label in FILTER_CHIPS:
             chip = ChipButton(label)
@@ -265,9 +271,9 @@ class SearchPage(QWidget):
         self._chips["Semua"].set_active(True)
         root.addLayout(chip_row)
 
-        # Baris 4: label status (jumlah hasil / pesan error)
+        # Baris 3: label status (jumlah hasil / pesan error)
         self._status = QLabel("Memuat data...")
-        self._status.setStyleSheet(f"color: {GRAY_TEXT}; font-size: 12px;")
+        self._status.setStyleSheet(f"color: {GRAY_TEXT}; font-size: 12px; margin-top: 4px;")
         root.addWidget(self._status)
 
         # Area scroll untuk daftar FoodCard
@@ -279,39 +285,41 @@ class SearchPage(QWidget):
 
         self._result_container = QWidget()
         self._result_container.setStyleSheet("background: transparent;")
-        self._result_layout = QVBoxLayout(self._result_container)
-        self._result_layout.setContentsMargins(0, 4, 14, 4)
-        self._result_layout.setSpacing(8)
-
-        # Stretch di akhir mendorong card ke atas, bukan terpusat di tengah
-        self._result_layout.addStretch()
+        self._result_layout = QGridLayout(self._result_container)
+        self._result_layout.setContentsMargins(0, 4, 16, 4)
+        self._result_layout.setSpacing(16)
+        self._result_layout.setAlignment(Qt.AlignTop)
+        self._result_layout.setColumnStretch(0, 1)
+        self._result_layout.setColumnStretch(1, 1)
+        self._result_layout.setColumnStretch(2, 1)
 
         scroll.setWidget(self._result_container)
-        # Row baru di bawah scroll area
-        pagination_row = QHBoxLayout()
-
         root.addWidget(scroll, stretch=1)
 
+        # Row pagination di paling bawah (tombol prev dan next)
+        pagination_row = QHBoxLayout()
+        pagination_row.setContentsMargins(0, 12, 0, 0)
+        
         pagination_row.addStretch()
 
         self._pagination_label = QLabel("")
-        self._pagination_label.setStyleSheet(f"color: {GRAY_TEXT}; font-size: 11px;")
+        self._pagination_label.setStyleSheet(f"color: {GRAY_TEXT}; font-size: 12px;")
         pagination_row.addWidget(self._pagination_label)
 
         pagination_row.addStretch()
 
         self._prev_btn = QPushButton("← Prev")
-        self._prev_btn.setFixedHeight(34)
+        self._prev_btn.setFixedHeight(38)
         self._prev_btn.setCursor(Qt.PointingHandCursor)
         self._prev_btn.setStyleSheet(f"""
             QPushButton {{
                 background-color: white;
                 color: {GREEN_PRIMARY};
-                border: 1.5px solid {GREEN_PRIMARY};
+                border: 1px solid {GREEN_PRIMARY};
                 border-radius: 8px;
-                padding: 0 14px;
-                font-weight: bold;
-                font-size: 12px;
+                padding: 0 16px;
+                font-weight: 600;
+                font-size: 13px;
             }}
             QPushButton:hover {{ background-color: {GREEN_LIGHT}; }}
             QPushButton:disabled {{
@@ -325,13 +333,13 @@ class SearchPage(QWidget):
 
         self._page_label = QLabel("")
         self._page_label.setAlignment(Qt.AlignCenter)
-        self._page_label.setFixedWidth(90)
-        self._page_label.setStyleSheet(f"color: {GRAY_TEXT}; font-size: 12px;")
+        self._page_label.setFixedWidth(100)
+        self._page_label.setStyleSheet(f"color: {C_TEXT_DARK}; font-size: 13px; font-weight: bold;")
         self._page_label.hide()
         pagination_row.addWidget(self._page_label)
 
         self._next_btn = QPushButton("Next →")
-        self._next_btn.setFixedHeight(34)
+        self._next_btn.setFixedHeight(38)
         self._next_btn.setCursor(Qt.PointingHandCursor)
         self._next_btn.setStyleSheet(f"""
             QPushButton {{
@@ -339,9 +347,9 @@ class SearchPage(QWidget):
                 color: white;
                 border: none;
                 border-radius: 8px;
-                padding: 0 14px;
-                font-weight: bold;
-                font-size: 12px;
+                padding: 0 16px;
+                font-weight: 600;
+                font-size: 13px;
             }}
             QPushButton:hover {{ background-color: #155f28; }}
             QPushButton:disabled {{
@@ -397,7 +405,7 @@ class SearchPage(QWidget):
         return sorted(data, key=lambda m: m.get(self._sort_key, 0) or 0, reverse=self._sort_desc)
 
     def _render(self, results: List[dict]):
-        while self._result_layout.count() > 1:
+        while self._result_layout.count():
             item = self._result_layout.takeAt(0)
             if item.widget():
                 item.widget().deleteLater()
@@ -405,7 +413,7 @@ class SearchPage(QWidget):
         if not results:
             self._show_empty_state()
             self._status.setText(" Makanan tidak ditemukan.")
-            self._status.setStyleSheet(f"color: {RED_SOFT}; font-size: 12px;")
+            self._status.setStyleSheet(f"color: {RED_SOFT}; font-size: 13px;")
             return
 
         q    = self._search_input.text().strip()
@@ -420,18 +428,25 @@ class SearchPage(QWidget):
             info += f"  ·  filter: {chip}"
 
         self._status.setText(info)
-        self._status.setStyleSheet(f"color: {GRAY_TEXT}; font-size: 12px;")
+        self._status.setStyleSheet(f"color: {GRAY_TEXT}; font-size: 13px;")
 
+        row = 0
+        col = 0
         for mkn in results:
             card = FoodCard(mkn)
+            card.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
             card.clicked.connect(self._on_card_click)
-            self._result_layout.insertWidget(self._result_layout.count() - 1, card)
+            self._result_layout.addWidget(card, row, col)
+            col += 1
+            if col > 2:
+                col = 0
+                row += 1
 
     def _show_empty_state(self):
         empty = QLabel("\n\nMakanan tidak ditemukan.\nCoba kata kunci lain atau ubah filter.")
         empty.setAlignment(Qt.AlignCenter)
-        empty.setStyleSheet(f"color: {GRAY_TEXT}; font-size: 13px; padding: 40px;")
-        self._result_layout.insertWidget(0, empty)
+        empty.setStyleSheet(f"color: {GRAY_TEXT}; font-size: 14px; padding: 40px;")
+        self._result_layout.addWidget(empty, 0, 0, 1, 3)
 
     def _on_card_click(self, makanan: dict):
         print(f"[SearchPage] Dipilih: {makanan.get('food_name')}")
@@ -475,3 +490,4 @@ class SearchPage(QWidget):
 
         self._next_btn.setEnabled(self._current_page < self._total_pages)
         self._next_btn.show()
+

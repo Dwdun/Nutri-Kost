@@ -19,8 +19,12 @@ def main():
     app = QApplication(sys.argv)
     app.setApplicationName("NutriKost")
 
-    font_id = QFontDatabase.addApplicationFont("assets/MontserratAlternates-Regular.ttf")
-    QFontDatabase.addApplicationFont("assets/MontserratAlternates-Bold.ttf")
+    QFontDatabase.addApplicationFont("assets/fonts/MontserratAlternates-Regular.ttf")
+    QFontDatabase.addApplicationFont("assets/fonts/MontserratAlternates-Bold.ttf")
+    QFontDatabase.addApplicationFont("assets/fonts/Poppins-Regular.ttf")
+    QFontDatabase.addApplicationFont("assets/fonts/Poppins-Medium.ttf")
+    QFontDatabase.addApplicationFont("assets/fonts/Poppins-SemiBold.ttf")
+    QFontDatabase.addApplicationFont("assets/fonts/Poppins-Bold.ttf")
 
     #tampilan lintas OS yang konsisten (Windows, Linux, Mac sama ratanya)
     app.setStyle("Fusion")
@@ -29,22 +33,22 @@ def main():
     # Tiap anggota tidak perlu set font/scrollbar sendiri-sendiri.
     app.setStyleSheet("""
         QWidget {
-            font-family:  'Montserrat Alternates', 'Segoe UI', Arial, sans-serif;
+            font-family: 'Poppins', 'Segoe UI', Arial, sans-serif;
             font-size: 13px;
         }
         QScrollBar:vertical {
             border: none;
-            background: #f0f0f0;
+            background: transparent;
             width: 8px;
             border-radius: 4px;
         }
         QScrollBar::handle:vertical {
-            background: #c0c0c0;
+            background: rgba(0, 0, 0, 0.2);
             border-radius: 4px;
             min-height: 20px;
         }
         QScrollBar::handle:vertical:hover {
-            background: #a0a0a0;
+            background: rgba(0, 0, 0, 0.3);
         }
         /* Sembunyikan tombol panah scrollbar agar terlihat minimalis */
         QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
