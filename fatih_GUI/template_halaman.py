@@ -42,7 +42,7 @@ SIDEBAR_COL   = 76    # lebar sidebar saat collapse (px)
 HEADER_H      = 76    # tinggi header bar (px)
 ANIM_MS       = 280   # durasi animasi (ms)
 PATTERN_TILE  = 150   # ukuran tile pattern (px)
-PATTERN_ALPHA = 0.07  # transparansi pattern
+PATTERN_ALPHA = 0.1  # transparansi pattern
 
 NAV_ITEM_H    = 48    # tinggi tiap nav item (px)
 NAV_ICON_W    = 76    # lebar kolom icon (sama dgn SIDEBAR_COL)
