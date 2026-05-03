@@ -2,6 +2,7 @@ import os
 import json
 import re
 import sqlite3
+import random
 import google.generativeai as genai
 from thefuzz import process
 
@@ -71,15 +72,54 @@ def get_or_fetch_resep(nama_makanan_input):
     conn.close()
     return bahan_dari_ai
 
+def simpan_ke_makanan_master(nama_makanan, cal_100g, pro_100g, carb_100g, fat_100g):
+    """Menyimpan hasil kalkulasi nutrisi per 100g ke tabel Makanan"""
+    db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'nutrikost.db')
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+
+    # Membuat kode unik: AI + 3 Huruf Pertama + 4 Angka Random (Contoh: AI-AYA-1234)
+    huruf = re.sub(r'[^a-zA-Z]', '', nama_makanan).upper()
+    prefix = huruf[:3] if len(huruf) >= 3 else huruf.ljust(3, 'X')
+    kode_makanan = f"AI-{prefix}-{random.randint(1000, 9999)}"
+
+    try:
+        # Menyisipkan data sesuai dengan kolom tabel Makanan
+        # Kolom water dan fiber dikosongkan (0.0) karena AI belum bisa memprediksinya dengan akurat
+        cursor.execute('''
+            INSERT INTO Makanan (code, food_name, water, cal, protein, fat, carb, fiber)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (kode_makanan, nama_makanan.title(), 0.0, round(cal_100g, 2), round(pro_100g, 2), round(fat_100g, 2), round(carb_100g, 2), 0.0))
+        conn.commit()
+        print(f"\n[INSERT MASTER] Berhasil mendaftarkan '{nama_makanan.title()}' ke tabel Makanan dengan kode: {kode_makanan}")
+    except sqlite3.IntegrityError:
+        print(f"\n[INFO] Makanan '{nama_makanan}' sudah ada di tabel Makanan.")
+    except Exception as e:
+        print(f"\n[Error] Gagal menyimpan ke tabel Makanan: {e}")
+    finally:
+        conn.close()
+
 #Prompt Gemini
 def bongkar_resep_dengan_gemini(nama_makanan):
     prompt = f"""
-    Sebutkan bahan-bahan mentah utama untuk membuat masakan '{nama_makanan}'.
-    Berikan respons HANYA dalam format JSON array of strings.
-    Setiap string HARUS memiliki format yang kaku: "[Angka] [Satuan] [Nama Bahan]".
-    Pilihan satuan yang diperbolehkan hanya: gram, gr, sdm, sdt, siung, ekor, genggam, pcs, buah.
-    Contoh output yang benar: ["100 gram daging ayam", "2 siung bawang putih", "1 sdm minyak goreng", "5 buah cabai rawit"]
+    Sebutkan bahan-bahan mentah utama untuk membuat 1 PORSI masakan '{nama_makanan}'.
+    
+    ATURAN SANGAT PENTING:
+    1. SKALA PORSI: Takaran HARUS disesuaikan untuk 1 PORSI standar makan 1 orang.
+    2. KONVERSI WAJIB KE GRAM: Kamu HARUS menakar dan mengonversi SEMUA bahan ke dalam satuan "gram". 
+       - JANGAN PERNAH menggunakan satuan buah, siung, sdm, sdt, ikat, atau lembar.
+       - Gunakan logika dan pengetahuanmu tentang berat asli bahan! (Contoh: 5 buah cabai rawit = ~10 gram, 1 siung bawang putih = ~3 gram, 1 sdm minyak = ~15 gram).
+       - Jika angkanya desimal, gunakan titik (misal: 2.5 gram).
+    3. PENAMAAN BAHAN: Nama bahan HARUS spesifik ke bahan mentah. 
+       - Wajib gunakan "daging ayam", "daging sapi" (bukan sekadar "ayam" atau "sapi").
+       - Jika resepnya berbahan dasar nasi, gunakan "beras putih matang".
+    4. FORMAT: Berikan respons HANYA dalam format JSON array of strings tanpa blok markdown.
+    5. STRUKTUR TEKS: Setiap string HARUS memiliki format kaku: "[Angka] gram [Nama Bahan Baku]".
+    
+    Contoh output yang benar untuk 1 porsi (misal input: ayam geprek): 
+    ["150 gram daging ayam", "6 gram bawang putih", "15 gram minyak goreng", "10 gram cabai rawit", "20 gram tepung terigu"]
     """
+    
     try:
         response = model.generate_content(
             prompt,
