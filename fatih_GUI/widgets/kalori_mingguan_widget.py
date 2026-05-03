@@ -23,7 +23,7 @@ from PyQt5.QtWidgets import (
     QFrame, QSizePolicy, QApplication,
 )
 from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QFont, QColor
+from PyQt5.QtGui import QFont, QColor, QFontDatabase
 
 import matplotlib
 matplotlib.use('Agg')  # non-interactive backend
@@ -179,7 +179,7 @@ class KaloriMingguanWidget(QWidget):
     # ── Build UI ──────────────────────────────
     def _build_ui(self):
         root = QVBoxLayout(self)
-        root.setContentsMargins(24, 20, 24, 20)
+        root.setContentsMargins(0, 16, 0, 0)
         root.setSpacing(0)
 
         # ── Container utama dengan border rounded ──
@@ -194,6 +194,7 @@ class KaloriMingguanWidget(QWidget):
         container_layout = QVBoxLayout(container)
         container_layout.setContentsMargins(24, 20, 24, 24)
         container_layout.setSpacing(16)
+        container_layout.setAlignment(Qt.AlignTop)
 
         # ── Judul ──
         title = QLabel('Asupan Kalori minggu ini')
@@ -278,7 +279,7 @@ class KaloriMingguanWidget(QWidget):
 
         canvas = FigureCanvas(fig)
         canvas.setStyleSheet('background: transparent; border: none;')
-        canvas.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        canvas.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         canvas.setMinimumHeight(250)
         return canvas
 
@@ -343,7 +344,7 @@ class KaloriMingguanWidget(QWidget):
             }}
         """)
         card.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        card.setFixedHeight(90)
+        card.setFixedHeight(120)
 
         layout = QVBoxLayout(card)
         layout.setContentsMargins(12, 10, 12, 10)
@@ -401,6 +402,13 @@ class KaloriMingguanWidget(QWidget):
 # ═════════════════════════════════════════════
 if __name__ == '__main__':
     app = QApplication(sys.argv)
+    
+    # Load custom fonts untuk standalone preview
+    if os.path.isdir(_FONTS_DIR):
+        for fname in os.listdir(_FONTS_DIR):
+            if fname.lower().endswith(('.ttf', '.otf')):
+                QFontDatabase.addApplicationFont(os.path.join(_FONTS_DIR, fname))
+
     app.setStyle('Fusion')
 
     # Preview window sederhana
