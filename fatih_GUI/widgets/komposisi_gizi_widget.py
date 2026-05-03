@@ -167,7 +167,7 @@ class KomposisiGiziWidget(QWidget):
     # ── Build UI ──────────────────────────────
     def _build_ui(self):
         root = QVBoxLayout(self)
-        root.setContentsMargins(24, 20, 24, 20)
+        root.setContentsMargins(0, 16, 0, 0)
         root.setSpacing(0)
 
         # ── Container utama dengan border rounded ──
@@ -182,6 +182,7 @@ class KomposisiGiziWidget(QWidget):
         container_layout = QVBoxLayout(container)
         container_layout.setContentsMargins(24, 20, 24, 24)
         container_layout.setSpacing(16)
+        container_layout.setAlignment(Qt.AlignTop)
 
         # ── Judul ──
         title = QLabel('Makronutrien Minggu Ini')

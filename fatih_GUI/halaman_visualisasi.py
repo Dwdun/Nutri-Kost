@@ -11,7 +11,7 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtCore import Qt
 from PyQt5.QtPrintSupport import QPrinter
-from PyQt5.QtGui import QPainter
+from PyQt5.QtGui import QPainter, QPageLayout, QFont
 
 import matplotlib.backends.backend_pdf as pdf_backend
 from matplotlib.figure import Figure
@@ -56,6 +56,7 @@ class HalamanVisualisasi(PageTemplate):
 
         # ── Tombol Export PDF dipindah ke sebelah judul ──
         self._btn_export = QPushButton('↓  Export PDF')
+        self._btn_export.setFont(QFont('Poppins', 10, QFont.Bold))
         self._btn_export.setCursor(Qt.PointingHandCursor)
         self._btn_export.setStyleSheet("""
             QPushButton {
@@ -64,7 +65,7 @@ class HalamanVisualisasi(PageTemplate):
                 border: 2px solid #1A7A34;
                 border-radius: 12px;
                 padding: 10px 24px;
-                font-family: Poppins;
+                font-family: 'Poppins';
                 font-size: 13px;
                 font-weight: bold;
             }
@@ -112,8 +113,10 @@ class HalamanVisualisasi(PageTemplate):
         row = QHBoxLayout()
         row.setSpacing(12)
         
+        font = QFont('Poppins', 10, QFont.Bold)
         for i, label in enumerate(TAB_LABELS):
             btn = QPushButton(label)
+            btn.setFont(font)
             btn.clicked.connect(partial(self._on_tab_clicked, i))
             self._tab_buttons.append(btn)
             row.addWidget(btn)
@@ -157,7 +160,7 @@ class HalamanVisualisasi(PageTemplate):
                         border: none;
                         border-radius: 20px;
                         padding: 10px 24px;
-                        font-family: Poppins;
+                        font-family: 'Poppins';
                         font-size: 13px;
                         font-weight: bold;
                     }
@@ -170,7 +173,7 @@ class HalamanVisualisasi(PageTemplate):
                         border: 2px solid #1A7A34;
                         border-radius: 20px;
                         padding: 10px 24px;
-                        font-family: Poppins;
+                        font-family: 'Poppins';
                         font-size: 13px;
                         font-weight: bold;
                     }
@@ -198,12 +201,8 @@ class HalamanVisualisasi(PageTemplate):
             file_path += '.pdf'
         
         try:
-            if self._active_tab == 0:
-                self._export_kalori(file_path)
-            elif self._active_tab == 1:
-                self._export_komposisi(file_path)
-            elif self._active_tab == 2:
-                self._export_top10(file_path)
+            widget_to_export = self._stack.widget(self._active_tab)
+            self._export_widget_to_pdf(widget_to_export, file_path)
             
             QMessageBox.information(
                 self, 'Berhasil',
@@ -215,57 +214,42 @@ class HalamanVisualisasi(PageTemplate):
                 f'Terjadi kesalahan:\n{str(e)}'
             )
 
-    def _export_kalori(self, file_path: str):
-        fig = self._w_kalori._canvas.figure
-        fig.savefig(
-            file_path,
-            format='pdf',
-            bbox_inches='tight',
-            facecolor='white',
-            dpi=150,
-        )
-
-    def _export_komposisi(self, file_path: str):
-        with pdf_backend.PdfPages(file_path) as pdf:
-            fig_pie = self._w_komposisi._canvas.figure
-            pdf.savefig(fig_pie, bbox_inches='tight', facecolor='white')
-            
-            # Detail Makro: grab sebagai gambar lalu taruh di figure baru
-            pixmap = self._w_detail.grab()
-            buf = pixmap.toImage()
-            # Simpan ke buffer sementara
-            import tempfile, os
-            tmp = tempfile.NamedTemporaryFile(suffix='.png', delete=False)
-            buf.save(tmp.name)
-            tmp.close()
-            
-            fig_detail = Figure(figsize=(8, 4))
-            ax = fig_detail.add_subplot(111)
-            ax.imshow(imread(tmp.name))
-            ax.axis('off')
-            pdf.savefig(fig_detail, bbox_inches='tight')
-            os.unlink(tmp.name)
-
-    def _export_top10(self, file_path: str):
+    def _export_widget_to_pdf(self, widget: QWidget, file_path: str):
+        """Mengekspor isi dari widget secara persis (WYSIWYG) ke PDF A4 Landscape."""
         printer = QPrinter(QPrinter.HighResolution)
         printer.setOutputFormat(QPrinter.PdfFormat)
         printer.setOutputFileName(file_path)
         printer.setPageSize(QPrinter.A4)
+        printer.setPageOrientation(QPageLayout.Landscape)
         printer.setPageMargins(10, 10, 10, 10, QPrinter.Millimeter)
         
         painter = QPainter()
-        painter.begin(printer)
-        
-        widget = self._w_top10
-        # Scale agar muat di halaman A4
+        if not painter.begin(printer):
+            raise Exception("Gagal memulai proses render PDF.")
+            
         page_rect = printer.pageRect()
-        widget_size = widget.size()
-        x_scale = page_rect.width() / widget_size.width()
-        y_scale = page_rect.height() / widget_size.height()
-        scale = min(x_scale, y_scale, 1.0)
         
-        painter.scale(scale, scale)
-        widget.render(painter)
+        # Pastikan background putih
+        painter.fillRect(page_rect, Qt.white)
+        
+        # Ambil screenshot widget yang sedang tampil
+        pixmap = widget.grab()
+        rect = pixmap.rect()
+        
+        if rect.width() > 0 and rect.height() > 0:
+            # Hitung skala agar muat 1 halaman Landscape penuh
+            x_scale = page_rect.width() / rect.width()
+            y_scale = page_rect.height() / rect.height()
+            scale = min(x_scale, y_scale, 9.0)
+            
+            # Posisikan gambar di tengah halaman
+            x_offset = (page_rect.width() - (rect.width() * scale)) / 2.0
+            y_offset = (page_rect.height() - (rect.height() * scale)) / 2.0
+            
+            painter.translate(x_offset, y_offset)
+            painter.scale(scale, scale)
+            painter.drawPixmap(0, 0, pixmap)
+            
         painter.end()
 
 

@@ -179,7 +179,7 @@ class KaloriMingguanWidget(QWidget):
     # ── Build UI ──────────────────────────────
     def _build_ui(self):
         root = QVBoxLayout(self)
-        root.setContentsMargins(0, 0, 0, 0)
+        root.setContentsMargins(0, 16, 0, 0)
         root.setSpacing(0)
 
         # ── Container utama dengan border rounded ──
@@ -192,8 +192,9 @@ class KaloriMingguanWidget(QWidget):
             }}
         """)
         container_layout = QVBoxLayout(container)
-        container_layout.setContentsMargins(20, 16, 20, 20)
+        container_layout.setContentsMargins(24, 20, 24, 24)
         container_layout.setSpacing(16)
+        container_layout.setAlignment(Qt.AlignTop)
 
         # ── Judul ──
         title = QLabel('Asupan Kalori minggu ini')
@@ -278,7 +279,7 @@ class KaloriMingguanWidget(QWidget):
 
         canvas = FigureCanvas(fig)
         canvas.setStyleSheet('background: transparent; border: none;')
-        canvas.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        canvas.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         canvas.setMinimumHeight(250)
         return canvas
 
