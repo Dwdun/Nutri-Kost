@@ -123,8 +123,8 @@ class FoodCard(QFrame):
 
         # Name
         name = QLabel(self._data.get("food_name", "-"))
-        name.setFont(QFont("Montserrat Alternates", 13, QFont.Bold))
-        name.setStyleSheet(f"color: {C_TEXT_DARK}; border: none; background: transparent;")
+        name.setFont(QFont("Montserrat", 13))
+        name.setStyleSheet(f"color: {C_TEXT_DARK}; border: none; background: transparent; font-family: 'Montserrat'; font-size: 16px;")
         name.setWordWrap(True)
         layout.addWidget(name)
 
@@ -140,7 +140,7 @@ class FoodCard(QFrame):
         def make_macro_lbl(title, val, color):
             lbl = QLabel(f"{title}: {val:.1f}g")
             lbl.setAlignment(Qt.AlignCenter)
-            lbl.setStyleSheet(f"background-color: {color}; color: white; border-radius: 6px; padding: 4px 8px; font-size: 10px; font-weight: bold; border: none;")
+            lbl.setStyleSheet(f"background-color: {color}; color: white; border-radius: 6px; padding: 4px 8px; font-size: 10px; font-weight: normal; border: none;")
             return lbl
 
         macros_layout.addWidget(make_macro_lbl("Protein", self._data.get('protein', 0), "#1A7A34")) # Green
@@ -188,12 +188,24 @@ class SearchPage(QWidget):
         root.setContentsMargins(32, 28, 32, 28)
         root.setSpacing(20)
 
+        # ── Judul halaman ─────────────────────────────────────────────────────
+        lbl_title = QLabel("Cari Makanan")
+        lbl_title.setFont(QFont("Montserrat Alternates", 32, QFont.Bold))
+        lbl_title.setStyleSheet(f"color: {C_TEXT_DARK}; background: transparent; border: none; font-family: 'Montserrat Alternates'; font-size: 32px; font-weight: bold;")
+
+        lbl_sub = QLabel("Temukan informasi nilai gizi dari berbagai makanan")
+        lbl_sub.setFont(QFont("Montserrat", 10))
+        lbl_sub.setStyleSheet(f"color: {GRAY_TEXT}; background: transparent; border: none; font-family: 'Montserrat'; font-size: 14px;")
+
+        root.addWidget(lbl_title)
+        root.addWidget(lbl_sub)
+
         # Baris 1: search bar + dropdown sort
         top = QHBoxLayout()
         top.setSpacing(12)
 
         self._search_input = QLineEdit()
-        self._search_input.setPlaceholderText(" 🔍  Cari nama makanan...")
+        self._search_input.setPlaceholderText("  Cari nama makanan...")
         self._search_input.setFixedHeight(44)
         self._search_input.setStyleSheet(f"""
             QLineEdit {{
