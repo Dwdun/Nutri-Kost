@@ -57,9 +57,12 @@ class TambahPopup(QWidget):
         self.nama.view().window().setAttribute(Qt.WA_TranslucentBackground)
 
         food_names = []
-        for food in self.db.GetAllFoods():
-            self.nama.addItem(food["food_name"], food["code"])
-            food_names.append(food["food_name"])
+        try:
+            for food in self.db.GetAllFoods():
+                self.nama.addItem(food["food_name"], food["code"])
+                food_names.append(food["food_name"])
+        except Exception as e:
+            print(f"[TambahPopup] Mocking GetAllFoods due to DB error: {e}")
 
         completer = QCompleter(food_names, self.nama)
         completer.setCaseSensitivity(Qt.CaseInsensitive)
@@ -491,7 +494,11 @@ class LogPage(QWidget):
             self.rows_layout.addWidget(lbl, 0, col)
 
         # Fetch Raw Logs
-        logs = self.db.ReadLog() or []
+        try:
+            logs = self.db.ReadLog() or []
+        except Exception as e:
+            print(f"[LogPage] Mocking logs due to DB error: {e}")
+            logs = []
         
         search_query = self.search_bar.text().lower()
         selected_waktu = self.filter_waktu.currentText()

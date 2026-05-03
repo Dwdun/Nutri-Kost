@@ -493,8 +493,8 @@ class HalamanDataDiri(QWidget):
         tl.addWidget(lbl_tgt)
 
         self.val_cal = QLabel("2100 kkal/hari")
-        self.val_cal.setFont(QFont('Montserrat Alternates SemiBold', 22))
-        self.val_cal.setStyleSheet("color: white; background: transparent;")
+        self.val_cal.setFont(QFont('Montserrat Alternates SemiBold', 26))
+        self.val_cal.setStyleSheet("color: #115724; background: transparent; font-weight: bold;")
         tl.addWidget(self.val_cal)
         
         lbl_note = QLabel("Berdasarkan BMR + tingkat aktivitas (bisa diubah)")
@@ -779,7 +779,7 @@ class EditProfileDialog(QDialog):
 # ==========================================
 # MAIN DASHBOARD / PROFILE 
 # ==========================================
-class ProfilApp(PageTemplate):
+class ProfilApp(QWidget):
     PAGE_NAME = 'Profile'
     PAGE_DESC = 'Data diri dan target nutrisi harianmu'
     NAV_INDEX = 5
@@ -788,46 +788,22 @@ class ProfilApp(PageTemplate):
     refresh_me = pyqtSignal()
 
     def __init__(self, sistem: ProfilSystem):
-        self._sistem = sistem
         super().__init__()
+        self._sistem = sistem
 
-        # Fix Sidebar text clipping for long names/emails
-        self._sidebar._username_lbl.setWordWrap(True)
-        self._sidebar._email_lbl.setWordWrap(True)
-        # Ensure the info column can grow
-        self._sidebar._info_col.setMinimumHeight(40) 
+        self.setStyleSheet("background-color: transparent;")
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(32, 28, 32, 28)
+        layout.setSpacing(20)
 
-        # Modify PageTemplate logout to trigger our app switch
-        self._sidebar._logout_btn.clicked.connect(self._aksi_logout)
+        self.build_content(layout)
 
     def _aksi_logout(self):
         self._sistem.current_profil = None
         self.logout_signal.emit()
 
-    def build_content(self, container: QWidget):
-        
-        # Hide default titles from PageTemplate to avoid duplication
-        self._page_title.setVisible(False)
-        self._page_desc.setVisible(False)
-
-        # Override the header slightly
-        self._header.set_page_name("Profile")
-
-        # Container is already laid out. We will create the UI inside.
-        layout = container.layout()
-        
+    def build_content(self, layout: QVBoxLayout):
         profil = self._sistem.current_profil or {}
-        
-        # Ensure sidebar updates its email & name
-        if hasattr(self, '_sidebar'):
-            self._sidebar._email_lbl.setText(profil.get("email", "unknown@mail.com"))
-            self._sidebar._username_lbl.setText(profil.get("full_name", "Profile"))
-            
-            # Uncheck active sidebar states because we are in the profile page out-of-band mode!
-            for nav in self._sidebar._nav_items:
-                nav.setAutoExclusive(False)
-                nav.setChecked(False)
-                nav.setAutoExclusive(True)
         
         # Top Header Area
         top_row = QHBoxLayout()
@@ -871,6 +847,24 @@ class ProfilApp(PageTemplate):
             }}
         """)
         top_row.addWidget(self.btn_edit)
+
+        self.btn_keluar = QPushButton("Keluar")
+        self.btn_keluar.setFixedSize(120, 52)
+        self.btn_keluar.setCursor(Qt.PointingHandCursor)
+        self.btn_keluar.setFont(font_label(10, bold=True))
+        self.btn_keluar.setStyleSheet(f"""
+            QPushButton {{
+                background-color: #E03030;
+                color: white;
+                border-radius: 12px;
+                padding: 0 16px;
+            }}
+            QPushButton:hover {{
+                background-color: #B71C1C;
+            }}
+        """)
+        self.btn_keluar.clicked.connect(self._aksi_logout)
+        top_row.addWidget(self.btn_keluar)
         
         # Insert top_row at the beginning of the layout
         layout.insertLayout(0, top_row)

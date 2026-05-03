@@ -10,10 +10,66 @@ sys.path.insert(0, os.path.join(BASE, "irfan_calculator"))  # log_page
 sys.path.insert(0, os.path.join(BASE, "anindya_profil"))    # profil_page 
 sys.path.insert(0, os.path.join(BASE, "fatih_GUI"))         # dashboard, chart 
 
-from PyQt5.QtWidgets import QApplication
+from PyQt5.QtWidgets import QApplication, QMainWindow, QStackedWidget
 from PyQt5.QtGui import QFontDatabase
 
 from main_window import MainWindow
+from profil_system import ProfilSystem
+from test import HalamanLogin, HalamanRegister, HalamanDataDiri, AuthBaseWidget
+
+class AppLauncher(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("NutriKost")
+        self.resize(1200, 720)
+        self._sistem = ProfilSystem()
+
+        self.stack = QStackedWidget()
+        self.setCentralWidget(self.stack)
+
+        self.init_auth_flow()
+        self.show_login()
+
+    def init_auth_flow(self):
+        self.login_p = HalamanLogin(self._sistem)
+        self.register_p = HalamanRegister()
+        self.datadiri_p = HalamanDataDiri(self._sistem)
+
+        self.login_wrapper = AuthBaseWidget(self.login_p)
+        self.register_wrapper = AuthBaseWidget(self.register_p)
+        self.datadiri_wrapper = AuthBaseWidget(self.datadiri_p)
+
+        self.login_p.go_register.connect(self.show_register)
+        self.login_p.login_success.connect(self.show_dashboard)
+        
+        self.register_p.go_datadiri.connect(self.show_datadiri)
+        self.datadiri_p.register_success.connect(self.show_dashboard)
+
+        self.stack.addWidget(self.login_wrapper)
+        self.stack.addWidget(self.register_wrapper)
+        self.stack.addWidget(self.datadiri_wrapper)
+
+    def show_login(self):
+        self.stack.setCurrentWidget(self.login_wrapper)
+        
+    def show_register(self):
+        self.stack.setCurrentWidget(self.register_wrapper)
+
+    def show_datadiri(self, data):
+        self.datadiri_p.register_data = data
+        self.stack.setCurrentWidget(self.datadiri_wrapper)
+
+    def show_dashboard(self):
+        self.dashboard = MainWindow(self._sistem)
+        self.dashboard.logout_signal.connect(self.handle_logout)
+        self.stack.addWidget(self.dashboard)
+        self.stack.setCurrentWidget(self.dashboard)
+        
+    def handle_logout(self):
+        self.stack.removeWidget(self.dashboard)
+        self.dashboard.deleteLater()
+        self.dashboard = None
+        self.show_login()
 
 def main():
     app = QApplication(sys.argv)
@@ -75,7 +131,7 @@ def main():
         }
     """)
 
-    window = MainWindow()
+    window = AppLauncher()
     window.showMaximized()
 
     # app.exec_() memulai event loop — aplikasi "hidup" di sini sampai window ditutup.
