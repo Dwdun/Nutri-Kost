@@ -17,6 +17,9 @@ beautifulsoup4>=4.12.0 # Parsing HTML hasil scraping
 google-generativeai
 openai
 
+#Visualisasi Data
+matplotlib
+
 # Database :
 # sqlite3 sudah built-in di Python (tidak perlu install)
 
