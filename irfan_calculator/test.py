@@ -311,7 +311,7 @@ class DashboardPage(PageTemplate):
         self.search_bar.setPlaceholderText("Cari Makanan ...")
         self.search_bar.setFixedSize(200, 40)
 
-        search_icon = QIcon(r".\assets\search_icon.png")
+        search_icon = QIcon(r"./assets/search_icon.png")
         self.search_bar.addAction(search_icon, QLineEdit.LeadingPosition)
 
         self.search_bar.setStyleSheet("""
@@ -524,22 +524,45 @@ class DashboardPage(PageTemplate):
                 
                 self.rows_layout.addWidget(lbl, row_idx, col_idx)
 
-            # Edit Button
-            btn_edit = QPushButton("Edit")
+            # --- Edit Button ---
+            btn_edit = QPushButton()
             btn_edit.setFixedSize(30, 30)
+            btn_edit.setCursor(Qt.PointingHandCursor)
+            
+            # Apply the style with Icon states
             btn_edit.setStyleSheet("""
-                QPushButton { background-color: #1A7A34; color: white; border-radius: 6px;}
-                QPushButton:hover { background-color: white; color: #1A7A34; border: 1px solid #1A7A34; }
+                QPushButton { 
+                    background-color: #1A7A34; 
+                    border-radius: 6px;
+                    qproperty-icon: url('assets/icons/edit_white.png'); 
+                    qproperty-iconSize: 18px;
+                }
+                QPushButton:hover { 
+                    background-color: white; 
+                    border: 1px solid #1A7A34; 
+                    qproperty-icon: url('assets/icons/edit_green.png'); 
+                }
             """)
             btn_edit.clicked.connect(lambda _, e=entry: self.open_popup(e))
             self.rows_layout.addWidget(btn_edit, row_idx, 7)
 
-            # Delete Button
-            btn_delete = QPushButton("Del")
+            # --- Delete Button ---
+            btn_delete = QPushButton()
             btn_delete.setFixedSize(30, 30)
+            btn_delete.setCursor(Qt.PointingHandCursor)
+            
             btn_delete.setStyleSheet("""
-                QPushButton { background-color: #E03030; color: white; border-radius: 6px;}
-                QPushButton:hover { background-color: white; color: #E03030; border: 1px solid #E03030; }
+                QPushButton { 
+                    background-color: #E03030; 
+                    border-radius: 6px;
+                    qproperty-icon: url('assets/icons/delete_white.png'); 
+                    qproperty-iconSize: 18px;
+                }
+                QPushButton:hover { 
+                    background-color: white; 
+                    border: 1px solid #E03030; 
+                    qproperty-icon: url('assets/icons/delete_red.png'); 
+                }
             """)
             btn_delete.clicked.connect(lambda _, id=entry['id_log']: self.delete_entry(id))
             self.rows_layout.addWidget(btn_delete, row_idx, 8)
