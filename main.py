@@ -57,7 +57,7 @@ def main():
     """)
 
     window = MainWindow()
-    window.show()
+    window.showMaximized()
 
     # app.exec_() memulai event loop — aplikasi "hidup" di sini sampai window ditutup.
     sys.exit(app.exec_())
