@@ -74,12 +74,24 @@ def get_or_fetch_resep(nama_makanan_input):
 #Prompt Gemini
 def bongkar_resep_dengan_gemini(nama_makanan):
     prompt = f"""
-    Sebutkan bahan-bahan mentah utama untuk membuat masakan '{nama_makanan}'.
-    Berikan respons HANYA dalam format JSON array of strings.
-    Setiap string HARUS memiliki format yang kaku: "[Angka] [Satuan] [Nama Bahan]".
-    Pilihan satuan yang diperbolehkan hanya: gram, gr, sdm, sdt, siung, ekor, genggam, pcs, buah.
-    Contoh output yang benar: ["100 gram daging ayam", "2 siung bawang putih", "1 sdm minyak goreng", "5 buah cabai rawit"]
+    Sebutkan bahan-bahan mentah utama untuk membuat 1 PORSI masakan '{nama_makanan}'.
+    
+    ATURAN SANGAT PENTING:
+    1. SKALA PORSI: Takaran HARUS disesuaikan untuk 1 PORSI standar makan 1 orang.
+    2. KONVERSI WAJIB KE GRAM: Kamu HARUS menakar dan mengonversi SEMUA bahan ke dalam satuan "gram". 
+       - JANGAN PERNAH menggunakan satuan buah, siung, sdm, sdt, ikat, atau lembar.
+       - Gunakan logika dan pengetahuanmu tentang berat asli bahan! (Contoh: 5 buah cabai rawit = ~10 gram, 1 siung bawang putih = ~3 gram, 1 sdm minyak = ~15 gram).
+       - Jika angkanya desimal, gunakan titik (misal: 2.5 gram).
+    3. PENAMAAN BAHAN: Nama bahan HARUS spesifik ke bahan mentah. 
+       - Wajib gunakan "daging ayam", "daging sapi" (bukan sekadar "ayam" atau "sapi").
+       - Jika resepnya berbahan dasar nasi, gunakan "beras putih matang".
+    4. FORMAT: Berikan respons HANYA dalam format JSON array of strings tanpa blok markdown.
+    5. STRUKTUR TEKS: Setiap string HARUS memiliki format kaku: "[Angka] gram [Nama Bahan Baku]".
+    
+    Contoh output yang benar untuk 1 porsi (misal input: ayam geprek): 
+    ["150 gram daging ayam", "6 gram bawang putih", "15 gram minyak goreng", "10 gram cabai rawit", "20 gram tepung terigu"]
     """
+    
     try:
         response = model.generate_content(
             prompt,
