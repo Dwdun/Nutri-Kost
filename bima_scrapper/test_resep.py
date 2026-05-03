@@ -3,7 +3,7 @@ import os
 import json
 
 _THIS_DIR = os.path.dirname(os.path.abspath(__file__))
-_GUI_DIR = os.path.join(_THIS_DIR, 'fatih_GUI')
+_GUI_DIR = os.path.join(_THIS_DIR, '..', 'fatih_GUI')
 sys.path.insert(0, _GUI_DIR)
 
 try:
@@ -122,9 +122,9 @@ class RecipeCard(QWidget):
     Klik tombol ⤢ membuka link resep di browser.
     """
 
-    ASPECT_W = 3
-    ASPECT_H = 4
-    RADIUS   = 14
+    ASPECT_W = 4
+    ASPECT_H = 3
+    RADIUS   = 12
     MIN_W    = 140
 
     def __init__(self, name: str, desc: str, link: str = '',
@@ -165,48 +165,44 @@ class RecipeCard(QWidget):
         outer.setContentsMargins(0, 0, 0, 0)
         outer.setSpacing(0)
 
-        # area gambar — 55% tinggi kartu
-        outer.addStretch(55)
+        # Dorong teks ke bawah — gambar + overlay mengisi penuh via paintEvent
+        outer.addStretch(1)
 
-        # area teks — 45% tinggi kartu
+        # area teks di bagian bawah
         text_area = QWidget()
         text_area.setStyleSheet('background: transparent;')
         tlay = QVBoxLayout(text_area)
-        tlay.setContentsMargins(14, 8, 38, 10)
+        tlay.setContentsMargins(14, 6, 42, 12)
         tlay.setSpacing(4)
 
-        # judul (maksimal 2 baris, truncate jika lebih)
         self._name_lbl = QLabel(self._name)
         self._name_lbl.setFont(font_title(11))
         self._name_lbl.setStyleSheet('color: #FFFFFF; background: transparent;')
         self._name_lbl.setWordWrap(True)
-        self._name_lbl.setMaximumHeight(50)
 
-        # bahan singkat
         self._desc_lbl = QLabel(self._desc)
         self._desc_lbl.setFont(font_body(8))
         self._desc_lbl.setStyleSheet(
-            'color: rgba(255,255,255,0.85); background: transparent;')
+            'color: rgba(255,255,255,0.88); background: transparent;')
         self._desc_lbl.setWordWrap(True)
 
         tlay.addWidget(self._name_lbl)
         tlay.addWidget(self._desc_lbl)
-        outer.addWidget(text_area, 45)
+        outer.addWidget(text_area)
 
-        # tombol buka link — pojok kanan bawah (posisi diatur di resizeEvent)
-        self._link_btn = QPushButton('\u29c2', self)   # ⧂ → pakai karakter lain jika kosong
-        self._link_btn.setText('\u2197')               # ↗
+        # tombol link pojok kanan bawah
+        self._link_btn = QPushButton('\u2197', self)
         self._link_btn.setFixedSize(28, 28)
         self._link_btn.setFont(QFont('Segoe UI Symbol', 12))
         self._link_btn.setStyleSheet("""
             QPushButton {
                 color: rgba(255,255,255,0.90);
-                background: rgba(255,255,255,0.18);
+                background: rgba(255,255,255,0.20);
                 border: none;
                 border-radius: 6px;
             }
             QPushButton:hover {
-                background: rgba(255,255,255,0.38);
+                background: rgba(255,255,255,0.40);
             }
         """)
         self._link_btn.setCursor(QCursor(Qt.PointingHandCursor))
@@ -235,88 +231,80 @@ class RecipeCard(QWidget):
         painter.setRenderHint(QPainter.Antialiasing)
         painter.setRenderHint(QPainter.SmoothPixmapTransform)
 
-        rect  = self.rect()
-        img_h = int(rect.height() * 0.55)
+        rect = self.rect()
+        w, h = rect.width(), rect.height()
 
-        # rounded clip
+        # ── rounded clip — seluruh kartu ──
         clip = QPainterPath()
-        clip.addRoundedRect(0, 0, rect.width(), rect.height(),
-                            self.RADIUS, self.RADIUS)
+        clip.addRoundedRect(0, 0, w, h, self.RADIUS, self.RADIUS)
         painter.setClipPath(clip)
 
-        # gradient background
-        c_top = QColor(self._grad_top)
-        c_bot = QColor(self._grad_bot)
-        if self._hovered:
-            c_top = c_top.lighter(115)
-            c_bot = c_bot.lighter(115)
-        grad = QLinearGradient(0, 0, 0, rect.height())
-        grad.setColorAt(0.0, c_top)
-        grad.setColorAt(1.0, c_bot)
-        painter.fillRect(rect, grad)
-
-        # gambar atau ilustrasi placeholder
+        # ── 1. Gambar mengisi penuh kartu ──
         if self._img_pix and not self._img_pix.isNull():
-            self._draw_cover(painter, rect.width(), img_h)
+            self._draw_full_cover(painter, w, h)
         else:
-            self._draw_placeholder(painter, rect.width(), img_h)
+            # fallback: solid gradient hijau
+            c_top = QColor(self._grad_top)
+            c_bot = QColor(self._grad_bot)
+            if self._hovered:
+                c_top = c_top.lighter(115)
+                c_bot = c_bot.lighter(115)
+            bg = QLinearGradient(0, 0, 0, h)
+            bg.setColorAt(0.0, c_top)
+            bg.setColorAt(1.0, c_bot)
+            painter.fillRect(rect, bg)
 
-        # overlay gradient di batas gambar–teks
-        fade = QLinearGradient(0, img_h - 40, 0, rect.height())
-        fade.setColorAt(0.0, QColor(0, 0, 0, 0))
-        fade.setColorAt(1.0, QColor(0, 0, 0, 90))
-        painter.fillRect(0, img_h - 40, rect.width(),
-                         rect.height() - img_h + 40, fade)
+        # ── 2. Overlay hijau gradient: transparan di atas → solid di bawah ──
+        #    Mulai transparan dari y=0 hingga ~35% kartu,
+        #    lalu solid (warna hijau kartu) dari ~60% ke bawah.
+        c_solid = QColor(self._grad_bot)
+        if self._hovered:
+            c_solid = c_solid.lighter(115)
+
+        overlay = QLinearGradient(0, 0, 0, h)
+        overlay.setColorAt(0.00, QColor(c_solid.red(), c_solid.green(), c_solid.blue(), 0))
+        overlay.setColorAt(0.35, QColor(c_solid.red(), c_solid.green(), c_solid.blue(), 0))
+        overlay.setColorAt(0.62, QColor(c_solid.red(), c_solid.green(), c_solid.blue(), 160))
+        overlay.setColorAt(1.00, QColor(c_solid.red(), c_solid.green(), c_solid.blue(), 245))
+        painter.fillRect(rect, overlay)
 
         painter.end()
 
-    def _draw_cover(self, painter, w, img_h):
-        """
-        Gambar sebagai cover — skala memenuhi area, crop tengah,
-        ditambah vignette ringan agar blend dengan gradien.
-        """
-        pix = self._img_pix
-        # skala agar cover penuh (bisa crop)
-        scaled = pix.scaled(w, img_h,
-                            Qt.KeepAspectRatioByExpanding,
-                            Qt.SmoothTransformation)
-        src_x = max((scaled.width()  - w)    // 2, 0)
-        src_y = max((scaled.height() - img_h) // 2, 0)
-        crop  = scaled.copy(src_x, src_y,
-                            min(w,    scaled.width()),
-                            min(img_h, scaled.height()))
+    def _draw_full_cover(self, painter, w, h):
+        """Gambar cover mengisi penuh seluruh area kartu (crop tengah)."""
+        pix    = self._img_pix
+        scaled = pix.scaled(w, h, Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation)
+        src_x  = max((scaled.width()  - w) // 2, 0)
+        src_y  = max((scaled.height() - h) // 2, 0)
+        crop   = scaled.copy(src_x, src_y,
+                             min(w, scaled.width()),
+                             min(h, scaled.height()))
         painter.drawPixmap(0, 0, crop)
 
-        # vignette ringan agar gambar blend dengan warna kartu
-        vig = QLinearGradient(0, 0, 0, img_h)
-        vig.setColorAt(0.0, QColor(0, 0, 0, 50))
-        vig.setColorAt(0.5, QColor(0, 0, 0, 10))
-        vig.setColorAt(1.0, QColor(0, 0, 0, 80))
-        painter.fillRect(0, 0, w, img_h, vig)
-
     def _draw_placeholder(self, painter, w, h):
-        """Ilustrasi piring + sayuran sebagai placeholder."""
-        cx, cy    = w // 2, h // 2
-        plate_r   = min(w, h) // 2 - 16
+        """Ilustrasi piring di tengah atas kartu sebagai placeholder."""
+        # lingkaran piring di area atas
+        cx  = w // 2
+        cy  = int(h * 0.35)          # tengah ilustrasi berada di 35% atas
+        r   = min(w, int(h * 0.55)) // 2 - 12
 
         painter.setPen(Qt.NoPen)
-        for alpha in (40, 25):
-            painter.setBrush(QBrush(QColor(255, 255, 255, alpha)))
-            off = 0 if alpha == 40 else 6
-            r   = plate_r - off
-            painter.drawEllipse(cx - r, cy - r, r * 2, r * 2)
+        painter.setBrush(QBrush(QColor(255, 255, 255, 35)))
+        painter.drawEllipse(cx - r, cy - r, r * 2, r * 2)
+        painter.setBrush(QBrush(QColor(255, 255, 255, 20)))
+        painter.drawEllipse(cx - r + 5, cy - r + 5, (r - 5) * 2, (r - 5) * 2)
 
         leaf_colors = [
-            QColor(120, 220, 100, 180), QColor(80,  200, 80,  160),
-            QColor(160, 230, 60,  170), QColor(60,  190, 90,  150),
-            QColor(200, 230, 80,  160),
+            QColor(120, 220, 100, 180), QColor(80, 200, 80, 160),
+            QColor(160, 230, 60, 170),  QColor(60, 190, 90, 150),
+            QColor(200, 230, 80, 160),
         ]
         leaves = [
-            (cx - 12, cy - 10, 28, 14, -30),
-            (cx + 2,  cy - 14, 24, 12,  20),
-            (cx - 8,  cy + 4,  22, 11,  10),
-            (cx + 8,  cy + 2,  20, 10, -15),
-            (cx - 4,  cy - 2,  18,  9,  45),
+            (cx - 10, cy - 8,  22, 11, -30),
+            (cx + 2,  cy - 11, 20, 10,  20),
+            (cx - 6,  cy + 3,  18,  9,  10),
+            (cx + 7,  cy + 2,  16,  8, -15),
+            (cx - 3,  cy - 2,  14,  7,  45),
         ]
         for i, (lx, ly, lw, lh, angle) in enumerate(leaves):
             painter.save()
@@ -326,17 +314,11 @@ class RecipeCard(QWidget):
             painter.drawEllipse(-lw // 2, -lh // 2, lw, lh)
             painter.restore()
 
-        painter.setPen(QPen(QColor(255, 255, 255, 120), 2))
-        fx, fy = cx + plate_r - 14, cy - 14
-        painter.drawLine(fx, fy, fx, fy + 28)
-        painter.drawLine(fx - 4, fy, fx - 4, fy + 14)
-        painter.drawLine(fx + 4, fy, fx + 4, fy + 14)
-
         painter.setPen(Qt.NoPen)
-        painter.setBrush(QBrush(QColor(230, 60,  60,  200)))
-        painter.drawEllipse(cx - 6, cy - 6, 10, 10)
-        painter.setBrush(QBrush(QColor(230, 80,  80,  160)))
-        painter.drawEllipse(cx + 8, cy + 4,  8,  8)
+        painter.setBrush(QBrush(QColor(230, 60, 60, 200)))
+        painter.drawEllipse(cx - 5, cy - 5, 9, 9)
+        painter.setBrush(QBrush(QColor(230, 80, 80, 160)))
+        painter.drawEllipse(cx + 7, cy + 3, 7, 7)
 
 
 # ─────────────────────────────────────────────
