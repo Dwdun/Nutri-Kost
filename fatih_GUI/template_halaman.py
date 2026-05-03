@@ -670,9 +670,18 @@ class PageTemplate(QMainWindow):
         self._page_desc.setFont(font_body(10))
         self._page_desc.setStyleSheet(f'color: {C_TEXT_SUB}; background: transparent;')
 
-        inner_layout.addWidget(self._page_title)
-        inner_layout.addSpacing(4)
-        inner_layout.addWidget(self._page_desc)
+        title_desc_layout = QVBoxLayout()
+        title_desc_layout.setContentsMargins(0, 0, 0, 0)
+        title_desc_layout.setSpacing(0)
+        title_desc_layout.addWidget(self._page_title)
+        title_desc_layout.addSpacing(4)
+        title_desc_layout.addWidget(self._page_desc)
+
+        self._header_row = QHBoxLayout()
+        self._header_row.addLayout(title_desc_layout)
+        self._header_row.addStretch()
+
+        inner_layout.addLayout(self._header_row)
         inner_layout.addSpacing(24)
 
         # ── container untuk konten dari subclass ──
