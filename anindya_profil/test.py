@@ -1,270 +1,1090 @@
 import sys
 import os
 
-# Path ke folder scrapper 
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'bima_scrapper'))
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'fatih_GUI'))
 
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
-    QPushButton, QTableWidget, QTableWidgetItem, QDialog, QLabel,
-    QLineEdit, QComboBox, QHeaderView, QMessageBox, QFormLayout
+    QPushButton, QLabel, QLineEdit, QComboBox, QMessageBox,
+    QFrame, QStackedWidget, QCheckBox, QSpacerItem, QSizePolicy, QGraphicsDropShadowEffect, QScrollArea, QDialog
 )
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, QSize, pyqtSignal
+from PyQt5.QtGui import QFont, QPixmap, QIcon, QColor, QPainter, QCursor
 
 from profil_system import ProfilSystem
+from template_halaman import (
+    PageTemplate, PatternWidget, ICONS_DIR, 
+    font_title, font_body, font_label, load_fonts,
+    C_NAVBAR_HVR, C_TEXT_DARK, C_TEXT_SUB
+)
 
 # ==========================================
-# DIALOG: Form Buat / Edit Profil
+# CONSTANTS & COLORS
 # ==========================================
-class FormProfilDialog(QDialog):
-    def __init__(self, parent=None, profil=None):
-        super().__init__(parent)
-        self.profil = profil  # None = mode create, ada isi = mode edit
-        self.setWindowTitle("Edit Profil" if profil else "Buat Profil Baru")
-        self.resize(400, 380)
-        self.initUI()
+GREEN_PRIMARY = "#1A7A34"
+GREEN_LIGHT   = "#CAEED4"
+GREEN_BG      = "#1f7a36" 
+GREEN_CARD    = "#32b856"   
+GREEN_BTN     = "#24833c" 
+GREEN_DARK    = "#145925"
+GRAY_TXT      = "#555555"
 
-    def initUI(self):
-        layout = QVBoxLayout()
-
-        # Judul
-        judul = QLabel("<b>Edit Profil</b>" if self.profil else "<b>Buat Profil Baru</b>")
-        judul.setStyleSheet("font-size: 15px; margin-bottom: 8px;")
-        layout.addWidget(judul)
-
-        # Form input
-        form = QFormLayout()
-        form.setSpacing(10)
-
-        self.input_nama   = QLineEdit()
-        self.input_usia   = QLineEdit()
-        self.input_bb     = QLineEdit()
-        self.input_tb     = QLineEdit()
-        self.input_email  = QLineEdit()
-        self.input_pass   = QLineEdit()
-        self.input_pass.setEchoMode(QLineEdit.Password)
-
-        self.combo_gender = QComboBox()
-        self.combo_gender.addItems(["Laki-laki", "Perempuan"])
-
-        # Kalau mode edit, isi form dengan data yang ada
-        if self.profil:
-            self.input_nama.setText(str(self.profil.get('full_name', '')))
-            self.input_usia.setText(str(self.profil.get('age', '')))
-            self.input_bb.setText(str(self.profil.get('weight', '')))
-            self.input_tb.setText(str(self.profil.get('height', '')))
-            self.input_email.setText(str(self.profil.get('email', '')))
-            self.combo_gender.setCurrentText(self.profil.get('gender', 'Laki-laki'))
-
-        form.addRow("Nama Lengkap :", self.input_nama)
-        form.addRow("Usia         :", self.input_usia)
-        form.addRow("Jenis Kelamin:", self.combo_gender)
-        form.addRow("Berat Badan  :", self.input_bb)
-        form.addRow("Tinggi Badan :", self.input_tb)
-        form.addRow("Email        :", self.input_email)
-
-        # Password hanya muncul saat create
-        if not self.profil:
-            form.addRow("Password     :", self.input_pass)
-
-        layout.addLayout(form)
-
-        # Tombol simpan + batal
-        btn_row = QHBoxLayout()
-        btn_batal  = QPushButton("Batal")
-        btn_simpan = QPushButton("Simpan")
-        btn_simpan.setStyleSheet("padding: 8px 20px; font-weight: bold; background-color: #1A7A34; color: white;")
-        btn_batal.clicked.connect(self.reject)
-        btn_simpan.clicked.connect(self.accept)
-        btn_row.addStretch()
-        btn_row.addWidget(btn_batal)
-        btn_row.addWidget(btn_simpan)
-        layout.addLayout(btn_row)
-
-        self.setLayout(layout)
-
-    def get_data(self):
-        # Ambil semua data dari form dan return sebagai dict
-        data = {
-            'full_name' : self.input_nama.text(),
-            'age'       : int(self.input_usia.text()) if self.input_usia.text().strip() else 0,
-            'gender'    : self.combo_gender.currentText(),
-            'weight'    : float(self.input_bb.text()) if self.input_bb.text().strip() else 0,
-            'height'    : float(self.input_tb.text()) if self.input_tb.text().strip() else 0,
-            'email'     : self.input_email.text(),
+def buat_input(placeholder, is_password=False):
+    f = QLineEdit()
+    f.setPlaceholderText(placeholder)
+    f.setFixedHeight(48)
+    f.setFont(font_body(10))
+    if is_password:
+        f.setEchoMode(QLineEdit.Password)
+    f.setStyleSheet("""
+        QLineEdit {
+            border: none;
+            border-radius: 24px;
+            padding: 0 20px;
+            background: white;
+            color: #333333;
         }
-        # Password hanya ada saat create
-        if not self.profil:
-            data['password'] = self.input_pass.text()
-        return data
+    """)
+    return f
+
+def buat_label(text, size=10, bold=False):
+    l = QLabel(text)
+    l.setFont(font_label(size, bold=bold))
+    l.setStyleSheet("color: white; background: transparent;")
+    return l
+
 
 # ==========================================
-# WINDOW UTAMA
+# AUTH BASE WINDOW
 # ==========================================
-class ProfilTestApp(QMainWindow):
+class AuthBaseWidget(QWidget):
+    def __init__(self, right_widget, parent=None):
+        super().__init__(parent)
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+        
+        # Left Panel (Green with Logo)
+        left_panel = QFrame()
+        left_panel.setStyleSheet(f"background-color: {GREEN_PRIMARY};")
+        left_layout = QVBoxLayout(left_panel)
+        left_layout.setAlignment(Qt.AlignCenter)
+        
+        # Logo widget (to group both)
+        lw = QWidget()
+        ll = QVBoxLayout(lw)
+        ll.setAlignment(Qt.AlignCenter)
+
+        logo = QLabel()
+        logo_path = os.path.join(ICONS_DIR, 'Logo.png')
+        if os.path.exists(logo_path):
+            pix = QPixmap(logo_path)
+            logo.setPixmap(pix.scaled(130, 130, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+        logo.setAlignment(Qt.AlignCenter)
+        
+        logo_text = QLabel()
+        logo_text_path = os.path.join(ICONS_DIR, 'Logo text.png')
+        if os.path.exists(logo_text_path):
+            pix2 = QPixmap(logo_text_path)
+            logo_text.setPixmap(pix2.scaled(140, 45, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+        logo_text.setAlignment(Qt.AlignCenter)
+
+        ll.addWidget(logo)
+        ll.addWidget(logo_text)
+        
+        left_layout.addWidget(lw)
+        
+        # Right Panel (Pattern with central widget)
+        right_panel = PatternWidget()
+        right_layout = QVBoxLayout(right_panel)
+        right_layout.setAlignment(Qt.AlignCenter)
+        right_layout.addWidget(right_widget)
+        
+        layout.addWidget(left_panel, 1)   # Ratio 1:1 or 4:6 -> we use 1:1 for simplicity
+        layout.addWidget(right_panel, 1)
+
+
+class AuthCard(QFrame):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setFixedWidth(500)
+        self.setStyleSheet(f"""
+            QFrame {{
+                background-color: {GREEN_CARD};
+                border-radius: 16px;
+            }}
+        """)
+        shadow = QGraphicsDropShadowEffect()
+        shadow.setBlurRadius(15)
+        shadow.setColor(QColor(0, 0, 0, 40))
+        shadow.setOffset(0, 4)
+        self.setGraphicsEffect(shadow)
+
+# ==========================================
+# AUTH WIDGETS
+# ==========================================
+class HalamanLogin(QWidget):
+    go_register = pyqtSignal()
+    login_success = pyqtSignal()
+
+    def __init__(self, sistem: ProfilSystem, parent=None):
+        super().__init__(parent)
+        self._sistem = sistem
+        layout = QVBoxLayout(self)
+        layout.addStretch(1)
+        layout.setAlignment(Qt.AlignCenter)
+        layout.setSpacing(24)
+
+        # Title
+        title = QLabel("Welcome Back, User")
+        f = QFont('Montserrat Alternates Medium', 24)
+        f.setStyleHint(QFont.SansSerif)
+        title.setFont(f)
+        title.setAlignment(Qt.AlignCenter)
+        title.setStyleSheet("color: #1C1C1C; margin-bottom: 20px;")
+        layout.addWidget(title)
+
+        # Card
+        card = AuthCard()
+        cl = QVBoxLayout(card)
+        cl.setContentsMargins(30, 36, 30, 36)
+        cl.setSpacing(10)
+
+        # Email
+        lbl_email = buat_label("Username", 10)
+        lbl_email.setStyleSheet("color: #115724; background: transparent;")
+        cl.addWidget(lbl_email)
+        self.inp_user = buat_input("Type Here")
+        cl.addWidget(self.inp_user)
+
+        cl.addSpacing(6)
+
+        # Password 
+        pw_row = QHBoxLayout()
+        lbl_pass = buat_label("Password", 10)
+        lbl_pass.setStyleSheet("color: #115724; background: transparent;")
+        pw_row.addWidget(lbl_pass)
+        pw_row.addStretch()
+        lupa = QPushButton("Lupa Password?")
+        lupa.setFont(font_label(10))
+        lupa.setCursor(Qt.PointingHandCursor)
+        lupa.setStyleSheet("QPushButton { background: transparent; color: black; border: none; text-align: right; }")
+        pw_row.addWidget(lupa)
+        cl.addLayout(pw_row)
+        
+        self.inp_pass = buat_input("********", True)
+        cl.addWidget(self.inp_pass)
+        
+        cl.addSpacing(16)
+
+        self.btn_masuk = QPushButton("Masuk")
+        self.btn_masuk.setFixedHeight(48)
+        self.btn_masuk.setFont(QFont('Poppins SemiBold', 10))
+        self.btn_masuk.setCursor(Qt.PointingHandCursor)
+        self.btn_masuk.setStyleSheet(f"""
+            QPushButton {{
+                background-color: #1A7A34;
+                color: white; border-radius: 24px;
+            }}
+            QPushButton:hover {{ background-color: #145925; }}
+        """)
+        self.btn_masuk.clicked.connect(self._aksi_masuk)
+        cl.addWidget(self.btn_masuk)
+
+        cl.addSpacing(6)
+
+        # Divider (atau masuk dengan)
+        line = QFrame()
+        line.setFrameShape(QFrame.HLine)
+        line.setStyleSheet("background-color: #1A7A34;")
+        cl.addWidget(line)
+
+        div_lbl = QLabel("atau masuk dengan")
+        div_lbl.setFont(font_label(8))
+        div_lbl.setStyleSheet("color: #115724;")
+        div_lbl.setAlignment(Qt.AlignCenter)
+        cl.addWidget(div_lbl)
+
+        # Google button
+        btn_google = QPushButton("  Masuk dengan Google")
+        g_icon_path = os.path.join(ICONS_DIR, 'google.png')
+        if os.path.exists(g_icon_path):
+             btn_google.setIcon(QIcon(g_icon_path))
+             btn_google.setIconSize(QSize(30, 30))
+        btn_google.setFixedHeight(48)
+        btn_google.setFont(QFont('Poppins SemiBold', 10))
+        btn_google.setCursor(Qt.PointingHandCursor)
+        btn_google.setStyleSheet("""
+            QPushButton {
+                background-color: #d4d4d4; color: #828282; border-radius: 24px;
+            }
+            QPushButton:hover { background-color: #D1D5DB; }
+        """)
+        cl.addWidget(btn_google)
+
+        cl.addSpacing(12)
+
+        # Daftar text
+        dr = QHBoxLayout()
+        dr.addStretch()
+        lbl_punya = buat_label("belum punya akun?", 8)
+        lbl_punya.setStyleSheet("color: black; background: transparent;")
+        dr.addWidget(lbl_punya)
+        btn_daftar = QPushButton("Daftar Sekarang")
+        btn_daftar.setFont(font_label(8, bold=True))
+        btn_daftar.setCursor(Qt.PointingHandCursor)
+        btn_daftar.setStyleSheet("QPushButton { background: transparent; color: white; border: none; text-decoration: underline; padding: 0; margin: 0; }")
+        btn_daftar.clicked.connect(self.go_register.emit)
+        dr.addWidget(btn_daftar)
+        dr.addStretch()
+        dr.setAlignment(Qt.AlignCenter)
+        cl.addLayout(dr)
+
+        layout.addWidget(card, alignment=Qt.AlignCenter)
+        layout.addStretch(1)
+
+    def _aksi_masuk(self):
+        usr = self.inp_user.text()
+        pwd = self.inp_pass.text()
+        success, msg = self._sistem.login(usr, pwd)
+        if success:
+            self.login_success.emit()
+        else:
+            QMessageBox.warning(self, "Gagal", msg)
+
+class HalamanRegister(QWidget):
+    go_datadiri = pyqtSignal(dict)
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        layout = QVBoxLayout(self)
+        layout.setAlignment(Qt.AlignCenter)
+        layout.setSpacing(40)
+
+        title = QLabel("Daftar")
+        title.setFont(font_title(24))
+        f = QFont('Montserrat Alternates Medium', 24)
+        f.setStyleHint(QFont.SansSerif)
+        title.setFont(f)
+        title.setAlignment(Qt.AlignCenter)
+        title.setStyleSheet("color: #1C1C1C;")
+        layout.addWidget(title)
+
+        card = AuthCard()
+        cl = QVBoxLayout(card)
+        cl.setContentsMargins(32, 24, 32, 24)
+        cl.setSpacing(8)
+
+        lbl_nama = buat_label("Nama Lengkap")
+        lbl_nama.setStyleSheet("color: #115724; background: transparent;")
+        cl.addWidget(lbl_nama)
+        self.inp_nama = buat_input("Type Here")
+        cl.addWidget(self.inp_nama)
+
+        lbl_email = buat_label("Email")
+        lbl_email.setStyleSheet("color: #115724; background: transparent;")
+        cl.addWidget(lbl_email)
+        self.inp_email = buat_input("Type Here")
+        cl.addWidget(self.inp_email)
+
+        lbl_pass = buat_label("Password")
+        lbl_pass.setStyleSheet("color: #115724; background: transparent;")
+        cl.addWidget(lbl_pass)
+        self.inp_pass = buat_input("********", True)
+        cl.addWidget(self.inp_pass)
+
+        lbl_konf = buat_label("Konfirmasi Password")
+        lbl_konf.setStyleSheet("color: #115724; background: transparent;")
+        cl.addWidget(lbl_konf)
+        self.inp_konf = buat_input("********", True)
+        cl.addWidget(self.inp_konf)
+
+        chk_row = QHBoxLayout()
+        self.chk_terms = QCheckBox("Saya setuju dengan Syarat dan Ketentuan")
+        self.chk_terms.setStyleSheet(f"""
+            QCheckBox {{ 
+                color: white; 
+                font-size: 11px; 
+            }}
+            QCheckBox::indicator {{
+                width: 18px;
+                height: 18px;
+                border-radius: 4px;
+                background-color: #E0E0E0;
+            }}
+            QCheckBox::indicator:checked {{
+                background-color: #1A7A34;
+                image: url({os.path.join(ICONS_DIR, 'checkmark_white.png').replace('\\', '/')});
+            }}
+        """)
+        chk_row.addWidget(self.chk_terms)
+        cl.addLayout(chk_row)
+
+        self.btn_lanjut = QPushButton("Lanjutkan")
+        self.btn_lanjut.setFixedHeight(48)
+        self.btn_lanjut.setFont(QFont('Poppins SemiBold', 10))
+        self.btn_lanjut.setCursor(Qt.PointingHandCursor)
+        self.btn_lanjut.setStyleSheet(f"""
+            QPushButton {{ background-color: {GREEN_BTN}; color: white; border-radius: 24px; }}
+            QPushButton:hover {{ background-color: {GREEN_PRIMARY}; }}
+        """)
+        self.btn_lanjut.clicked.connect(self._lanjut)
+        cl.addWidget(self.btn_lanjut)
+
+        layout.addWidget(card)
+
+    def _lanjut(self):
+        full_name = self.inp_nama.text().strip()
+        email = self.inp_email.text()
+        
+        if not full_name:
+            QMessageBox.warning(self, "Oops", "Nama tidak boleh kosong!")
+            return
+            
+        if '@' not in email or '.' not in email:
+            QMessageBox.warning(self, "Invalid Email", "Format email tidak valid! Harus mengandung '@' dan '.'.")
+            return
+
+        if not self.chk_terms.isChecked():
+            QMessageBox.warning(self, "Oops", "Anda harus setuju dengan S&K")
+            return
+            
+        p1 = self.inp_pass.text()
+        p2 = self.inp_konf.text()
+        
+        if len(p1) < 6:
+            QMessageBox.warning(self, "Oops", "Password minimal 6 karakter!")
+            return
+            
+        if p1 != p2:
+            QMessageBox.warning(self, "Oops", "Password tidak cocok!")
+            return
+        
+        data = {
+            'full_name': full_name,
+            'email': email,
+            'password': p1
+        }
+        self.go_datadiri.emit(data)
+
+class HalamanDataDiri(QWidget):
+    register_success = pyqtSignal()
+    register_data = {}
+
+    def __init__(self, sistem: ProfilSystem, parent=None):
+        super().__init__(parent)
+        self._sistem = sistem
+        layout = QVBoxLayout(self)
+        layout.setAlignment(Qt.AlignCenter)
+        layout.setSpacing(40)
+
+        title = QLabel("Data Diri")
+        title.setFont(font_title(24))
+        f = QFont('Montserrat Alternates Medium', 24)
+        f.setStyleHint(QFont.SansSerif)
+        title.setFont(f)
+        title.setAlignment(Qt.AlignCenter)
+        title.setStyleSheet("color: #333333;")
+        layout.addWidget(title)
+
+        card = AuthCard()
+        cl = QVBoxLayout(card)
+        cl.setContentsMargins(32, 24, 32, 24)
+        cl.setSpacing(8)
+
+        # Layout: Jenis Kelamin (Full)
+        lbl_jk = buat_label("Jenis Kelamin")
+        lbl_jk.setStyleSheet("color: #115724; background: transparent;")
+        cl.addWidget(lbl_jk)
+        self.inp_jk = QComboBox()
+        self.inp_jk.addItems(["Perempuan", "Laki-laki"])
+        self.inp_jk.setFixedHeight(48)
+        self.inp_jk.setStyleSheet("""
+            QComboBox { 
+                border: none; 
+                border-radius: 24px; 
+                padding: 0 16px; 
+                background: white; 
+                font-size: 13px; 
+                color: #333333;
+            } 
+            QComboBox::drop-down { border: none; width: 30px; }
+        """)
+        cl.addWidget(self.inp_jk)
+
+        # Row 2: Usia | Aktivitas
+        r2 = QHBoxLayout()
+        c21 = QVBoxLayout()
+        lbl_usia = buat_label("Usia (tahun)")
+        lbl_usia.setStyleSheet("color: #115724; background: transparent;")
+        c21.addWidget(lbl_usia)
+        self.inp_usia = buat_input("Type Here")
+        c21.addWidget(self.inp_usia)
+        r2.addLayout(c21, 1)
+
+        c22 = QVBoxLayout()
+        lbl_akt = buat_label("Aktivitas")
+        lbl_akt.setStyleSheet("color: #115724; background: transparent;")
+        c22.addWidget(lbl_akt)
+        self.inp_akt = QComboBox()
+        self.inp_akt.addItems(["Sedentary (jarang olahraga)", "Ringan", "Sedang", "Berat"])
+        self.inp_akt.setFixedHeight(48)
+        self.inp_akt.setStyleSheet("""
+            QComboBox { border: none; border-radius: 24px; padding: 0 16px; background: white; font-size: 13px; color: #333333;}
+            QComboBox::drop-down { border: none; width: 30px; }
+        """)
+        c22.addWidget(self.inp_akt)
+        r2.addLayout(c22, 1)
+        cl.addLayout(r2)
+
+        # Row 3: BB | TB
+        r3 = QHBoxLayout()
+        c31 = QVBoxLayout()
+        lbl_bb = buat_label("Berat Badan (kg)")
+        lbl_bb.setStyleSheet("color: #115724; background: transparent;")
+        c31.addWidget(lbl_bb)
+        self.inp_bb = buat_input("Type Here")
+        c31.addWidget(self.inp_bb)
+        r3.addLayout(c31, 1)
+
+        c32 = QVBoxLayout()
+        lbl_tb = buat_label("Tinggi Badan (cm)")
+        lbl_tb.setStyleSheet("color: #115724; background: transparent;")
+        c32.addWidget(lbl_tb)
+        self.inp_tb = buat_input("Type Here")
+        c32.addWidget(self.inp_tb)
+        r3.addLayout(c32, 1)
+        cl.addLayout(r3)
+
+        cl.addSpacing(10)
+        
+        cl.addSpacing(12)
+
+        # Target box
+        tgt = QFrame()
+        tgt.setStyleSheet("background-color: rgba(0,0,0,0.1); border-radius: 12px;")
+        tl = QVBoxLayout(tgt)
+        tl.setContentsMargins(16, 8, 16, 8)
+        tl.setSpacing(0)
+        
+        lbl_tgt = QLabel("Target Kalori Harian (estimasi)")
+        lbl_tgt.setFont(font_label(8))
+        lbl_tgt.setStyleSheet("color: white; background: transparent;")
+        tl.addWidget(lbl_tgt)
+
+        self.val_cal = QLabel("2100 kkal/hari")
+        self.val_cal.setFont(QFont('Montserrat Alternates SemiBold', 22))
+        self.val_cal.setStyleSheet("color: white; background: transparent;")
+        tl.addWidget(self.val_cal)
+        
+        lbl_note = QLabel("Berdasarkan BMR + tingkat aktivitas (bisa diubah)")
+        lbl_note.setFont(font_label(8))
+        lbl_note.setStyleSheet("color: rgba(255,255,255,0.8); background: transparent;")
+        lbl_note.setWordWrap(True)
+        tl.addWidget(lbl_note)
+        cl.addWidget(tgt)
+        
+        # Connections for real-time calc
+        self.inp_bb.textChanged.connect(self._update_estimasi)
+        self.inp_tb.textChanged.connect(self._update_estimasi)
+        self.inp_usia.textChanged.connect(self._update_estimasi)
+        self.inp_jk.currentTextChanged.connect(self._update_estimasi)
+        self.inp_akt.currentTextChanged.connect(self._update_estimasi)
+
+        # Skip
+        skip = QPushButton("Lewati, isi nanti")
+        skip.setCursor(Qt.PointingHandCursor)
+        skip.setFont(font_label(10))
+        skip.setStyleSheet("QPushButton { background: transparent; color: #E0E0E0; border: none; margin: 10px 0 2px 0; }")
+        skip.clicked.connect(self._lewati)
+        cl.addWidget(skip, alignment=Qt.AlignCenter)
+
+        # Daftar btn
+        btn_daftar = QPushButton("Daftar")
+        btn_daftar.setFixedHeight(48)
+        btn_daftar.setFont(QFont('Poppins SemiBold', 10))
+        btn_daftar.setCursor(Qt.PointingHandCursor)
+        btn_daftar.setStyleSheet(f"""
+            QPushButton {{ background-color: {GREEN_BTN}; color: white; border-radius: 24px; }}
+            QPushButton:hover {{ background-color: {GREEN_PRIMARY}; }}
+        """)
+        btn_daftar.clicked.connect(self._daftar)
+        cl.addWidget(btn_daftar)
+
+        layout.addWidget(card)
+        
+    def _update_estimasi(self):
+        try:
+            bb = float(self.inp_bb.text() or 0)
+            tb = float(self.inp_tb.text() or 0)
+            usia = int(self.inp_usia.text() or 0)
+            jk = self.inp_jk.currentText()
+            akt = self.inp_akt.currentText()
+            if bb > 0 and tb > 0 and usia > 0:
+                calc = self._sistem.calculatorHarrisBenedict(jk, bb, tb, usia, akt)
+                self.val_cal.setText(f"{calc} kkal/hari")
+            else:
+                self.val_cal.setText("--- kkal/hari")
+        except Exception:
+            self.val_cal.setText("--- kkal/hari")
+
+    def _create(self, bb, tb, usia, jk, aktivitas):
+        try:
+            data = self.register_data.copy()
+            data['weight'] = bb
+            data['height'] = tb
+            data['age'] = usia
+            data['gender'] = jk
+            data['activity'] = aktivitas
+            
+            res = self._sistem.createProfil(data)
+            if isinstance(res, tuple):
+                success, msg = res
+            else:
+                success = res
+                msg = "Gagal mendaftar. Periksa input anda."
+                
+            if success:
+                self.register_success.emit()
+            else:
+                QMessageBox.warning(self, "Error", f"{msg}")
+        except ValueError:
+            QMessageBox.warning(self, "Error", "Usia, berat, dan tinggi harus berupa angka!")
+
+    def _lewati(self):
+        # Set dummy parameters so 'ValidasiInput' doesn't block the onboarding flow.
+        self._create(50, 150, 20, "Perempuan", "Sedentary (Jarang Olahraga)")
+
+    def _daftar(self):
+        try:
+            self._create(
+                float(self.inp_bb.text() or 0),
+                float(self.inp_tb.text() or 0),
+                int(self.inp_usia.text() or 0),
+                self.inp_jk.currentText(),
+                self.inp_akt.currentText()
+            )
+        except:
+            QMessageBox.warning(self, "Error", "Input tidak valid! Pastikan Usia, BB, dan TB berisi nilai angka.")
+
+
+
+class EditProfileDialog(QDialog):
+    def __init__(self, sistem: ProfilSystem, parent=None):
+        super().__init__(parent)
+        self.sistem = sistem
+        self.setWindowTitle("Edit Profile")
+        self.setFixedWidth(420)
+        self.setStyleSheet("background-color: white; border-radius: 8px;")
+        
+        layout = QVBoxLayout(self)
+        layout.setSpacing(16)
+        layout.setContentsMargins(24, 24, 24, 24)
+
+        title = QLabel("Edit Profile")
+        title.setFont(font_title(18))
+        title.setStyleSheet(f"color: {GREEN_DARK}; font-weight: bold;")
+        layout.addWidget(title)
+
+        profil = self.sistem.current_profil or {}
+        
+        def lbl_blk(text):
+            l = QLabel(text)
+            l.setStyleSheet("color: #333333; font-weight: bold; font-size: 13px;")
+            return l
+
+        # Nama
+        layout.addWidget(lbl_blk("Nama Lengkap"))
+        self.inp_nama = buat_input("Type Here")
+        self.inp_nama.setText(profil.get("full_name", ""))
+        self.inp_nama.setStyleSheet(self.inp_nama.styleSheet() + "border: 1px solid #CCC; color: black;")
+        layout.addWidget(self.inp_nama)
+
+        row = QHBoxLayout()
+        v1 = QVBoxLayout()
+        v1.addWidget(lbl_blk("Usia (tahun)"))
+        self.inp_usia = buat_input("")
+        self.inp_usia.setText(str(profil.get("age", "")))
+        self.inp_usia.setStyleSheet(self.inp_usia.styleSheet() + "border: 1px solid #CCC; color: black;")
+        v1.addWidget(self.inp_usia)
+        
+        v2 = QVBoxLayout()
+        v2.addWidget(lbl_blk("BB (kg)"))
+        self.inp_bb = buat_input("")
+        self.inp_bb.setText(str(profil.get("weight", "")))
+        self.inp_bb.setStyleSheet(self.inp_bb.styleSheet() + "border: 1px solid #CCC; color: black;")
+        v2.addWidget(self.inp_bb)
+
+        v3 = QVBoxLayout()
+        v3.addWidget(lbl_blk("TB (cm)"))
+        self.inp_tb = buat_input("")
+        self.inp_tb.setText(str(profil.get("height", "")))
+        self.inp_tb.setStyleSheet(self.inp_tb.styleSheet() + "border: 1px solid #CCC; color: black;")
+        v3.addWidget(self.inp_tb)
+        
+        row.addLayout(v1)
+        row.addLayout(v2)
+        row.addLayout(v3)
+        layout.addLayout(row)
+
+        layout.addWidget(lbl_blk("Aktivitas"))
+        self.inp_akt = QComboBox()
+        self.inp_akt.addItems(["Sedentary (Jarang Olahraga)", "Ringan", "Sedang", "Berat"])
+        current_act = profil.get("activity", "Sedentary (Jarang Olahraga)")
+        self.inp_akt.setCurrentText(current_act)
+        self.inp_akt.setFixedHeight(38)
+        self.inp_akt.setStyleSheet("QComboBox { border: 1px solid #CCC; border-radius: 19px; padding: 0 16px; background: white; font-size: 13px; color: black;}")
+        layout.addWidget(self.inp_akt)
+
+        layout.addWidget(lbl_blk("Tujuan Diet"))
+        self.inp_diet = QComboBox()
+        self.inp_diet.addItems(["Maintain Berat Badan", "Turun Berat Badan", "Naik Berat Badan"])
+        current_diet = profil.get("diet_goal", "Maintain Berat Badan")
+        self.inp_diet.setCurrentText(current_diet)
+        self.inp_diet.setFixedHeight(38)
+        self.inp_diet.setStyleSheet("QComboBox { border: 1px solid #CCC; border-radius: 19px; padding: 0 16px; background: white; font-size: 13px; color: black;}")
+        layout.addWidget(self.inp_diet)
+
+        btn_simpan = QPushButton("Simpan")
+        btn_simpan.setFixedHeight(40)
+        btn_simpan.setCursor(Qt.PointingHandCursor)
+        btn_simpan.setStyleSheet(f"QPushButton {{ background-color: {GREEN_PRIMARY}; color: white; border-radius: 20px; font-weight: bold; }}")
+        btn_simpan.clicked.connect(self._simpan)
+        layout.addWidget(btn_simpan)
+
+    def _simpan(self):
+        try:
+            nama = self.inp_nama.text().strip()
+            if not nama:
+                QMessageBox.warning(self, "Error", "Nama tidak boleh kosong!")
+                return
+            
+            bb = float(self.inp_bb.text() or 0)
+            tb = float(self.inp_tb.text() or 0)
+            usia = int(self.inp_usia.text() or 0)
+            akt = self.inp_akt.currentText()
+            jk = self.sistem.current_profil.get("gender", "Perempuan")
+            
+            calc = self.sistem.calculatorHarrisBenedict(jk, bb, tb, usia, akt)
+            if calc is None: calc = 2100
+
+            data = {
+                'full_name': nama,
+                'age': usia,
+                'weight': bb,
+                'height': tb,
+                'activity': akt,
+                'diet_goal': self.inp_diet.currentText(),
+                'calory': calc
+            }
+
+            if self.sistem.updateProfil(data):
+                QMessageBox.information(self, "Sukses", "Update data berhasil!")
+                self.accept()
+            else:
+                QMessageBox.warning(self, "Error", "Gagal update profile!")
+        except ValueError:
+             QMessageBox.warning(self, "Error", "Usia, BB, TB harus angka!")
+
+# ==========================================
+# MAIN DASHBOARD / PROFILE 
+# ==========================================
+class ProfilApp(PageTemplate):
+    PAGE_NAME = 'Profile'
+    PAGE_DESC = 'Data diri dan target nutrisi harianmu'
+    NAV_INDEX = 5
+
+    logout_signal = pyqtSignal()
+    refresh_me = pyqtSignal()
+
+    def __init__(self, sistem: ProfilSystem):
+        self._sistem = sistem
+        super().__init__()
+
+        # Fix Sidebar text clipping for long names/emails
+        self._sidebar._username_lbl.setWordWrap(True)
+        self._sidebar._email_lbl.setWordWrap(True)
+        # Ensure the info column can grow
+        self._sidebar._info_col.setMinimumHeight(40) 
+
+        # Modify PageTemplate logout to trigger our app switch
+        self._sidebar._logout_btn.clicked.connect(self._aksi_logout)
+
+    def _aksi_logout(self):
+        self._sistem.current_profil = None
+        self.logout_signal.emit()
+
+    def build_content(self, container: QWidget):
+        
+        # Hide default titles from PageTemplate to avoid duplication
+        self._page_title.setVisible(False)
+        self._page_desc.setVisible(False)
+
+        # Override the header slightly
+        self._header.set_page_name("Profile")
+
+        # Container is already laid out. We will create the UI inside.
+        layout = container.layout()
+        
+        profil = self._sistem.current_profil or {}
+        
+        # Ensure sidebar updates its email & name
+        if hasattr(self, '_sidebar'):
+            self._sidebar._email_lbl.setText(profil.get("email", "unknown@mail.com"))
+            self._sidebar._username_lbl.setText(profil.get("full_name", "Profile"))
+            
+            # Uncheck active sidebar states because we are in the profile page out-of-band mode!
+            for nav in self._sidebar._nav_items:
+                nav.setAutoExclusive(False)
+                nav.setChecked(False)
+                nav.setAutoExclusive(True)
+        
+        # Top Header Area
+        top_row = QHBoxLayout()
+        top_row.setContentsMargins(0, 0, 0, 0)
+        
+        header_text_layout = QVBoxLayout()
+        header_text_layout.setSpacing(2)
+        profile_title = QLabel("Profile")
+        profile_title.setFont(QFont('Montserrat Alternates SemiBold', 24))
+        profile_title.setStyleSheet(f"color: {C_TEXT_DARK}; background: transparent;")
+        
+        profile_desc = QLabel("Data diri dan target nutrisi harianmu")
+        profile_desc.setFont(font_body(11))
+        profile_desc.setStyleSheet(f"color: {C_TEXT_SUB}; background: transparent;")
+        
+        header_text_layout.addWidget(profile_title)
+        header_text_layout.addWidget(profile_desc)
+        top_row.addLayout(header_text_layout)
+        
+        top_row.addStretch()
+        
+        self.btn_edit = QPushButton("  Edit Profile")
+        self.btn_edit.setFixedSize(180, 52)
+        self.btn_edit.setCursor(Qt.PointingHandCursor)
+        # Attempt to use a generic edit icon if available, otherwise just text
+        edit_icon_path = os.path.join(ICONS_DIR, 'solar_pen-new-square-bold.png')
+        if os.path.exists(edit_icon_path):
+            self.btn_edit.setIcon(QIcon(edit_icon_path))
+            self.btn_edit.setIconSize(QSize(20, 20))
+        
+        self.btn_edit.setFont(font_label(10, bold=True))
+        self.btn_edit.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {GREEN_PRIMARY};
+                color: white;
+                border-radius: 12px;
+                padding: 0 16px;
+            }}
+            QPushButton:hover {{
+                background-color: {C_NAVBAR_HVR};
+            }}
+        """)
+        top_row.addWidget(self.btn_edit)
+        
+        # Insert top_row at the beginning of the layout
+        layout.insertLayout(0, top_row)
+        
+        self.btn_edit.clicked.connect(self._go_to_edit)
+        
+        # Data area row
+        content_row = QHBoxLayout()
+        content_row.setSpacing(24)
+        content_row.setContentsMargins(0, 4, 0, 0)
+
+        # --- LEFT CARD: Avatar & Stats ---
+        left_card = QFrame()
+        left_card.setFixedWidth(420)
+        left_card.setStyleSheet("QFrame { background-color: white; border-radius: 16px; border: none; }")
+        
+        # Add slight shadow
+        shadow = QGraphicsDropShadowEffect()
+        shadow.setBlurRadius(20)
+        shadow.setXOffset(0)
+        shadow.setYOffset(4)
+        shadow.setColor(QColor(0, 0, 0, 15))
+        left_card.setGraphicsEffect(shadow)
+        
+        lc_lay = QVBoxLayout(left_card)
+        lc_lay.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
+        lc_lay.setContentsMargins(24, 24, 24, 24)
+        lc_lay.setSpacing(12)
+
+        # Avatar circle
+        av = QLabel()
+        
+        icon_path = os.path.join(ICONS_DIR, 'gg_profile.png')
+        av_pix = QPixmap(icon_path).scaled(120, 120, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+        
+        # Colorize the icon to GREEN_PRIMARY
+        painter = QPainter(av_pix)
+        painter.setCompositionMode(QPainter.CompositionMode_SourceIn)
+        painter.fillRect(av_pix.rect(), QColor(GREEN_PRIMARY))
+        painter.end()
+        
+        av.setPixmap(av_pix)
+        av.setStyleSheet("background: transparent;")
+        av.setFixedSize(130, 130)
+        av.setAlignment(Qt.AlignCenter)
+        lc_lay.addWidget(av, alignment=Qt.AlignCenter)
+        
+        lc_lay.addSpacing(16)
+        
+        profil = self._sistem.current_profil or {}
+        p_name = profil.get("full_name", "Unknown")
+        p_email = profil.get("email", "unknown@mail.com")
+
+        name_lbl = QLabel(p_name)
+        name_lbl.setFont(QFont('Montserrat Alternates SemiBold', 20))
+        name_lbl.setStyleSheet(f"color: {C_TEXT_DARK};")
+        name_lbl.setWordWrap(True)  # Enable wrap for long names
+        name_lbl.setAlignment(Qt.AlignCenter)
+        lc_lay.addWidget(name_lbl, alignment=Qt.AlignCenter)
+
+        email_lbl = QLabel(p_email)
+        email_lbl.setFont(font_body(10))
+        email_lbl.setStyleSheet(f"color: {C_TEXT_SUB};")
+        email_lbl.setWordWrap(True)
+        email_lbl.setAlignment(Qt.AlignCenter)
+        lc_lay.addWidget(email_lbl, alignment=Qt.AlignCenter)
+
+        lc_lay.addSpacing(16)
+        
+        # Stats row
+        st_row = QFrame()
+        st_row.setStyleSheet(f"background-color: {GREEN_LIGHT}; border-radius: 12px; border: none;")
+        st_l = QHBoxLayout(st_row)
+        st_l.setContentsMargins(20, 12, 20, 12)
+        st_l.setSpacing(15)
+
+        val_bb = profil.get("weight", 0)
+        val_tb = profil.get("height", 0)
+
+        def set_st(val, lbl):
+            vbox = QVBoxLayout()
+            vbox.setSpacing(2)
+            v = QLabel(str(val))
+            v.setFont(QFont('Montserrat Alternates SemiBold', 18))
+            v.setStyleSheet(f"color: {GREEN_DARK}; background: transparent;")
+            l = QLabel(lbl)
+            l.setFont(font_label(8, bold=True))
+            l.setStyleSheet(f"color: {GREEN_DARK}; background: transparent; opacity: 0.8;")
+            vbox.addWidget(v, alignment=Qt.AlignCenter)
+            vbox.addWidget(l, alignment=Qt.AlignCenter)
+            st_l.addLayout(vbox)
+
+        # Dynamic BMI Badge Calculator
+        bmi_status_str = "Error BMI"
+        try:
+             bmi_status_str = self._sistem.calculatorBMI(float(val_bb), float(val_tb))
+             if bmi_status_str is None: bmi_status_str = "BMI Kosong"
+        except:
+             pass
+
+        status_word = ""
+        bmi_num = 0
+        if "(" in bmi_status_str:
+             bmi_num = bmi_status_str.split(" (")[0]
+             status_word = bmi_status_str.split(" (")[1].replace(")", "")
+             
+        badge_color = GREEN_LIGHT
+        text_color = GREEN_DARK
+        
+        if "Kurus" in status_word or "Obesitas" in status_word:
+            badge_color = "#FFEBEB" # Light red
+            text_color = "#D32F2F"  # Dark red
+        elif "Gemuk" in status_word:
+            badge_color = "#FFF5E6" # Light orange
+            text_color = "#E65100"  # Orange
+
+        set_st(val_bb, "kg BB")
+        set_st(val_tb, "cm TB")
+        set_st(bmi_num, "BMI")
+        lc_lay.addWidget(st_row)
+
+        lc_lay.addSpacing(8)
+        norm_badge = QLabel(f"✓ Berat Badan {status_word}" if status_word else bmi_status_str)
+        norm_badge.setFixedHeight(34)
+        norm_badge.setAlignment(Qt.AlignCenter)
+        norm_badge.setFont(font_label(9, bold=True))
+        norm_badge.setStyleSheet(f"""
+            QLabel {{
+                background-color: {badge_color};
+                color: {text_color};
+                padding: 0 16px;
+                border-radius: 10px;
+            }}
+        """)
+        lc_lay.addWidget(norm_badge, alignment=Qt.AlignCenter)
+
+        # --- RIGHT COLUMN: List Data ---
+        right_col = QVBoxLayout()
+        right_col.setSpacing(12)
+
+        def make_list_card(title, data_dict):
+            f = QFrame()
+            f.setStyleSheet("QFrame { background-color: white; border-radius: 16px; border: none; }")
+            
+            sh2 = QGraphicsDropShadowEffect()
+            sh2.setBlurRadius(20)
+            sh2.setXOffset(0)
+            sh2.setYOffset(4)
+            sh2.setColor(QColor(0, 0, 0, 15))
+            f.setGraphicsEffect(sh2)
+            
+            fl = QVBoxLayout(f)
+            fl.setContentsMargins(20, 16, 20, 16)
+            fl.setSpacing(2)
+            
+            t = QLabel(title)
+            t.setFont(QFont('Montserrat Alternates Medium', 12))
+            t.setStyleSheet(f"color: {C_TEXT_DARK}; margin-bottom: 12px; padding: 0;")
+            fl.addWidget(t)
+            
+            for k, v in data_dict.items():
+                r = QHBoxLayout()
+                r.setContentsMargins(0, 4, 0, 4)
+                lbl1 = QLabel(k)
+                lbl1.setFont(font_label(10))
+                lbl1.setStyleSheet(f"color: {GREEN_PRIMARY};")
+                lbl2 = QLabel(v)
+                lbl2.setFont(font_label(10, bold=True))
+                lbl2.setStyleSheet(f"color: {GREEN_PRIMARY};")
+                lbl2.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+                r.addWidget(lbl1)
+                r.addStretch()
+                r.addWidget(lbl2)
+                
+                fl.addLayout(r)
+                div = QFrame()
+                div.setFrameShape(QFrame.HLine)
+                div.setStyleSheet("background-color: #DCDCDC; border: none;")
+                div.setFixedHeight(1)
+                fl.addWidget(div)
+            return f
+
+        aktivitas = profil.get("activity", "Sedentary (Jarang Olahraga)")
+        
+        usia_val = profil.get("age", 20)
+        jk_val = profil.get("gender", "Perempuan")
+        calc = self._sistem.calculatorHarrisBenedict(jk_val, float(val_bb), float(val_tb), int(usia_val), aktivitas)
+        target_cal = calc if calc is not None else profil.get("calory", 2100)
+        
+        tujuan_diet = profil.get("diet_goal", "Maintain Berat Badan")
+
+        d_diri = {
+            "Nama Lengkap": profil.get("full_name", "-"),
+            "Usia": f"{profil.get('age', '-')} Tahun",
+            "Jenis Kelamin": profil.get("gender", "-"),
+            "Berat Badan": f"{val_bb} kg",
+            "Tinggi Badan": f"{val_tb} cm",
+            "Aktivitas": aktivitas
+        }
+        
+        akg_user = self._sistem.getAKGUser() or {}
+        tar_pro = akg_user.get("protein", 75)
+        tar_kar = akg_user.get("carb", 325)
+        tar_lem = akg_user.get("fat", 70)
+        
+        d_target = {
+            "Target Kalori": f"{target_cal} kkal",
+            "Target Protein": f"{tar_pro}g",
+            "Target Karbohidrat": f"{tar_kar}g",
+            "Target Lemak": f"{tar_lem}g",
+            "Tujuan Diet": tujuan_diet
+        }
+
+        right_col.addWidget(make_list_card("Data Diri", d_diri))
+        right_col.addWidget(make_list_card("Target Harian", d_target))
+        right_col.addStretch()
+
+        content_row.addWidget(left_card, 1)
+        content_row.addLayout(right_col, 1)
+
+        layout.addLayout(content_row)
+
+    def _go_to_edit(self):
+        dlg = EditProfileDialog(self._sistem, self)
+        if dlg.exec_() == QDialog.Accepted:
+            self.refresh_me.emit()
+
+
+# ==========================================
+# MAIN APP STACK
+# ==========================================
+class MainApplication(QMainWindow):
     def __init__(self):
         super().__init__()
+        load_fonts()
+        self.setWindowTitle("NutriKost")
+        self.resize(1200, 720)
         self._sistem = ProfilSystem()
-        self.setWindowTitle("NutriKost — Test Driver Profil")
-        self.resize(800, 500)
-        self.initUI()
 
-    def initUI(self):
-        main_widget = QWidget()
-        layout = QVBoxLayout()
+        self.stack = QStackedWidget()
+        self.setCentralWidget(self.stack)
 
-        # ===== BARIS TOMBOL AKSI =====
-        btn_row = QHBoxLayout()
+        self.init_auth_flow()
+        
+        # Selalu tampilkan halaman login di awal (jangan auto-login)
+        self.show_login()
 
-        self.btn_create = QPushButton("Buat Profil")
-        self.btn_edit   = QPushButton("Edit Profil")
-        self.btn_delete = QPushButton("Hapus Profil")
-        self.btn_refresh= QPushButton("Refresh")
+    def init_auth_flow(self):
+        # Create auth pages inside their wrapper
+        self.login_p = HalamanLogin(self._sistem)
+        self.register_p = HalamanRegister()
+        self.datadiri_p = HalamanDataDiri(self._sistem)
 
-        # Style tombol
-        for btn in [self.btn_create, self.btn_edit, self.btn_delete, self.btn_refresh]:
-            btn.setStyleSheet("padding: 10px 16px; font-size: 13px; font-weight: bold;")
+        self.login_wrapper = AuthBaseWidget(self.login_p)
+        self.register_wrapper = AuthBaseWidget(self.register_p)
+        self.datadiri_wrapper = AuthBaseWidget(self.datadiri_p)
 
-        self.btn_create.setStyleSheet("padding: 10px 16px; font-size: 13px; font-weight: bold; background-color: #1A7A34; color: white;")
-        self.btn_delete.setStyleSheet("padding: 10px 16px; font-size: 13px; font-weight: bold; background-color: #C62828; color: white;")
+        self.login_p.go_register.connect(self.show_register)
+        self.login_p.login_success.connect(self.show_dashboard)
+        
+        self.register_p.go_datadiri.connect(self.show_datadiri)
+        self.datadiri_p.register_success.connect(self.show_dashboard)
 
-        self.btn_create.clicked.connect(self.aksi_create)
-        self.btn_edit.clicked.connect(self.aksi_edit)
-        self.btn_delete.clicked.connect(self.aksi_delete)
-        self.btn_refresh.clicked.connect(self.refresh_tabel)
+        # 0
+        self.stack.addWidget(self.login_wrapper)
+        # 1
+        self.stack.addWidget(self.register_wrapper)
+        # 2
+        self.stack.addWidget(self.datadiri_wrapper)
 
-        btn_row.addWidget(self.btn_create)
-        btn_row.addWidget(self.btn_edit)
-        btn_row.addWidget(self.btn_delete)
-        btn_row.addStretch()
-        btn_row.addWidget(self.btn_refresh)
-        layout.addLayout(btn_row)
+    def show_login(self):
+        self.stack.setCurrentWidget(self.login_wrapper)
+        
+    def show_register(self):
+        self.stack.setCurrentWidget(self.register_wrapper)
 
-        # ===== TABEL DATA PROFIL =====
-        self.tabel = QTableWidget()
-        self.tabel.setColumnCount(8)  # ← dari 7 jadi 8
-        self.tabel.setHorizontalHeaderLabels([
-            "ID", "Nama Lengkap", "Usia", "Gender", 
-            "Berat (kg)", "Tinggi (cm)", "BMI", "Target Kalori"  # ← tambah 2 kolom
-        ])
-        self.tabel.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
-        self.tabel.horizontalHeader().setSectionResizeMode(6, QHeaderView.Stretch)
-        self.tabel.setSelectionBehavior(QTableWidget.SelectRows)
-        self.tabel.setEditTriggers(QTableWidget.NoEditTriggers)
-        self.tabel.cellClicked.connect(self._on_row_klik)
-        layout.addWidget(self.tabel)
+    def show_datadiri(self, data):
+        self.datadiri_p.register_data = data
+        self.stack.setCurrentWidget(self.datadiri_wrapper)
 
-        # ===== LABEL STATUS =====
-        self.label_status = QLabel("Klik baris untuk memilih profil.")
-        self.label_status.setStyleSheet("color: #6c757d; font-size: 12px; padding: 4px;")
-        layout.addWidget(self.label_status)
+    def show_dashboard(self):
+        self.dashboard = ProfilApp(self._sistem)
+        self.dashboard.logout_signal.connect(self.show_login)
+        self.dashboard.refresh_me.connect(self.refresh_dashboard)
+        
+        # 3
+        self.stack.addWidget(self.dashboard)
+        self.stack.setCurrentWidget(self.dashboard)
 
-        main_widget.setLayout(layout)
-        self.setCentralWidget(main_widget)
+    def refresh_dashboard(self):
+        idx = self.stack.indexOf(self.dashboard)
+        self.stack.removeWidget(self.dashboard)
+        self.dashboard.deleteLater()
+        
+        self.dashboard = ProfilApp(self._sistem)
+        self.dashboard.logout_signal.connect(self.show_login)
+        self.dashboard.refresh_me.connect(self.refresh_dashboard)
+        self.stack.insertWidget(idx, self.dashboard)
+        self.stack.setCurrentIndex(idx)
 
-        # Load data awal
-        self.refresh_tabel()
-
-    def refresh_tabel(self):
-        semua_user = self._sistem.data_helper.get_all_users()
-        self.tabel.setRowCount(len(semua_user))
-
-        for row, user in enumerate(semua_user):
-            # Hitung BMI dan kalori otomatis untuk setiap user
-            bmi    = self._sistem.calculatorBMI(user['weight'], user['height'])
-            kalori = self._sistem.calculatorHarrisBenedict(
-                user['gender'], user['weight'], user['height'], user['age']
-            )
-
-            self.tabel.setItem(row, 0, QTableWidgetItem(str(user.get('id_user', ''))))
-            self.tabel.setItem(row, 1, QTableWidgetItem(str(user.get('full_name', ''))))
-            self.tabel.setItem(row, 2, QTableWidgetItem(str(user.get('age', ''))))
-            self.tabel.setItem(row, 3, QTableWidgetItem(str(user.get('gender', ''))))
-            self.tabel.setItem(row, 4, QTableWidgetItem(str(user.get('weight', ''))))
-            self.tabel.setItem(row, 5, QTableWidgetItem(str(user.get('height', ''))))
-            self.tabel.setItem(row, 6, QTableWidgetItem(str(bmi)))     
-            self.tabel.setItem(row, 7, QTableWidgetItem(f"{kalori} kkal")) 
-
-        total = len(semua_user)
-        self.label_status.setText(f"Total {total} profil tersimpan di database.")
-
-    def _on_row_klik(self, row, _col):
-        # Saat baris diklik, set current_profil ke user yang dipilih
-        id_user = int(self.tabel.item(row, 0).text())
-        self._sistem.current_profil = self._sistem.data_helper.get_user_by_id(id_user)
-        nama = self.tabel.item(row, 1).text()
-        self.label_status.setText(f"Profil aktif: {nama}")
-
-    def aksi_create(self):
-        dialog = FormProfilDialog(parent=self)
-        if dialog.exec_() == QDialog.Accepted:
-            try:
-                data  = dialog.get_data()
-                hasil = self._sistem.createProfil(data)
-                if hasil:
-                    # Setelah berhasil simpan, langsung hitung BMI & kalori
-                    # dari data yang sama — tidak perlu input lagi!
-                    bmi    = self._sistem.calculatorBMI(data['weight'], data['height'])
-                    kalori = self._sistem.calculatorHarrisBenedict(
-                        data['gender'],
-                        data['weight'],
-                        data['height'],
-                        data['age']
-                    )
-
-                    # Tampilkan hasil sekaligus di popup
-                    QMessageBox.information(
-                        self, "Profil Berhasil Dibuat!",
-                        f"Profil berhasil dibuat!\n\n"
-                        f"BMI kamu        : {bmi}\n"
-                        f"Target kalori   : {kalori} kkal/hari"
-                    )
-                    self.refresh_tabel()
-                else:
-                    QMessageBox.warning(self, "Gagal", "Validasi gagal! Cek kembali inputan kamu.")
-            except ValueError:
-                QMessageBox.warning(self, "Error", "Usia, berat, dan tinggi harus berupa angka!")
-
-    def aksi_edit(self):
-        if self._sistem.current_profil is None:
-            QMessageBox.warning(self, "Peringatan", "Pilih profil dulu dengan klik baris di tabel!")
-            return
-
-        dialog = FormProfilDialog(parent=self, profil=self._sistem.current_profil)
-        if dialog.exec_() == QDialog.Accepted:
-            try:
-                data  = dialog.get_data()
-                hasil = self._sistem.updateProfil(data)
-                if hasil:
-                    QMessageBox.information(self, "Berhasil", "Profil berhasil diupdate!")
-                    self.refresh_tabel()
-                else:
-                    QMessageBox.warning(self, "Gagal", "Update gagal! Cek kembali inputan kamu.")
-            except ValueError:
-                QMessageBox.warning(self, "Error", "Usia, berat, dan tinggi harus berupa angka!")
-
-    def aksi_delete(self):
-        if self._sistem.current_profil is None:
-            QMessageBox.warning(self, "Peringatan", "Pilih profil dulu dengan klik baris di tabel!")
-            return
-
-        nama = self._sistem.current_profil.get('full_name', '')
-        konfirmasi = QMessageBox.question(
-            self, "Konfirmasi Hapus",
-            f"Yakin ingin menghapus profil '{nama}'?\nSemua log harian akan ikut terhapus.",
-            QMessageBox.Yes | QMessageBox.No
-        )
-        if konfirmasi == QMessageBox.Yes:
-            self._sistem.deleteProfil()
-            QMessageBox.information(self, "Berhasil", "Profil berhasil dihapus!")
-            self.refresh_tabel()
-
-
-# ==========================================
-# JALANKAN
-# ==========================================
 if __name__ == '__main__':
     app = QApplication(sys.argv)
-    window = ProfilTestApp()
+    app.setStyle("Fusion")
+    window = MainApplication()
     window.show()
     sys.exit(app.exec_())
