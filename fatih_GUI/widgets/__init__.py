@@ -1,1 +1,2 @@
 from .kalori_mingguan_widget import KaloriMingguanWidget
+from .komposisi_gizi_widget import KomposisiGiziWidget
