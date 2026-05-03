@@ -2,7 +2,6 @@ import os
 import json
 import re
 import sqlite3
-import random
 import google.generativeai as genai
 from thefuzz import process
 
@@ -71,33 +70,6 @@ def get_or_fetch_resep(nama_makanan_input):
             
     conn.close()
     return bahan_dari_ai
-
-def simpan_ke_makanan_master(nama_makanan, cal_100g, pro_100g, carb_100g, fat_100g):
-    """Menyimpan hasil kalkulasi nutrisi per 100g ke tabel Makanan"""
-    db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'nutrikost.db')
-    conn = sqlite3.connect(db_path)
-    cursor = conn.cursor()
-
-    # Membuat kode unik: AI + 3 Huruf Pertama + 4 Angka Random (Contoh: AI-AYA-1234)
-    huruf = re.sub(r'[^a-zA-Z]', '', nama_makanan).upper()
-    prefix = huruf[:3] if len(huruf) >= 3 else huruf.ljust(3, 'X')
-    kode_makanan = f"AI-{prefix}-{random.randint(1000, 9999)}"
-
-    try:
-        # Menyisipkan data sesuai dengan kolom tabel Makanan
-        # Kolom water dan fiber dikosongkan (0.0) karena AI belum bisa memprediksinya dengan akurat
-        cursor.execute('''
-            INSERT INTO Makanan (code, food_name, water, cal, protein, fat, carb, fiber)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        ''', (kode_makanan, nama_makanan.title(), 0.0, round(cal_100g, 2), round(pro_100g, 2), round(fat_100g, 2), round(carb_100g, 2), 0.0))
-        conn.commit()
-        print(f"\n[📥 INSERT MASTER] Berhasil mendaftarkan '{nama_makanan.title()}' ke tabel Makanan dengan kode: {kode_makanan}")
-    except sqlite3.IntegrityError:
-        print(f"\n[⚠️ INFO] Makanan '{nama_makanan}' sudah ada di tabel Makanan.")
-    except Exception as e:
-        print(f"\n[Error] Gagal menyimpan ke tabel Makanan: {e}")
-    finally:
-        conn.close()
 
 #Prompt Gemini
 def bongkar_resep_dengan_gemini(nama_makanan):
@@ -181,7 +153,6 @@ def proses_nutrisi_terminal(nama_makanan):
     total_protein = 0
     total_karbo = 0
     total_lemak = 0
-    total_berat_semua = 0
 
     for teks_bahan in daftar_bahan_mentah:
         match = re.search(r'([\d\./]+)\s*([a-zA-Z]+)\s*(.*)', teks_bahan)
@@ -203,7 +174,6 @@ def proses_nutrisi_terminal(nama_makanan):
 
                 pengali_gram = KONVERSI_GRAM.get(satuan, 100) 
                 total_berat_gram = kuantitas * pengali_gram
-                total_berat_semua += total_berat_gram
 
                 kalori_bahan = (total_berat_gram / 100) * float(data_nutrisi['cal'])
                 protein_bahan = (total_berat_gram / 100) * float(data_nutrisi['protein'])
@@ -230,21 +200,11 @@ def proses_nutrisi_terminal(nama_makanan):
 
     print("=" * 60)
     print(f" ESTIMASI TOTAL NUTRISI: {nama_makanan.upper()} ".center(60, '-'))
-    print(f" Total Berat Masakan: {round(total_berat_semua, 1)} g")
     print(f" Kalori Keseluruhan : {round(total_kalori, 1)} kcal")
     print(f" Protein Keseluruhan: {round(total_protein, 1)} g")
     print(f" Karbo Keseluruhan  : {round(total_karbo, 1)} g")
     print(f" Lemak Keseluruhan  : {round(total_lemak, 1)} g")
     print("=" * 60)
-    
-    if total_berat_semua > 0:
-        cal_100g = (total_kalori / total_berat_semua) * 100
-        pro_100g = (total_protein / total_berat_semua) * 100
-        carb_100g = (total_karbo / total_berat_semua) * 100
-        fat_100g = (total_lemak / total_berat_semua) * 100
-        
-        # Panggil fungsi simpan
-        simpan_ke_makanan_master(nama_makanan, cal_100g, pro_100g, carb_100g, fat_100g)
 
 if __name__ == "__main__":
     init_cache_table()
