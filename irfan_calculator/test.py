@@ -35,10 +35,7 @@ class TambahPopup(QWidget):
             #FoodInput { padding: 5px 15px; border: none; border-radius: 20px; background: rgba(26, 122, 52, 0.25); color: #1A7A34; }
             #FoodInput:disabled { background: #E0E0E0; color: #555555; }
             #FoodInput::drop-down { width: 0px; border: none; }
-            QComboBox QAbstractItemView {
-                background-color: white; border: none; border-radius: none;
-                selection-background-color: rgba(26, 122, 52, 0.25); selection-color: #1A7A34; outline: none;
-            }
+
         """)
 
         card_layout = QVBoxLayout(self.card)
@@ -107,14 +104,20 @@ class TambahPopup(QWidget):
                 width: 14px; 
                 height: 14px;
             }
-            QComboBox::down-arrow:on { 
-                image: url(./assets/up_arrow.png);
-            }
             QComboBox QAbstractItemView {
                 border: 1px solid #1A7A34;
                 border-radius: 0px;
                 background-color: white;
-                outline: none;
+                outline: 0px;
+            }
+            QComboBox QAbstractItemView::item {
+                min-height: 40px; /* Distance between items */
+                padding-left: 10px;
+                color: #555555;
+            }
+            QComboBox QAbstractItemView::item:selected {
+                background-color: rgba(26, 122, 52, 0.15);
+                color: #1A7A34;
             }
         """)
         self.waktu.addItems(["Sarapan", "Makan Siang", "Makan Malam", "Snack", "Minuman"])
@@ -266,12 +269,12 @@ class DashboardPage(PageTemplate):
         self.action_btn = QPushButton("+ Tambah Makanan")
         self.action_btn.setFixedSize(210, 50)
         self.action_btn.setCursor(Qt.PointingHandCursor)
-        self.action_btn.setFont(self.font_label(12, bold=True))
+        self.action_btn.setFont(self.font_label(bold=True))
         self.action_btn.setStyleSheet("""
             QPushButton { 
                 background-color: #1A7A34; 
                 color: white; 
-                border-radius: 25px; 
+                border-radius: 16px; 
             }
             QPushButton:hover { 
                 background-color: white; 
@@ -300,7 +303,7 @@ class DashboardPage(PageTemplate):
         card_header_layout.setSpacing(15)
 
         lbl_title = QLabel("Daftar Makanan Hari Ini")
-        lbl_title.setFont(self.font_title(16))
+        lbl_title.setFont(self.font_title(20))
         lbl_title.setStyleSheet("color: black; border: none;")
         card_header_layout.addWidget(lbl_title)
         
@@ -329,6 +332,7 @@ class DashboardPage(PageTemplate):
         # Filter Dropdown
         self.filter_waktu = QComboBox()
         self.filter_waktu.setFixedSize(140, 40)
+        self.filter_waktu.setView(QListView())
         self.filter_waktu.addItems(["Semua Waktu", "Sarapan", "Makan Siang", "Makan Malam", "Snack", "Minuman"])
         self.filter_waktu.setStyleSheet("""
             QComboBox {
@@ -338,24 +342,31 @@ class DashboardPage(PageTemplate):
                 background-color: white;
                 color: #666;
             }
-            QComboBox::drop-down { 
-                border: none; 
-                width: 30px; 
+            QComboBox::drop-down {
+                subcontrol-origin: padding;
+                subcontrol-position: top right;
+                width: 30px;
+                border: none;
             }
             QComboBox::down-arrow {
                 image: url(./assets/down_arrow.png);
-                width: 12px;
-                height: 12px;
-            }
-            QComboBox::down-arrow:on { 
-                image: url(./assets/up_arrow.png);
+                width: 14px; 
+                height: 14px;
             }
             QComboBox QAbstractItemView {
-                border: none;
+                border: 1px solid #1A7A34;
                 border-radius: 0px;
                 background-color: white;
-                selection-background-color: rgba(26, 122, 52, 0.25);
-                selection-color: #1A7A34;
+                outline: 0px;
+            }
+            QComboBox QAbstractItemView::item {
+                min-height: 40px; /* Distance between items */
+                padding-left: 10px;
+                color: #555555;
+            }
+            QComboBox QAbstractItemView::item:selected {
+                background-color: rgba(26, 122, 52, 0.15);
+                color: #1A7A34;
             }
         """)
         self.filter_waktu.currentIndexChanged.connect(self.reset_and_load)
@@ -367,7 +378,7 @@ class DashboardPage(PageTemplate):
         self.rows_container = QWidget()
         self.rows_container.setStyleSheet("border: none;")
         self.rows_layout = QGridLayout(self.rows_container)
-        self.rows_layout.setContentsMargins(10, 10, 10, 10)
+        self.rows_layout.setContentsMargins(10, 30, 10, 10)
         self.rows_layout.setSpacing(8)
 
         self.card_layout.addWidget(self.rows_container)
@@ -378,7 +389,6 @@ class DashboardPage(PageTemplate):
         line_container.setStyleSheet("border: none; background: transparent;")
         line_container_layout = QHBoxLayout(line_container)
         
-        # Match the side margins of your rows_layout (10px)
         line_container_layout.setContentsMargins(10, 0, 10, 0)
 
         footer_line = QFrame()
@@ -446,7 +456,7 @@ class DashboardPage(PageTemplate):
             if item.widget():
                 item.widget().deleteLater()
 
-        headers = ["Nama Makanan", "Waktu", "Porsi", "Kalori", "Protein", "Karbo", "Lemak", " ", " "]
+        headers = ["Nama Makanan", "Waktu", "Porsi", "Kalori", "Protein", "Karbohidrat", "Lemak", " ", " "]
         for col, text in enumerate(headers):
             lbl = QLabel(text)
             lbl.setFont(self.font_title(12))
@@ -532,15 +542,14 @@ class DashboardPage(PageTemplate):
             # Apply the style with Icon states
             btn_edit.setStyleSheet("""
                 QPushButton { 
-                    background-color: #1A7A34; 
+                    background-color: white; 
                     border-radius: 6px;
-                    qproperty-icon: url('assets/icons/edit_white.png'); 
-                    qproperty-iconSize: 18px;
+                    image: url("assets/icons/State=Default.png");
                 }
                 QPushButton:hover { 
-                    background-color: white; 
-                    border: 1px solid #1A7A34; 
-                    qproperty-icon: url('assets/icons/edit_green.png'); 
+                    background-color: none; 
+                    border: none; 
+                    image: url("assets/icons/State=Hover-Edit.png");
                 }
             """)
             btn_edit.clicked.connect(lambda _, e=entry: self.open_popup(e))
@@ -553,15 +562,14 @@ class DashboardPage(PageTemplate):
             
             btn_delete.setStyleSheet("""
                 QPushButton { 
-                    background-color: #E03030; 
+                    background-color: white; 
                     border-radius: 6px;
-                    qproperty-icon: url('assets/icons/delete_white.png'); 
-                    qproperty-iconSize: 18px;
+                    image: url("assets/icons/State=Default (1).png");
                 }
                 QPushButton:hover { 
-                    background-color: white; 
-                    border: 1px solid #E03030; 
-                    qproperty-icon: url('assets/icons/delete_red.png'); 
+                    background-color: #E03030; 
+                    border: none; 
+                    image: url("assets/icons/State=Hover-delete.png");
                 }
             """)
             btn_delete.clicked.connect(lambda _, id=entry['id_log']: self.delete_entry(id))
