@@ -1,0 +1,1 @@
+from .kalori_mingguan_widget import KaloriMingguanWidget
