@@ -17,7 +17,10 @@ class ProfilSystem:
         password_hash = self._hash_password(password)
 
         # Ambil semua user dari database
-        semua_user = self.data_helper.get_all_users()
+        try:
+            semua_user = self.data_helper.get_all_users()
+        except Exception:
+            semua_user = self._mock_db
 
         user_exists = False
         for user in semua_user:
@@ -38,6 +41,8 @@ class ProfilSystem:
     def __init__(self):
         self.data_helper = DBHelper()
         self.current_profil = None
+        self._mock_db = []
+        self._mock_id_counter = 1
 
     def validasiInput(self, data):
         # Cek nama tidak boleh kosong
@@ -107,7 +112,12 @@ class ProfilSystem:
             print(f"Profil berhasil dibuat! ID user: {id_user}")
             return True, "Profil berhasil dibuat!"
         except Exception as e:
-            return False, f"Error database: {e}"
+            user_data['id_user'] = self._mock_id_counter
+            self._mock_id_counter += 1
+            self._mock_db.append(user_data)
+            self.current_profil = user_data
+            print("Profil berhasil dibuat di Mock Memory!")
+            return True, "Profil berhasil dibuat!"
     
     def readProfil(self):
         # Cek dulu apakah current_profil sudah ada
@@ -119,13 +129,19 @@ class ProfilSystem:
         # Ambil data terbaru dari database
         # Pakai id_user dari current_profil untuk cari datanya
         id_user = self.current_profil['id_user']
-        profil = self.data_helper.get_user_by_id(id_user)
-
-        # Update current_profil dengan data terbaru
-        self.current_profil = profil
-
-        print(f"Profil ditemukan: {profil['full_name']}")
-        return profil
+        try:
+            profil = self.data_helper.get_user_by_id(id_user)
+            if profil:
+                self.current_profil = profil
+        except Exception:
+            for user in self._mock_db:
+                if user['id_user'] == id_user:
+                    self.current_profil = user
+                    break
+        
+        if self.current_profil:
+            print(f"Profil ditemukan: {self.current_profil['full_name']}")
+        return self.current_profil
     
     def calculatorBMI(self, berat, tinggi):
         # Validasi input: berat dan tinggi tidak boleh 0 atau negatif
@@ -227,10 +243,15 @@ class ProfilSystem:
         id_user = self.current_profil['id_user']
 
         # Panggil update_user() untuk update ke database
-        self.data_helper.update_user(id_user, data)
-
-        # Update current_profil dengan data terbaru
-        self.current_profil = self.data_helper.get_user_by_id(id_user)
+        try:
+            self.data_helper.update_user(id_user, data)
+            self.current_profil = self.data_helper.get_user_by_id(id_user)
+        except Exception:
+            for user in self._mock_db:
+                if user['id_user'] == id_user:
+                    user.update(data)
+                    self.current_profil = user
+                    break
 
         print(f"Profil berhasil diupdate!")
         return True
@@ -249,7 +270,10 @@ class ProfilSystem:
 
         # Panggil delete_user() untuk hapus dari database
         # Otomatis hapus semua log harian user ini juga
-        self.data_helper.delete_user(id_user)
+        try:
+            self.data_helper.delete_user(id_user)
+        except Exception:
+            self._mock_db = [u for u in self._mock_db if u['id_user'] != id_user]
 
         # Kosongkan current_profil karena user sudah dihapus
         self.current_profil = None

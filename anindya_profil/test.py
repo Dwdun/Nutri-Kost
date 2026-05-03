@@ -7,7 +7,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'fatih_GUI'))
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QPushButton, QLabel, QLineEdit, QComboBox, QMessageBox,
-    QFrame, QStackedWidget, QCheckBox, QSpacerItem, QSizePolicy, QGraphicsDropShadowEffect, QScrollArea, QDialog
+    QFrame, QStackedWidget, QCheckBox, QSpacerItem, QSizePolicy, QGraphicsDropShadowEffect, QScrollArea, QDialog, QListView
 )
 from PyQt5.QtCore import Qt, QSize, pyqtSignal
 from PyQt5.QtGui import QFont, QPixmap, QIcon, QColor, QPainter, QCursor
@@ -152,7 +152,7 @@ class HalamanLogin(QWidget):
         cl.setSpacing(10)
 
         # Email
-        lbl_email = buat_label("Username", 10)
+        lbl_email = buat_label("Email", 10)
         lbl_email.setStyleSheet("color: #115724; background: transparent;")
         cl.addWidget(lbl_email)
         self.inp_user = buat_input("Type Here")
@@ -400,17 +400,38 @@ class HalamanDataDiri(QWidget):
         self.inp_jk = QComboBox()
         self.inp_jk.addItems(["Perempuan", "Laki-laki"])
         self.inp_jk.setFixedHeight(48)
-        self.inp_jk.setStyleSheet("""
-            QComboBox { 
-                border: none; 
-                border-radius: 24px; 
-                padding: 0 16px; 
-                background: white; 
-                font-size: 13px; 
+        combo_style = '''
+            QComboBox {
+                border: none;
+                border-radius: 24px;
+                padding: 5px 16px;
+                background: white;
                 color: #333333;
-            } 
-            QComboBox::drop-down { border: none; width: 30px; }
-        """)
+            }
+            QComboBox::drop-down {
+                subcontrol-origin: padding;
+                subcontrol-position: top right;
+                width: 30px;
+                border: none;
+            }
+            QComboBox QAbstractItemView {
+                border: 1px solid #1A7A34;
+                border-radius: 0px;
+                background-color: white;
+                outline: 0px;
+            }
+            QComboBox QAbstractItemView::item {
+                min-height: 40px;
+                padding-left: 10px;
+                color: #555555;
+            }
+            QComboBox QAbstractItemView::item:selected {
+                background-color: rgba(26, 122, 52, 0.15);
+                color: #1A7A34;
+            }
+        '''
+        self.inp_jk.setView(QListView())
+        self.inp_jk.setStyleSheet(combo_style)
         cl.addWidget(self.inp_jk)
 
         # Row 2: Usia | Aktivitas
@@ -430,10 +451,8 @@ class HalamanDataDiri(QWidget):
         self.inp_akt = QComboBox()
         self.inp_akt.addItems(["Sedentary (jarang olahraga)", "Ringan", "Sedang", "Berat"])
         self.inp_akt.setFixedHeight(48)
-        self.inp_akt.setStyleSheet("""
-            QComboBox { border: none; border-radius: 24px; padding: 0 16px; background: white; font-size: 13px; color: #333333;}
-            QComboBox::drop-down { border: none; width: 30px; }
-        """)
+        self.inp_akt.setView(QListView())
+        self.inp_akt.setStyleSheet(combo_style)
         c22.addWidget(self.inp_akt)
         r2.addLayout(c22, 1)
         cl.addLayout(r2)
@@ -474,8 +493,8 @@ class HalamanDataDiri(QWidget):
         tl.addWidget(lbl_tgt)
 
         self.val_cal = QLabel("2100 kkal/hari")
-        self.val_cal.setFont(QFont('Montserrat Alternates SemiBold', 22))
-        self.val_cal.setStyleSheet("color: white; background: transparent;")
+        self.val_cal.setFont(QFont('Montserrat Alternates SemiBold', 26))
+        self.val_cal.setStyleSheet("color: #115724; background: transparent; font-weight: bold;")
         tl.addWidget(self.val_cal)
         
         lbl_note = QLabel("Berdasarkan BMR + tingkat aktivitas (bisa diubah)")
@@ -574,84 +593,154 @@ class EditProfileDialog(QDialog):
     def __init__(self, sistem: ProfilSystem, parent=None):
         super().__init__(parent)
         self.sistem = sistem
-        self.setWindowTitle("Edit Profile")
-        self.setFixedWidth(420)
-        self.setStyleSheet("background-color: white; border-radius: 8px;")
         
-        layout = QVBoxLayout(self)
-        layout.setSpacing(16)
-        layout.setContentsMargins(24, 24, 24, 24)
+        self.setWindowFlags(Qt.FramelessWindowHint | Qt.Dialog)
+        self.setAttribute(Qt.WA_TranslucentBackground)
+        self.setObjectName("OverlayDialog")
+        self.setStyleSheet("#OverlayDialog { background-color: rgba(0, 0, 0, 120); }")
+        
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setAlignment(Qt.AlignCenter)
+        
+        self.card = QFrame()
+        self.card.setFixedSize(380, 500)
+        self.card.setStyleSheet("""
+            QFrame { background: white; border-radius: 25px; border: none; }
+            QLabel { border: none; background: transparent; color: #555555; font-family: 'Poppins'; }
+            QLineEdit { border: none; border-radius: 20px; padding-left: 15px; background: rgba(26, 122, 52, 0.25); color: #1A7A34; }
+        """)
+        
+        card_layout = QVBoxLayout(self.card)
+        card_layout.setContentsMargins(25, 25, 25, 25)
+        card_layout.setSpacing(10)
 
         title = QLabel("Edit Profile")
-        title.setFont(font_title(18))
-        title.setStyleSheet(f"color: {GREEN_DARK}; font-weight: bold;")
-        layout.addWidget(title)
+        title.setFont(QFont('Poppins', 14, QFont.Bold))
+        title.setStyleSheet("color: #1A7A34;")
+        card_layout.addWidget(title)
 
         profil = self.sistem.current_profil or {}
         
         def lbl_blk(text):
             l = QLabel(text)
-            l.setStyleSheet("color: #333333; font-weight: bold; font-size: 13px;")
             return l
 
         # Nama
-        layout.addWidget(lbl_blk("Nama Lengkap"))
-        self.inp_nama = buat_input("Type Here")
+        card_layout.addWidget(lbl_blk("Nama Lengkap"))
+        self.inp_nama = QLineEdit()
+        self.inp_nama.setFixedHeight(45)
         self.inp_nama.setText(profil.get("full_name", ""))
-        self.inp_nama.setStyleSheet(self.inp_nama.styleSheet() + "border: 1px solid #CCC; color: black;")
-        layout.addWidget(self.inp_nama)
+        card_layout.addWidget(self.inp_nama)
 
         row = QHBoxLayout()
         v1 = QVBoxLayout()
         v1.addWidget(lbl_blk("Usia (tahun)"))
-        self.inp_usia = buat_input("")
+        self.inp_usia = QLineEdit()
+        self.inp_usia.setFixedHeight(45)
         self.inp_usia.setText(str(profil.get("age", "")))
-        self.inp_usia.setStyleSheet(self.inp_usia.styleSheet() + "border: 1px solid #CCC; color: black;")
         v1.addWidget(self.inp_usia)
         
         v2 = QVBoxLayout()
         v2.addWidget(lbl_blk("BB (kg)"))
-        self.inp_bb = buat_input("")
+        self.inp_bb = QLineEdit()
+        self.inp_bb.setFixedHeight(45)
         self.inp_bb.setText(str(profil.get("weight", "")))
-        self.inp_bb.setStyleSheet(self.inp_bb.styleSheet() + "border: 1px solid #CCC; color: black;")
         v2.addWidget(self.inp_bb)
 
         v3 = QVBoxLayout()
         v3.addWidget(lbl_blk("TB (cm)"))
-        self.inp_tb = buat_input("")
+        self.inp_tb = QLineEdit()
+        self.inp_tb.setFixedHeight(45)
         self.inp_tb.setText(str(profil.get("height", "")))
-        self.inp_tb.setStyleSheet(self.inp_tb.styleSheet() + "border: 1px solid #CCC; color: black;")
         v3.addWidget(self.inp_tb)
         
         row.addLayout(v1)
         row.addLayout(v2)
         row.addLayout(v3)
-        layout.addLayout(row)
+        card_layout.addLayout(row)
 
-        layout.addWidget(lbl_blk("Aktivitas"))
+        combo_style = '''
+            QComboBox {
+                border: none;
+                border-radius: 16px;
+                padding: 5px 10px;
+                background: rgba(26, 122, 52, 0.25);
+                color: #1A7A34;
+            }
+            QComboBox::drop-down {
+                subcontrol-origin: padding;
+                subcontrol-position: top right;
+                width: 30px;
+                border: none;
+            }
+            QComboBox QAbstractItemView {
+                border: 1px solid #1A7A34;
+                border-radius: 0px;
+                background-color: white;
+                outline: 0px;
+            }
+            QComboBox QAbstractItemView::item {
+                min-height: 40px;
+                padding-left: 10px;
+                color: #555555;
+            }
+            QComboBox QAbstractItemView::item:selected {
+                background-color: rgba(26, 122, 52, 0.15);
+                color: #1A7A34;
+            }
+        '''
+
+        card_layout.addWidget(lbl_blk("Aktivitas"))
         self.inp_akt = QComboBox()
+        self.inp_akt.setView(QListView())
         self.inp_akt.addItems(["Sedentary (Jarang Olahraga)", "Ringan", "Sedang", "Berat"])
-        current_act = profil.get("activity", "Sedentary (Jarang Olahraga)")
-        self.inp_akt.setCurrentText(current_act)
-        self.inp_akt.setFixedHeight(38)
-        self.inp_akt.setStyleSheet("QComboBox { border: 1px solid #CCC; border-radius: 19px; padding: 0 16px; background: white; font-size: 13px; color: black;}")
-        layout.addWidget(self.inp_akt)
+        self.inp_akt.setCurrentText(profil.get("activity", "Sedentary (Jarang Olahraga)"))
+        self.inp_akt.setFixedHeight(45)
+        self.inp_akt.setStyleSheet(combo_style)
+        card_layout.addWidget(self.inp_akt)
 
-        layout.addWidget(lbl_blk("Tujuan Diet"))
+        card_layout.addWidget(lbl_blk("Tujuan Diet"))
         self.inp_diet = QComboBox()
+        self.inp_diet.setView(QListView())
         self.inp_diet.addItems(["Maintain Berat Badan", "Turun Berat Badan", "Naik Berat Badan"])
-        current_diet = profil.get("diet_goal", "Maintain Berat Badan")
-        self.inp_diet.setCurrentText(current_diet)
-        self.inp_diet.setFixedHeight(38)
-        self.inp_diet.setStyleSheet("QComboBox { border: 1px solid #CCC; border-radius: 19px; padding: 0 16px; background: white; font-size: 13px; color: black;}")
-        layout.addWidget(self.inp_diet)
+        self.inp_diet.setCurrentText(profil.get("diet_goal", "Maintain Berat Badan"))
+        self.inp_diet.setFixedHeight(45)
+        self.inp_diet.setStyleSheet(combo_style)
+        card_layout.addWidget(self.inp_diet)
+
+        card_layout.addStretch()
+
+        btns = QHBoxLayout()
+        btn_batal = QPushButton("Batal")
+        btn_batal.setFixedHeight(50)
+        btn_batal.setCursor(Qt.PointingHandCursor)
+        btn_batal.setStyleSheet(
+            "QPushButton { background-color: white; color: rgba(26, 122, 52, 0.5); "
+            "border: 1px solid #1A7A34; border-radius: 25px; font-size: 16px; font-weight: bold; } "
+            "QPushButton:hover { color: #1A7A34; }"
+        )
+        btn_batal.clicked.connect(self.reject)
 
         btn_simpan = QPushButton("Simpan")
-        btn_simpan.setFixedHeight(40)
+        btn_simpan.setFixedHeight(50)
         btn_simpan.setCursor(Qt.PointingHandCursor)
-        btn_simpan.setStyleSheet(f"QPushButton {{ background-color: {GREEN_PRIMARY}; color: white; border-radius: 20px; font-weight: bold; }}")
+        btn_simpan.setStyleSheet(
+            "QPushButton { background-color: #1A7A34; color: white; "
+            "border-radius: 25px; font-weight: bold; font-size: 16px; }"
+        )
         btn_simpan.clicked.connect(self._simpan)
-        layout.addWidget(btn_simpan)
+
+        btns.addWidget(btn_batal)
+        btns.addWidget(btn_simpan)
+        
+        card_layout.addLayout(btns)
+        main_layout.addWidget(self.card)
+
+    def resizeEvent(self, event):
+        if self.parent():
+            self.resize(self.parent().size())
+        super().resizeEvent(event)
 
     def _simpan(self):
         try:
@@ -690,7 +779,7 @@ class EditProfileDialog(QDialog):
 # ==========================================
 # MAIN DASHBOARD / PROFILE 
 # ==========================================
-class ProfilApp(PageTemplate):
+class ProfilApp(QWidget):
     PAGE_NAME = 'Profile'
     PAGE_DESC = 'Data diri dan target nutrisi harianmu'
     NAV_INDEX = 5
@@ -699,46 +788,22 @@ class ProfilApp(PageTemplate):
     refresh_me = pyqtSignal()
 
     def __init__(self, sistem: ProfilSystem):
-        self._sistem = sistem
         super().__init__()
+        self._sistem = sistem
 
-        # Fix Sidebar text clipping for long names/emails
-        self._sidebar._username_lbl.setWordWrap(True)
-        self._sidebar._email_lbl.setWordWrap(True)
-        # Ensure the info column can grow
-        self._sidebar._info_col.setMinimumHeight(40) 
+        self.setStyleSheet("background-color: transparent;")
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(32, 28, 32, 28)
+        layout.setSpacing(20)
 
-        # Modify PageTemplate logout to trigger our app switch
-        self._sidebar._logout_btn.clicked.connect(self._aksi_logout)
+        self.build_content(layout)
 
     def _aksi_logout(self):
         self._sistem.current_profil = None
         self.logout_signal.emit()
 
-    def build_content(self, container: QWidget):
-        
-        # Hide default titles from PageTemplate to avoid duplication
-        self._page_title.setVisible(False)
-        self._page_desc.setVisible(False)
-
-        # Override the header slightly
-        self._header.set_page_name("Profile")
-
-        # Container is already laid out. We will create the UI inside.
-        layout = container.layout()
-        
+    def build_content(self, layout: QVBoxLayout):
         profil = self._sistem.current_profil or {}
-        
-        # Ensure sidebar updates its email & name
-        if hasattr(self, '_sidebar'):
-            self._sidebar._email_lbl.setText(profil.get("email", "unknown@mail.com"))
-            self._sidebar._username_lbl.setText(profil.get("full_name", "Profile"))
-            
-            # Uncheck active sidebar states because we are in the profile page out-of-band mode!
-            for nav in self._sidebar._nav_items:
-                nav.setAutoExclusive(False)
-                nav.setChecked(False)
-                nav.setAutoExclusive(True)
         
         # Top Header Area
         top_row = QHBoxLayout()
@@ -782,6 +847,24 @@ class ProfilApp(PageTemplate):
             }}
         """)
         top_row.addWidget(self.btn_edit)
+
+        self.btn_keluar = QPushButton("Keluar")
+        self.btn_keluar.setFixedSize(120, 52)
+        self.btn_keluar.setCursor(Qt.PointingHandCursor)
+        self.btn_keluar.setFont(font_label(10, bold=True))
+        self.btn_keluar.setStyleSheet(f"""
+            QPushButton {{
+                background-color: #E03030;
+                color: white;
+                border-radius: 12px;
+                padding: 0 16px;
+            }}
+            QPushButton:hover {{
+                background-color: #B71C1C;
+            }}
+        """)
+        self.btn_keluar.clicked.connect(self._aksi_logout)
+        top_row.addWidget(self.btn_keluar)
         
         # Insert top_row at the beginning of the layout
         layout.insertLayout(0, top_row)
@@ -1005,7 +1088,8 @@ class ProfilApp(PageTemplate):
         layout.addLayout(content_row)
 
     def _go_to_edit(self):
-        dlg = EditProfileDialog(self._sistem, self)
+        dlg = EditProfileDialog(self._sistem, self.window())
+        dlg.setGeometry(0, 0, self.window().width(), self.window().height())
         if dlg.exec_() == QDialog.Accepted:
             self.refresh_me.emit()
 
@@ -1085,6 +1169,27 @@ class MainApplication(QMainWindow):
 if __name__ == '__main__':
     app = QApplication(sys.argv)
     app.setStyle("Fusion")
+    
+    app.setStyleSheet("""
+        QMessageBox {
+            background-color: white;
+        }
+        QMessageBox QLabel {
+            color: #333333;
+            background-color: transparent;
+        }
+        QMessageBox QPushButton {
+            background-color: #1A7A34;
+            color: white;
+            border-radius: 4px;
+            padding: 5px 15px;
+            min-width: 60px;
+        }
+        QMessageBox QPushButton:hover {
+            background-color: #145925;
+        }
+    """)
+    
     window = MainApplication()
     window.show()
     sys.exit(app.exec_())

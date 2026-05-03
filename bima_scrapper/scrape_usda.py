@@ -101,7 +101,7 @@ def scrape_and_save_usda():
             print(f"[v] Halaman {page} selesai. {page_count} makanan ditambahkan. (Total sementara: {total_saved})")
             
             page += 1
-            time.sleep(2)
+            time.sleep(0.1)
             
         except Exception as e:
             print(f"[!] Error koneksi/parsing saat mengakses halaman {page}: {e}")

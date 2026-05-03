@@ -394,7 +394,11 @@ class SearchPage(QWidget):
 
         if query:
             self._is_searching = True
-            raw = self._db.search_makanan(query)
+            try:
+                raw = self._db.search_makanan(query)
+            except Exception as e:
+                print(f"[SearchPage] Mocking search due to DB error: {e}")
+                raw = []
             self._all_results = raw
             self._update_pagination_ui()
             self._render(self._filter_sort(raw))
@@ -466,7 +470,11 @@ class SearchPage(QWidget):
             self._callback(makanan)
 
     def _fetch_page(self, page: int):
-        hasil = self._db.get_all_makanan_paginated(page=page, per_page=self.PER_PAGE)
+        try:
+            hasil = self._db.get_all_makanan_paginated(page=page, per_page=self.PER_PAGE)
+        except Exception as e:
+            print(f"[SearchPage] Mocking pagination due to DB error: {e}")
+            hasil = {"data": [], "pagination": {"total_items": 0, "total_pages": 1}}
 
         new_data   = hasil["data"]
         pagination = hasil["pagination"]

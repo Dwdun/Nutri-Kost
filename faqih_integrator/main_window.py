@@ -147,8 +147,12 @@ class MainWindow(QMainWindow):
         "setting":         "Pengaturan",
     }
 
-    def __init__(self):
+    from PyQt5.QtCore import pyqtSignal
+    logout_signal = pyqtSignal()
+
+    def __init__(self, sistem_profil=None):
         super().__init__()
+        self.sistem_profil = sistem_profil
         self.setWindowTitle("NutriKost — Pemantau Gizi Mahasiswa Kos")
         self.setMinimumSize(1000, 640)
         self.resize(1200, 720)
@@ -322,10 +326,14 @@ class MainWindow(QMainWindow):
         info_lay.setSpacing(1)
         info_lay.setAlignment(Qt.AlignVCenter)
 
-        u_lbl = QLabel("Profile")
+        profil_data = {}
+        if hasattr(self, 'sistem_profil') and self.sistem_profil and self.sistem_profil.current_profil:
+            profil_data = self.sistem_profil.current_profil
+            
+        u_lbl = QLabel(profil_data.get("full_name", "User Profile"))
         u_lbl.setFont(QFont("Poppins", 10, QFont.Bold))
         u_lbl.setStyleSheet("color: white;")
-        e_lbl = QLabel("username@gmail.com")
+        e_lbl = QLabel(profil_data.get("email", "username@email.com"))
         e_lbl.setFont(QFont("Poppins", 8))
         e_lbl.setStyleSheet("color: rgba(255,255,255,0.55);")
 
@@ -400,7 +408,14 @@ class MainWindow(QMainWindow):
         self._add_page("komposisi_gizi", self._placeholder("Komposisi Gizi", "Modul Fatih"))
         self._add_page("top_10_makanan", self._placeholder("Top 10 Makanan", "Modul Fatih"))
         
-        self._add_page("profil", self._placeholder("Profil", "Modul Anin"))
+        import sys
+        if os.path.join(BASE_DIR, "..", "anindya_profil") not in sys.path:
+            sys.path.insert(0, os.path.join(BASE_DIR, "..", "anindya_profil"))
+        import test as anindya_test
+        
+        self.profil_app = anindya_test.ProfilApp(self.sistem_profil)
+        self.profil_app.logout_signal.connect(self.logout_signal.emit)
+        self._add_page("profil", self.profil_app)
         
         from setting_page import SettingPage
         self._add_page("setting", SettingPage())
