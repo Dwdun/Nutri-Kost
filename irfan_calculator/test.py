@@ -18,6 +18,7 @@ class TambahPopup(QWidget):
         self.save_callback = save_callback
         self.cancel_callback = cancel_callback
         self.edit_data = edit_data 
+        self.btn_save = QPushButton("Simpan" if self.edit_data else "Tambah")
         
         self.setAttribute(Qt.WA_StyledBackground, True)
         self.setStyleSheet("background-color: rgba(0, 0, 0, 120);")
@@ -35,7 +36,7 @@ class TambahPopup(QWidget):
             #FoodInput:disabled { background: #E0E0E0; color: #888; }
             #FoodInput::drop-down { width: 0px; border: none; }
             QComboBox QAbstractItemView {
-                background-color: white; border: 1px solid #1A7A34; border-radius: 12px;
+                background-color: white; border: none; border-radius: none;
                 selection-background-color: #CDE2D4; selection-color: #1A7A34; outline: none;
             }
         """)
@@ -97,14 +98,21 @@ class TambahPopup(QWidget):
                 subcontrol-origin: padding;
                 subcontrol-position: top right;
                 width: 30px;
-                background: none;
-                
+                border: none;
+            }
+            QComboBox::down-arrow {
+                image: url(./assets/down_arrow.png);
+                width: 14px; 
+                height: 14px;
+            }
+            QComboBox::down-arrow:on { 
+                image: url(./assets/up_arrow.png);
             }
             QComboBox QAbstractItemView {
-                border: none;
+                border: 1px solid #1A7A34;
                 border-radius: 0px;
-                outline: none;
                 background-color: white;
+                outline: none;
             }
         """)
         self.waktu.addItems(["Sarapan", "Makan Siang", "Makan Malam", "Snack", "Minuman"])
@@ -175,15 +183,19 @@ class TambahPopup(QWidget):
             self.nama.setEnabled(False) 
             self.porsi.setText(str(self.edit_data['portion']))
             self.waktu.setCurrentText(self.edit_data['meal_time'])
-            self.update_preview()
+
+        self.update_preview()
 
     def update_preview(self):
         try:
             porsi = float(self.porsi.text()) if self.porsi.text() else 0
-        except: porsi = 0
+        except: 
+            porsi = 0
 
-        idx = self.nama.currentIndex()
+        idx = self.nama.findText(self.nama.currentText(), Qt.MatchExactly)
         code = self.nama.itemData(idx) if idx >= 0 else None
+        
+        self.btn_save.setEnabled(code is not None and porsi > 0)
         
         if code:
             data = self.db.kalkulator_nutrisi(code, porsi)
@@ -197,13 +209,25 @@ class TambahPopup(QWidget):
                 lbl.setText("--")
 
     def on_save(self):
-        idx = self.nama.currentIndex()
+        # Re-verify the text against the actual items
+        idx = self.nama.findText(self.nama.currentText(), Qt.MatchExactly)
         code = self.nama.itemData(idx)
-        if idx == -1 or code is None: return
+        
+        # If the user typed something not in the list, index will be -1
+        if idx == -1 or code is None: 
+            return # Do nothing
+
+        try:
+            porsi_val = float(self.porsi.text() or 0)
+        except ValueError:
+            return
+
+        if porsi_val <= 0:
+            return
 
         res = {
             "code": code,
-            "porsi": float(self.porsi.text() or 0),
+            "porsi": porsi_val,
             "waktu": self.waktu.currentText()
         }
 
@@ -236,15 +260,16 @@ class DashboardPage(PageTemplate):
         h_header_layout.addLayout(text_vbox)
         h_header_layout.addStretch()
 
+        # Keep the Add Button in the top header
         self.action_btn = QPushButton("+ Tambah Makanan")
-        self.action_btn.setFixedSize(210, 56)
+        self.action_btn.setFixedSize(210, 50)
         self.action_btn.setCursor(Qt.PointingHandCursor)
         self.action_btn.setFont(self.font_label(12, bold=True))
         self.action_btn.setStyleSheet("""
             QPushButton { 
                 background-color: #1A7A34; 
                 color: white; 
-                border-radius: 12px; 
+                border-radius: 25px; 
             }
             QPushButton:hover { 
                 background-color: white; 
@@ -265,12 +290,75 @@ class DashboardPage(PageTemplate):
             """)
         self.card_layout = QVBoxLayout(self.card)
         
+        # --- CARD HEADER ---
+        card_header_layout = QHBoxLayout()
+        card_header_layout.setContentsMargins(10, 10, 10, 5)
+
         lbl_title = QLabel("Daftar Makanan Hari Ini")
         lbl_title.setFont(self.font_title(16))
-        lbl_title.setContentsMargins(10, 10, 10, 10)
         lbl_title.setStyleSheet("color: black; border: none;")
-        self.card_layout.addWidget(lbl_title)
+        card_header_layout.addWidget(lbl_title)
+        
+        card_header_layout.addStretch()
 
+        # Search Bar
+        self.search_bar = QLineEdit()
+        self.search_bar.setPlaceholderText("Cari Makanan ...")
+        self.search_bar.setFixedSize(200, 40)
+
+        search_icon = QIcon(r".\assets\search_icon.png")
+        self.search_bar.addAction(search_icon, QLineEdit.LeadingPosition)
+
+        self.search_bar.setStyleSheet("""
+            QLineEdit {
+                border: 1px solid #1A7A34;
+                border-radius: 20px;
+                padding-left: 5px;
+                background-color: white;
+                color: #333;
+            }
+        """)
+        self.search_bar.textChanged.connect(self.load_data)
+        card_header_layout.addWidget(self.search_bar)
+
+        # Filter Dropdown
+        self.filter_waktu = QComboBox()
+        self.filter_waktu.setFixedSize(140, 40)
+        self.filter_waktu.addItems(["Semua Waktu", "Sarapan", "Makan Siang", "Makan Malam", "Snack", "Minuman"])
+        self.filter_waktu.setStyleSheet("""
+            QComboBox {
+                border: 1px solid #1A7A34;
+                border-radius: 20px;
+                padding-left: 10px;
+                background-color: white;
+                color: #666;
+            }
+            QComboBox::drop-down { 
+                border: none; 
+                width: 30px; 
+            }
+            QComboBox::down-arrow {
+                image: url(./assets/down_arrow.png);
+                width: 12px;
+                height: 12px;
+            }
+            QComboBox::down-arrow:on { 
+                image: url(./assets/up_arrow.png);
+            }
+            QComboBox QAbstractItemView {
+                border: none;
+                border-radius: 0px;
+                background-color: white;
+                selection-background-color: #CDE2D4;
+                selection-color: #1A7A34;
+            }
+        """)
+        self.filter_waktu.currentIndexChanged.connect(self.load_data)
+        card_header_layout.addWidget(self.filter_waktu)
+
+        self.card_layout.addLayout(card_header_layout)
+
+        # --- DATA ROWS ---
         self.rows_container = QWidget()
         self.rows_container.setStyleSheet("border: none;")
         self.rows_layout = QGridLayout(self.rows_container)
@@ -297,7 +385,6 @@ class DashboardPage(PageTemplate):
         footer_layout.addWidget(self.lbl_total_cal)
 
         self.card_layout.addLayout(footer_layout)
-        self.card_layout.addStretch()
 
         container.layout().addWidget(self.card)
         self.container.installEventFilter(self)
@@ -317,13 +404,34 @@ class DashboardPage(PageTemplate):
             lbl.setStyleSheet("color: black; border: none;")
             self.rows_layout.addWidget(lbl, 0, col)
 
-        logs = self.db.ReadLog()
+        # Fetch Raw Logs
+        logs = self.db.ReadLog() or []
+        
+        # --- [NEW] FILTERING LOGIC ---
+        search_query = self.search_bar.text().lower()
+        selected_waktu = self.filter_waktu.currentText()
+        
+        filtered_logs = []
+        for entry in logs:
+            # Check if search text matches food name
+            match_search = search_query in entry['food_name'].lower()
+            # Check if meal time matches selected filter
+            match_waktu = (selected_waktu == "Semua Waktu" or entry['meal_time'] == selected_waktu)
+            
+            if match_search and match_waktu:
+                filtered_logs.append(entry)
+                
+        logs = filtered_logs
+        # ----------------------------
+
         total_calories = 0
 
         if not logs:
-            empty_lbl = QLabel("Belum ada data makan hari ini.")
+            empty_lbl = QLabel("Tidak ada data makanan yang sesuai.")
             empty_lbl.setStyleSheet("color: gray; border: none; padding: 20px;")
             self.rows_layout.addWidget(empty_lbl, 1, 0, 1, 9, Qt.AlignCenter)
+            self.lbl_count.setText("Showing 0 out of 0")
+            self.lbl_total_cal.setText("Total Kalori: 0.0 kcal")
             return
 
         for i, entry in enumerate(logs, start=1):
