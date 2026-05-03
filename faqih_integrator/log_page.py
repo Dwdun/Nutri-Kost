@@ -3,13 +3,10 @@ import os
 from datetime import date
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import QEvent, Qt
-from PyQt5.QtGui import QFont, QDoubleValidator
+from PyQt5.QtGui import QFont, QDoubleValidator, QIcon
 
-# Ensure the system can find LogSystem and templates
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-
-from LogSystem import LogSystem
-from fatih_GUI.template_halaman import *
+# Agar bisa load module irfan_calculator
+from irfan_calculator.LogSystem import LogSystem
 
 class TambahPopup(QWidget):
     def __init__(self, parent, db, save_callback, cancel_callback, edit_data=None):
@@ -18,7 +15,11 @@ class TambahPopup(QWidget):
         self.save_callback = save_callback
         self.cancel_callback = cancel_callback
         self.edit_data = edit_data 
-        self.btn_save = QPushButton("Simpan" if self.edit_data else "Tambah")
+        
+        # Check apakah ini "edit beneran" (punya id_log) atau "pre-fill dari search"
+        self.is_real_edit = (self.edit_data is not None) and ('id_log' in self.edit_data)
+        
+        self.btn_save = QPushButton("Simpan" if self.is_real_edit else "Tambah")
         
         self.setAttribute(Qt.WA_StyledBackground, True)
         self.setStyleSheet("background-color: rgba(0, 0, 0, 120);")
@@ -32,10 +33,9 @@ class TambahPopup(QWidget):
         self.card.setStyleSheet("""
             QFrame { background: white; border-radius: 25px; border: none; }
             QLabel { border: none; background: transparent; color: #555555; font-family: 'Poppins'; }
-            #FoodInput { padding: 5px 15px; border: none; border-radius: 20px; background: rgba(26, 122, 52, 0.25); color: #1A7A34; }
+            #FoodInput { padding: 5px 15px; border: none; border-radius: 20px; background: rgba(26, 122, 52, 0.25); color: #1A7A34; font-family: 'Poppins'; }
             #FoodInput:disabled { background: #E0E0E0; color: #555555; }
             #FoodInput::drop-down { width: 0px; border: none; }
-
         """)
 
         card_layout = QVBoxLayout(self.card)
@@ -49,8 +49,8 @@ class TambahPopup(QWidget):
         self.nama.setEditable(True)
         self.nama.setInsertPolicy(QComboBox.NoInsert)
         self.nama.setFixedHeight(45)
-        self.nama.lineEdit().setPlaceholderText("Type Here")
-        self.nama.lineEdit().setStyleSheet("background: transparent; border: none; color: #1A7A34; padding-left: 5px;")
+        self.nama.lineEdit().setPlaceholderText("Ketik di sini")
+        self.nama.lineEdit().setStyleSheet("background: transparent; border: none; color: #1A7A34; padding-left: 5px; font-family: 'Poppins';")
         
         self.nama.setView(QListView())
         self.nama.view().window().setWindowFlags(Qt.Popup | Qt.FramelessWindowHint | Qt.NoDropShadowWindowHint)
@@ -74,7 +74,7 @@ class TambahPopup(QWidget):
         self.porsi = QLineEdit()
         self.porsi.setPlaceholderText("0")
         self.porsi.setFixedHeight(45)
-        self.porsi.setStyleSheet("QLineEdit { border: none; border-radius: 20px; padding-left: 15px; background: rgba(26, 122, 52, 0.25); color: #1A7A34; }")
+        self.porsi.setStyleSheet("QLineEdit { border: none; border-radius: 20px; padding-left: 15px; background: rgba(26, 122, 52, 0.25); color: #1A7A34; font-family: 'Poppins'; }")
         validator = QDoubleValidator(0.0, 10000.0, 2)
         validator.setNotation(QDoubleValidator.StandardNotation)
         self.porsi.setValidator(validator)
@@ -92,6 +92,7 @@ class TambahPopup(QWidget):
                 padding: 5px 10px; 
                 background: rgba(26, 122, 52, 0.25); 
                 color: #1A7A34;
+                font-family: 'Poppins';
             }
             QComboBox::drop-down {
                 subcontrol-origin: padding;
@@ -109,9 +110,10 @@ class TambahPopup(QWidget):
                 border-radius: 0px;
                 background-color: white;
                 outline: 0px;
+                font-family: 'Poppins';
             }
             QComboBox QAbstractItemView::item {
-                min-height: 40px; /* Distance between items */
+                min-height: 40px; 
                 padding-left: 10px;
                 color: #555555;
             }
@@ -136,6 +138,8 @@ class TambahPopup(QWidget):
         
         def create_nut_col(label_text):
             container = QVBoxLayout()
+            container.setAlignment(Qt.AlignCenter)
+            container.setSpacing(2)
             val_lbl = QLabel("--")
             val_lbl.setAlignment(Qt.AlignCenter)
             val_lbl.setFont(QFont('Poppins', 14, QFont.Bold))
@@ -148,8 +152,8 @@ class TambahPopup(QWidget):
             container.addWidget(txt_lbl)
             return container, val_lbl
 
-        self.lay_cal, self.val_cal = create_nut_col("kalori")
-        self.lay_pro, self.val_pro = create_nut_col("protein")
+        self.lay_cal, self.val_cal = create_nut_col("Kalori")
+        self.lay_pro, self.val_pro = create_nut_col("Protein")
         self.lay_kar, self.val_kar = create_nut_col("Karbo")
         self.lay_lem, self.val_lem = create_nut_col("Lemak")
 
@@ -163,16 +167,15 @@ class TambahPopup(QWidget):
         btns = QHBoxLayout()
         btn_cancel = QPushButton("Batal")
         btn_cancel.setFixedHeight(50)
-        btn_cancel.setStyleSheet("QPushButton { background-color: white; color: rgba(26, 122, 52, 0.5); border: 1px solid #1A7A34; border-radius: 25px; font-size: 20px; } QPushButton:hover { color: #1A7A34 ; }")
+        btn_cancel.setStyleSheet("QPushButton { background-color: white; color: rgba(26, 122, 52, 0.5); border: 1px solid #1A7A34; border-radius: 25px; font-size: 20px; font-family: 'Poppins'; } QPushButton:hover { color: #1A7A34 ; }")
         
-        btn_save = QPushButton("Simpan" if self.edit_data else "Tambah")
-        btn_save.setFixedHeight(50)
-        btn_save.setStyleSheet("QPushButton { background-color: #1A7A34; color: white; border-radius: 25px; font-weight: bold; font-size: 20px; }")
+        self.btn_save.setFixedHeight(50)
+        self.btn_save.setStyleSheet("QPushButton { background-color: #1A7A34; color: white; border-radius: 25px; font-weight: bold; font-size: 20px; font-family: 'Poppins'; }")
 
-        btn_save.clicked.connect(self.on_save)
+        self.btn_save.clicked.connect(self.on_save)
         btn_cancel.clicked.connect(self.cancel_callback)
         btns.addWidget(btn_cancel)
-        btns.addWidget(btn_save)
+        btns.addWidget(self.btn_save)
         card_layout.addLayout(btns)
         main_layout.addWidget(self.card)
 
@@ -181,13 +184,17 @@ class TambahPopup(QWidget):
 
         # --- APPLY EDIT DATA ---
         if self.edit_data:
-            idx = self.nama.findText(self.edit_data['food_name'])
+            idx = self.nama.findText(self.edit_data.get('food_name', ''))
             if idx >= 0:
                 self.nama.setCurrentIndex(idx)
             
-            self.nama.setEnabled(False) 
-            self.porsi.setText(str(self.edit_data['portion']))
-            self.waktu.setCurrentText(self.edit_data['meal_time'])
+            if self.is_real_edit:
+                self.nama.setEnabled(False) 
+            
+            if 'portion' in self.edit_data and self.edit_data['portion']:
+                self.porsi.setText(str(self.edit_data['portion']))
+            if 'meal_time' in self.edit_data and self.edit_data['meal_time']:
+                self.waktu.setCurrentText(self.edit_data['meal_time'])
 
         self.update_preview()
 
@@ -234,47 +241,57 @@ class TambahPopup(QWidget):
             "waktu": self.waktu.currentText()
         }
 
-        if self.edit_data:
+        if self.is_real_edit:
             res["id_log"] = self.edit_data["id_log"]
 
         self.save_callback(res)
         self.hide()
-    
+
 
 # ================== MAIN PAGE ==================
-class DashboardPage(PageTemplate):
-    PAGE_NAME = "Log Makanan"
-    PAGE_DESC = "Catat semua yang kamu makan hari ini"
-    NAV_INDEX = 2 
-
-    def __init__(self):
+class LogPage(QWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent)
         self.db = LogSystem()
         self.popup = None
         self.current_page = 0
         self.items_per_page = 8
-        super().__init__()
+        self.setStyleSheet("background-color: transparent;")
+        
+        self._build_content()
 
-    def build_content(self, container):
-        self.container = container
-        main_layout = self._scroll.widget().layout()
+    def _build_content(self):
+        root = QVBoxLayout(self)
+        root.setContentsMargins(32, 28, 32, 28)
+        root.setSpacing(20)
 
         # --- HEADER ---
         h_header_layout = QHBoxLayout()
         text_vbox = QVBoxLayout()
-        text_vbox.addWidget(self._page_title)
-        text_vbox.addWidget(self._page_desc)
+        text_vbox.setSpacing(4)
+        
+        lbl_title = QLabel("Log Makanan")
+        lbl_title.setStyleSheet("color: #1C1C1C; background: transparent; border: none; font-family: 'Montserrat Alternates'; font-size: 32px; font-weight: bold;")
+        
+        lbl_sub = QLabel("Catat semua yang kamu makan hari ini")
+        lbl_sub.setStyleSheet("color: #6c757d; background: transparent; border: none; font-family: 'Montserrat'; font-size: 14px;")
+        
+        text_vbox.addWidget(lbl_title)
+        text_vbox.addWidget(lbl_sub)
         h_header_layout.addLayout(text_vbox)
         h_header_layout.addStretch()
 
         self.action_btn = QPushButton("+ Tambah Makanan")
         self.action_btn.setFixedSize(210, 50)
         self.action_btn.setCursor(Qt.PointingHandCursor)
-        self.action_btn.setFont(self.font_label(bold=True))
         self.action_btn.setStyleSheet("""
             QPushButton { 
                 background-color: #1A7A34; 
                 color: white; 
                 border-radius: 16px; 
+                font-family: 'Poppins';
+                font-size: 14px;
+                font-weight: bold;
             }
             QPushButton:hover { 
                 background-color: white; 
@@ -284,15 +301,29 @@ class DashboardPage(PageTemplate):
         """)
         self.action_btn.clicked.connect(lambda: self.open_popup())
         h_header_layout.addWidget(self.action_btn)
-        main_layout.insertLayout(0, h_header_layout)
+        root.addLayout(h_header_layout)
+
+        # Area Scroll untuk konten log
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.NoFrame)
+        scroll.setStyleSheet("background: transparent;")
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+
+        container_scroll = QWidget()
+        container_scroll.setStyleSheet("background: transparent;")
+        main_layout = QVBoxLayout(container_scroll)
+        main_layout.setContentsMargins(0, 0, 0, 0)
 
         # --- MAIN CARD ---
         self.card = QWidget()
         self.card.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
         self.card.setStyleSheet("""
-                background: white;
-                border-radius: 16px; 
-                border: 1px solid #1A7A34;
+                QWidget {
+                    background: white;
+                    border-radius: 16px; 
+                    border: 1px solid #1A7A34;
+                }
             """)
         self.card_layout = QVBoxLayout(self.card)
         self.card_layout.setSpacing(0)
@@ -302,10 +333,9 @@ class DashboardPage(PageTemplate):
         card_header_layout.setContentsMargins(10, 10, 10, 5)
         card_header_layout.setSpacing(15)
 
-        lbl_title = QLabel("Daftar Makanan Hari Ini")
-        lbl_title.setFont(self.font_title(20))
-        lbl_title.setStyleSheet("color: black; border: none;")
-        card_header_layout.addWidget(lbl_title)
+        lbl_title_card = QLabel("Daftar Makanan Hari Ini")
+        lbl_title_card.setStyleSheet("color: black; border: none; font-family: 'Poppins'; font-size: 20px; font-weight: bold;")
+        card_header_layout.addWidget(lbl_title_card)
         
         card_header_layout.addStretch()
 
@@ -313,17 +343,14 @@ class DashboardPage(PageTemplate):
         self.search_bar = QLineEdit()
         self.search_bar.setPlaceholderText("Cari Makanan ...")
         self.search_bar.setFixedSize(200, 40)
-
-        search_icon = QIcon(r"./assets/search_icon.png")
-        self.search_bar.addAction(search_icon, QLineEdit.LeadingPosition)
-
         self.search_bar.setStyleSheet("""
             QLineEdit {
                 border: 1px solid #1A7A34;
                 border-radius: 20px;
-                padding-left: 5px;
+                padding-left: 15px;
                 background-color: white;
                 color: #555555;
+                font-family: 'Poppins';
             }
         """)
         self.search_bar.textChanged.connect(self.reset_and_load)
@@ -341,6 +368,7 @@ class DashboardPage(PageTemplate):
                 padding-left: 10px;
                 background-color: white;
                 color: #666;
+                font-family: 'Poppins';
             }
             QComboBox::drop-down {
                 subcontrol-origin: padding;
@@ -358,9 +386,10 @@ class DashboardPage(PageTemplate):
                 border-radius: 0px;
                 background-color: white;
                 outline: 0px;
+                font-family: 'Poppins';
             }
             QComboBox QAbstractItemView::item {
-                min-height: 40px; /* Distance between items */
+                min-height: 40px; 
                 padding-left: 10px;
                 color: #555555;
             }
@@ -388,14 +417,12 @@ class DashboardPage(PageTemplate):
         line_container = QWidget()
         line_container.setStyleSheet("border: none; background: transparent;")
         line_container_layout = QHBoxLayout(line_container)
-        
         line_container_layout.setContentsMargins(10, 0, 10, 0)
 
         footer_line = QFrame()
         footer_line.setFrameShape(QFrame.HLine)
         footer_line.setStyleSheet("background-color: #1A7A34;")
         footer_line.setFixedHeight(1)
-
         line_container_layout.addWidget(footer_line)
         self.card_layout.addWidget(line_container)
 
@@ -403,15 +430,14 @@ class DashboardPage(PageTemplate):
         footer_layout.setContentsMargins(10, 20, 10, 10)
 
         self.lbl_count = QLabel("Showing 0 out of 0")
-        self.lbl_count.setFont(self.font_body(10))
-        self.lbl_count.setStyleSheet("color: #666; border: none;")
+        self.lbl_count.setStyleSheet("color: #666; border: none; font-family: 'Poppins'; font-size: 11px;")
 
         self.btn_prev = QPushButton("<")
         self.btn_next = QPushButton(">")
         for btn in [self.btn_prev, self.btn_next]:
             btn.setFixedSize(40, 40)
             btn.setStyleSheet("""
-                QPushButton { border: 1px solid #1A7A34; border-radius: 12px; color: #1A7A34; font-weight: bold; }
+                QPushButton { border: 1px solid #1A7A34; border-radius: 12px; color: #1A7A34; font-weight: bold; font-family: 'Poppins';}
                 QPushButton:disabled { border: 1px solid #ccc; color: #ccc; }
                 QPushButton:hover { background-color: rgba(26, 122, 52, 0.25); }
             """)
@@ -420,8 +446,7 @@ class DashboardPage(PageTemplate):
         self.btn_next.clicked.connect(self.next_page)
 
         self.lbl_total_cal = QLabel("Total Kalori: 0 kcal")
-        self.lbl_total_cal.setFont(self.font_label(12, bold=True))
-        self.lbl_total_cal.setStyleSheet("color: #1A7A34; border: none;")
+        self.lbl_total_cal.setStyleSheet("color: #1A7A34; border: none; font-family: 'Poppins'; font-size: 14px; font-weight: bold;")
 
         footer_layout.addWidget(self.lbl_count)
         footer_layout.addStretch() 
@@ -433,8 +458,11 @@ class DashboardPage(PageTemplate):
 
         self.card_layout.addLayout(footer_layout)
 
-        container.layout().addWidget(self.card)
-        self.container.installEventFilter(self)
+        main_layout.addWidget(self.card)
+        main_layout.addStretch(1)
+
+        scroll.setWidget(container_scroll)
+        root.addWidget(scroll, stretch=1)
 
         self.load_data()
 
@@ -459,8 +487,7 @@ class DashboardPage(PageTemplate):
         headers = ["Nama Makanan", "Waktu", "Porsi", "Kalori", "Protein", "Karbohidrat", "Lemak", " ", " "]
         for col, text in enumerate(headers):
             lbl = QLabel(text)
-            lbl.setFont(self.font_title(12))
-            lbl.setStyleSheet("color: black; border: none;")
+            lbl.setStyleSheet("color: black; border: none; font-family: 'Poppins'; font-size: 14px; font-weight: bold;")
             self.rows_layout.addWidget(lbl, 0, col)
 
         # Fetch Raw Logs
@@ -496,12 +523,10 @@ class DashboardPage(PageTemplate):
         # Update button states
         self.btn_prev.setEnabled(self.current_page > 0)
         self.btn_next.setEnabled(end_idx < total_items)
-        
-        # ------------------------
 
         if not page_items:
             empty_lbl = QLabel("Tidak ada data makanan yang sesuai.")
-            empty_lbl.setStyleSheet("color: gray; border: none; padding: 20px;")
+            empty_lbl.setStyleSheet("color: gray; border: none; padding: 20px; font-family: 'Poppins';")
             self.rows_layout.addWidget(empty_lbl, 1, 0, 1, 9, Qt.AlignCenter)
             self.lbl_count.setText("Showing 0 out of 0")
             self.lbl_total_cal.setText("Total Kalori: 0.0 kcal")
@@ -524,13 +549,10 @@ class DashboardPage(PageTemplate):
             for col_idx, widget_text in enumerate(data):
                 lbl = QLabel(str(widget_text))
 
-                # --- [MODIFIED] BOLD ONLY COLUMN 0 ---
                 if col_idx == 0:
-                    lbl.setFont(self.font_label(12, bold=True))
-                    lbl.setStyleSheet("border: none;")
+                    lbl.setStyleSheet("border: none; font-family: 'Poppins'; font-size: 13px; font-weight: bold; color: black;")
                 else:
-                    lbl.setFont(self.font_body(12))
-                    lbl.setStyleSheet("border: none; color: #555555;")
+                    lbl.setStyleSheet("border: none; color: #555555; font-family: 'Poppins'; font-size: 13px;")
                 
                 self.rows_layout.addWidget(lbl, row_idx, col_idx)
 
@@ -538,8 +560,6 @@ class DashboardPage(PageTemplate):
             btn_edit = QPushButton()
             btn_edit.setFixedSize(30, 30)
             btn_edit.setCursor(Qt.PointingHandCursor)
-            
-            # Apply the style with Icon states
             btn_edit.setStyleSheet("""
                 QPushButton { 
                     background-color: white; 
@@ -559,7 +579,6 @@ class DashboardPage(PageTemplate):
             btn_delete = QPushButton()
             btn_delete.setFixedSize(30, 30)
             btn_delete.setCursor(Qt.PointingHandCursor)
-            
             btn_delete.setStyleSheet("""
                 QPushButton { 
                     background-color: white; 
@@ -594,6 +613,15 @@ class DashboardPage(PageTemplate):
         self.popup.setGeometry(0, 0, main_window.width(), main_window.height())
         self.popup.show()
         self.popup.raise_()
+
+    def show_tambah_makan(self, makanan: dict):
+        # Dipanggil oleh main_window.py ketika makanan dipilih dari SearchPage
+        entry_data = {
+            'food_name': makanan.get('food_name'),
+            'portion': 100,
+            'meal_time': "Sarapan"
+        }
+        self.open_popup(entry_data=entry_data)
 
     def save_popup_data(self, res):
         nutrisi = self.db.kalkulator_nutrisi(res['code'], res['porsi'])
@@ -641,9 +669,3 @@ class DashboardPage(PageTemplate):
             if self.popup and self.popup.isVisible():
                 self.popup.resize(event.size())
         return super().eventFilter(source, event)
-
-if __name__ == '__main__':
-    app = QApplication(sys.argv)
-    window = DashboardPage()
-    window.show()
-    sys.exit(app.exec_())
