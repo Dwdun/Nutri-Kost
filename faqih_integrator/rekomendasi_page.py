@@ -483,7 +483,7 @@ class RekomendasiPage(QWidget):
     def _proses_muat_data(self):
         try:
             QApplication.setOverrideCursor(Qt.WaitCursor)
-            self.btn_scrape.setText("⏳ Sedang Mengambil Resep...")
+            self.btn_scrape.setText(" Sedang Mengambil Resep...")
             self.btn_scrape.setEnabled(False)
             QApplication.processEvents()
 
@@ -498,7 +498,7 @@ class RekomendasiPage(QWidget):
             QMessageBox.critical(self, "Error", f"Terjadi kesalahan saat memuat resep: {e}")
         finally:
             QApplication.restoreOverrideCursor()
-            self.btn_scrape.setText("🔄 Perbarui & Muat Resep")
+            self.btn_scrape.setText("Perbarui & Muat Resep")
             self.btn_scrape.setEnabled(True)
 
     def _buka_detail(self, resep):

@@ -388,7 +388,9 @@ class MainWindow(QMainWindow):
         self._add_page("search", SearchPage(on_pilih_makanan=self._on_pilih_makanan))
         
         self._add_page("dashboard", self._placeholder("Dashboard", "Modul Fatih"))
-        self._add_page("log", self._placeholder("Log Makanan", "Modul Irfan"))
+        from log_page import LogPage
+        self._add_page("log", LogPage())
+        
         self._add_page("riwayat", self._placeholder("Riwayat", "Modul Irfan"))
         
         from rekomendasi_page import RekomendasiPage

@@ -123,14 +123,14 @@ class FoodCard(QFrame):
 
         # Name
         name = QLabel(self._data.get("food_name", "-"))
-        name.setFont(QFont("Montserrat", 13))
-        name.setStyleSheet(f"color: {C_TEXT_DARK}; border: none; background: transparent; font-family: 'Montserrat'; font-size: 16px;")
+        name.setFont(QFont("Poppins", 13))
+        name.setStyleSheet(f"color: {C_TEXT_DARK}; border: none; background: transparent; font-family: 'Poppins'; font-size: 15px;")
         name.setWordWrap(True)
         layout.addWidget(name)
 
         # Kalori per 100g
         cal_label = QLabel(f"{self._data.get('cal', 0):.0f} kal per 100 gram")
-        cal_label.setStyleSheet("color: #888888; font-size: 11px; border: none; background: transparent;")
+        cal_label.setStyleSheet("color: #888888; font-size: 11px; font-family: 'Poppins'; border: none; background: transparent;")
         layout.addWidget(cal_label)
 
         # Macros container
@@ -140,7 +140,7 @@ class FoodCard(QFrame):
         def make_macro_lbl(title, val, color):
             lbl = QLabel(f"{title}: {val:.1f}g")
             lbl.setAlignment(Qt.AlignCenter)
-            lbl.setStyleSheet(f"background-color: {color}; color: white; border-radius: 6px; padding: 4px 8px; font-size: 10px; font-weight: normal; border: none;")
+            lbl.setStyleSheet(f"background-color: {color}; color: white; border-radius: 6px; padding: 4px 8px; font-size: 10px; font-family: 'Poppins'; font-weight: normal; border: none;")
             return lbl
 
         macros_layout.addWidget(make_macro_lbl("Protein", self._data.get('protein', 0), "#1A7A34")) # Green

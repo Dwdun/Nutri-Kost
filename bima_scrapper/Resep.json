@@ -1,5 +1,27 @@
 [
     {
+        "judul": "Sup Sehat",
+        "link": "https://cookpad.com/id/resep/25717050",
+        "gambar": "https://img-global.cpcdn.com/recipes/a97ccaa78bdaecff/1200x630cq80/photo.jpg",
+        "komposisi_singkat": "Wortel•Kentang•kubis•sawi•Bawang putih cincang•Air•Garam•Merica•kaldu jamur",
+        "bahan_detail": [
+            "2 buah Wortel",
+            "1 buah Kentang",
+            "Secukupnya kubis",
+            "Secukupnya sawi",
+            "3 siung Bawang putih cincang",
+            "1000 ml Air",
+            "1/2 sdt Garam",
+            "1/2 sdt Merica",
+            "Secukupnya kaldu jamur"
+        ],
+        "langkah_langkah": [
+            "Kupas dan potong semua sayuran sesuai selera. Ceker direbus dahulu minimal 1 jam, untuk lebih empuk rebus 2 jam",
+            "Masukkan air dan bawang putih cincang, masak hingga air mendidih, tambahkan wortel dan kentang, masak hingga matang empuk.",
+            "Masukkan sayuran lain dan ceker, masukkan garam, merica, kaldu jamur, aduk rata, masak hingga matang"
+        ]
+    },
+    {
         "judul": "❤️ Banana Cookies (tanpa Tepung & Gula), cemilan sehat",
         "link": "https://cookpad.com/id/resep/25706440",
         "gambar": "https://img-global.cpcdn.com/recipes/1ff4c205a3eeeb91/1200x630cq80/photo.jpg",
@@ -345,34 +367,6 @@
             "Iris bawang merah, bawang putih. Didihkan air, masukkan irisan bawang. Masak sebentar",
             "Masukkan batang bayam, garam, kaldu bubuk dan gula pasir. Setelah layu, masukkan daun bayam, matikan api. Aduk sebentar",
             "Sajikan"
-        ]
-    },
-    {
-        "judul": "Tumisan sehat Buncis wortel",
-        "link": "https://cookpad.com/id/resep/25584976",
-        "gambar": "https://img-global.cpcdn.com/recipes/ee9f932c3da39527/1200x630cq80/photo.jpg",
-        "komposisi_singkat": "buncis•tahu putih•wortel•bawang merah, iris tipis•bawang putih, haluskan•Cabe merah rawit dan besar, diiris tipis serong•Garam•gupas•Penyedap rasa",
-        "bahan_detail": [
-            "200 gr buncis",
-            "1 buah tahu putih",
-            "200 gr wortel",
-            "Bumbu",
-            "5 siung bawang merah , iris tipis",
-            "3 siung bawang putih , haluskan",
-            "100 gr Cabe merah rawit dan besar, diiris tipis serong",
-            "1 sdt Garam",
-            "1 sdt gupas",
-            "1 sdt Penyedap rasa"
-        ],
-        "langkah_langkah": [
-            "Iris memanjang buncis dan wortel",
-            "Iris tahu putih kotak atau sesuai selera, goreng sebentar biar tdk hancur saat di tumis",
-            "Tumis baput halus lalu bamer dan cabe iris hingga aromanya harum",
-            "Masukkan sedikit air dan gulpas untuk mematangkan bumbu. Sampai meendidih saja. Lalu masukkan wortel hingga layu",
-            "Rebus di panci terpisah, buncis sebentar saja untuk menghilangkan langu.",
-            "Tiriskan buncis dan campurkan ke dalam tumisan wortel. Tambahkan juga tahu.",
-            "Tambahkan air secukupnya, dan tutup rapat agar panas merata dan bumbu meresap.",
-            "Setelah empuk semua, tambahkan penyedap dan tes rasa. Masakan siap dihidangkan, bersama nasi hangat"
         ]
     }
 ]
