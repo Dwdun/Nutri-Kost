@@ -31,13 +31,13 @@ class TambahPopup(QWidget):
         self.card.setFixedSize(380, 450)
         self.card.setStyleSheet("""
             QFrame { background: white; border-radius: 25px; border: none; }
-            QLabel { border: none; background: transparent; color: #333; font-family: 'Poppins'; }
-            #FoodInput { padding: 5px 15px; border: none; border-radius: 20px; background: #CDE2D4; color: #1A7A34; }
-            #FoodInput:disabled { background: #E0E0E0; color: #888; }
+            QLabel { border: none; background: transparent; color: #555555; font-family: 'Poppins'; }
+            #FoodInput { padding: 5px 15px; border: none; border-radius: 20px; background: rgba(26, 122, 52, 0.25); color: #1A7A34; }
+            #FoodInput:disabled { background: #E0E0E0; color: #555555; }
             #FoodInput::drop-down { width: 0px; border: none; }
             QComboBox QAbstractItemView {
                 background-color: white; border: none; border-radius: none;
-                selection-background-color: #CDE2D4; selection-color: #1A7A34; outline: none;
+                selection-background-color: rgba(26, 122, 52, 0.25); selection-color: #1A7A34; outline: none;
             }
         """)
 
@@ -77,8 +77,10 @@ class TambahPopup(QWidget):
         self.porsi = QLineEdit()
         self.porsi.setPlaceholderText("0")
         self.porsi.setFixedHeight(45)
-        self.porsi.setStyleSheet("QLineEdit { border: none; border-radius: 20px; padding-left: 15px; background: #CDE2D4; color: #1A7A34; }")
-        self.porsi.setValidator(QDoubleValidator(0.0, 10000.0, 2))
+        self.porsi.setStyleSheet("QLineEdit { border: none; border-radius: 20px; padding-left: 15px; background: rgba(26, 122, 52, 0.25); color: #1A7A34; }")
+        validator = QDoubleValidator(0.0, 10000.0, 2)
+        validator.setNotation(QDoubleValidator.StandardNotation)
+        self.porsi.setValidator(validator)
         col1.addWidget(self.porsi)
 
         col2 = QVBoxLayout()
@@ -138,7 +140,7 @@ class TambahPopup(QWidget):
             txt_lbl = QLabel(label_text)
             txt_lbl.setAlignment(Qt.AlignCenter)
             txt_lbl.setFont(QFont('Poppins', 9))
-            txt_lbl.setStyleSheet("color: #333; font-weight: normal; border: none;")
+            txt_lbl.setStyleSheet("color: #555555; font-weight: normal; border: none;")
             container.addWidget(val_lbl)
             container.addWidget(txt_lbl)
             return container, val_lbl
@@ -209,13 +211,11 @@ class TambahPopup(QWidget):
                 lbl.setText("--")
 
     def on_save(self):
-        # Re-verify the text against the actual items
         idx = self.nama.findText(self.nama.currentText(), Qt.MatchExactly)
         code = self.nama.itemData(idx)
         
-        # If the user typed something not in the list, index will be -1
         if idx == -1 or code is None: 
-            return # Do nothing
+            return
 
         try:
             porsi_val = float(self.porsi.text() or 0)
@@ -237,6 +237,7 @@ class TambahPopup(QWidget):
         self.save_callback(res)
         self.hide()
     
+
 # ================== MAIN PAGE ==================
 class DashboardPage(PageTemplate):
     PAGE_NAME = "Log Makanan"
@@ -246,6 +247,8 @@ class DashboardPage(PageTemplate):
     def __init__(self):
         self.db = LogSystem()
         self.popup = None
+        self.current_page = 0
+        self.items_per_page = 8
         super().__init__()
 
     def build_content(self, container):
@@ -260,7 +263,6 @@ class DashboardPage(PageTemplate):
         h_header_layout.addLayout(text_vbox)
         h_header_layout.addStretch()
 
-        # Keep the Add Button in the top header
         self.action_btn = QPushButton("+ Tambah Makanan")
         self.action_btn.setFixedSize(210, 50)
         self.action_btn.setCursor(Qt.PointingHandCursor)
@@ -283,16 +285,19 @@ class DashboardPage(PageTemplate):
 
         # --- MAIN CARD ---
         self.card = QWidget()
+        self.card.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
         self.card.setStyleSheet("""
                 background: white;
                 border-radius: 16px; 
                 border: 1px solid #1A7A34;
             """)
         self.card_layout = QVBoxLayout(self.card)
-        
+        self.card_layout.setSpacing(0)
+
         # --- CARD HEADER ---
         card_header_layout = QHBoxLayout()
         card_header_layout.setContentsMargins(10, 10, 10, 5)
+        card_header_layout.setSpacing(15)
 
         lbl_title = QLabel("Daftar Makanan Hari Ini")
         lbl_title.setFont(self.font_title(16))
@@ -315,10 +320,10 @@ class DashboardPage(PageTemplate):
                 border-radius: 20px;
                 padding-left: 5px;
                 background-color: white;
-                color: #333;
+                color: #555555;
             }
         """)
-        self.search_bar.textChanged.connect(self.load_data)
+        self.search_bar.textChanged.connect(self.reset_and_load)
         card_header_layout.addWidget(self.search_bar)
 
         # Filter Dropdown
@@ -349,11 +354,11 @@ class DashboardPage(PageTemplate):
                 border: none;
                 border-radius: 0px;
                 background-color: white;
-                selection-background-color: #CDE2D4;
+                selection-background-color: rgba(26, 122, 52, 0.25);
                 selection-color: #1A7A34;
             }
         """)
-        self.filter_waktu.currentIndexChanged.connect(self.load_data)
+        self.filter_waktu.currentIndexChanged.connect(self.reset_and_load)
         card_header_layout.addWidget(self.filter_waktu)
 
         self.card_layout.addLayout(card_header_layout)
@@ -369,6 +374,21 @@ class DashboardPage(PageTemplate):
         self.card_layout.addStretch(1)
 
         # --- FOOTER SECTION ---
+        line_container = QWidget()
+        line_container.setStyleSheet("border: none; background: transparent;")
+        line_container_layout = QHBoxLayout(line_container)
+        
+        # Match the side margins of your rows_layout (10px)
+        line_container_layout.setContentsMargins(10, 0, 10, 0)
+
+        footer_line = QFrame()
+        footer_line.setFrameShape(QFrame.HLine)
+        footer_line.setStyleSheet("background-color: #1A7A34;")
+        footer_line.setFixedHeight(1)
+
+        line_container_layout.addWidget(footer_line)
+        self.card_layout.addWidget(line_container)
+
         footer_layout = QHBoxLayout()
         footer_layout.setContentsMargins(10, 20, 10, 10)
 
@@ -376,12 +396,29 @@ class DashboardPage(PageTemplate):
         self.lbl_count.setFont(self.font_body(10))
         self.lbl_count.setStyleSheet("color: #666; border: none;")
 
+        self.btn_prev = QPushButton("<")
+        self.btn_next = QPushButton(">")
+        for btn in [self.btn_prev, self.btn_next]:
+            btn.setFixedSize(40, 40)
+            btn.setStyleSheet("""
+                QPushButton { border: 1px solid #1A7A34; border-radius: 12px; color: #1A7A34; font-weight: bold; }
+                QPushButton:disabled { border: 1px solid #ccc; color: #ccc; }
+                QPushButton:hover { background-color: rgba(26, 122, 52, 0.25); }
+            """)
+        
+        self.btn_prev.clicked.connect(self.prev_page)
+        self.btn_next.clicked.connect(self.next_page)
+
         self.lbl_total_cal = QLabel("Total Kalori: 0 kcal")
         self.lbl_total_cal.setFont(self.font_label(12, bold=True))
         self.lbl_total_cal.setStyleSheet("color: #1A7A34; border: none;")
 
         footer_layout.addWidget(self.lbl_count)
         footer_layout.addStretch() 
+        footer_layout.addWidget(self.btn_prev)
+        footer_layout.addSpacing(10)
+        footer_layout.addWidget(self.btn_next)
+        footer_layout.addSpacing(20)
         footer_layout.addWidget(self.lbl_total_cal)
 
         self.card_layout.addLayout(footer_layout)
@@ -389,6 +426,18 @@ class DashboardPage(PageTemplate):
         container.layout().addWidget(self.card)
         self.container.installEventFilter(self)
 
+        self.load_data()
+
+    def reset_and_load(self):
+        self.current_page = 0
+        self.load_data()
+
+    def next_page(self):
+        self.current_page += 1
+        self.load_data()
+
+    def prev_page(self):
+        self.current_page -= 1
         self.load_data()
         
     def load_data(self):
@@ -400,33 +449,47 @@ class DashboardPage(PageTemplate):
         headers = ["Nama Makanan", "Waktu", "Porsi", "Kalori", "Protein", "Karbo", "Lemak", " ", " "]
         for col, text in enumerate(headers):
             lbl = QLabel(text)
-            lbl.setFont(self.font_label(12, bold=True))
+            lbl.setFont(self.font_title(12))
             lbl.setStyleSheet("color: black; border: none;")
             self.rows_layout.addWidget(lbl, 0, col)
 
         # Fetch Raw Logs
         logs = self.db.ReadLog() or []
         
-        # --- [NEW] FILTERING LOGIC ---
         search_query = self.search_bar.text().lower()
         selected_waktu = self.filter_waktu.currentText()
         
         filtered_logs = []
         for entry in logs:
-            # Check if search text matches food name
             match_search = search_query in entry['food_name'].lower()
-            # Check if meal time matches selected filter
             match_waktu = (selected_waktu == "Semua Waktu" or entry['meal_time'] == selected_waktu)
             
             if match_search and match_waktu:
                 filtered_logs.append(entry)
-                
-        logs = filtered_logs
-        # ----------------------------
 
-        total_calories = 0
+        # Calculate total calories for the whole filtered list
+        total_calories = sum(e.get('cal', 0) for e in filtered_logs)
 
-        if not logs:
+        # --- PAGINATION LOGIC ---
+        total_items = len(filtered_logs)
+        max_pages = max(1, (total_items + self.items_per_page - 1) // self.items_per_page)
+
+        if self.current_page >= max_pages:
+            self.current_page = max_pages - 1
+        if self.current_page < 0:
+            self.current_page = 0
+
+        start_idx = self.current_page * self.items_per_page
+        end_idx = start_idx + self.items_per_page
+        page_items = filtered_logs[start_idx:end_idx]
+
+        # Update button states
+        self.btn_prev.setEnabled(self.current_page > 0)
+        self.btn_next.setEnabled(end_idx < total_items)
+        
+        # ------------------------
+
+        if not page_items:
             empty_lbl = QLabel("Tidak ada data makanan yang sesuai.")
             empty_lbl.setStyleSheet("color: gray; border: none; padding: 20px;")
             self.rows_layout.addWidget(empty_lbl, 1, 0, 1, 9, Qt.AlignCenter)
@@ -434,12 +497,10 @@ class DashboardPage(PageTemplate):
             self.lbl_total_cal.setText("Total Kalori: 0.0 kcal")
             return
 
-        for i, entry in enumerate(logs, start=1):
+        for i, entry in enumerate(page_items, start=1):
             line_idx = (i * 2) + 1  
             row_idx = line_idx + 1 
 
-            total_calories += entry.get('cal') or 0
-            
             data = [
                 entry['food_name'], 
                 entry['meal_time'], 
@@ -452,8 +513,15 @@ class DashboardPage(PageTemplate):
 
             for col_idx, widget_text in enumerate(data):
                 lbl = QLabel(str(widget_text))
-                lbl.setFont(self.font_body(12))
-                lbl.setStyleSheet("border: none; color: #333;")
+
+                # --- [MODIFIED] BOLD ONLY COLUMN 0 ---
+                if col_idx == 0:
+                    lbl.setFont(self.font_label(12, bold=True))
+                    lbl.setStyleSheet("border: none;")
+                else:
+                    lbl.setFont(self.font_body(12))
+                    lbl.setStyleSheet("border: none; color: #555555;")
+                
                 self.rows_layout.addWidget(lbl, row_idx, col_idx)
 
             # Edit Button
@@ -482,13 +550,13 @@ class DashboardPage(PageTemplate):
             line.setFixedHeight(1)
             self.rows_layout.addWidget(line, line_idx, 0, 1, 9)
 
-        current_count = len(logs)
-        self.lbl_count.setText(f"Showing {current_count} out of {current_count}")
+        # Update labels
+        current_showing = len(page_items)
+        self.lbl_count.setText(f"Showing {current_showing} of {total_items} (Page {self.current_page + 1}/{max_pages})")
         self.lbl_total_cal.setText(f"Total Kalori: {total_calories:.1f} kcal")
 
     def open_popup(self, entry_data=None):
         main_window = self.window()
-        # Initialize popup with optional entry_data
         self.popup = TambahPopup(main_window, self.db, self.save_popup_data, self.close_popup, edit_data=entry_data)
         main_window.installEventFilter(self) 
         
@@ -514,9 +582,8 @@ class DashboardPage(PageTemplate):
                     res['waktu'] 
                 )
             else:
-                # Create new log
                 self.db.CreateLog(
-                    1, # Default user_id
+                    1,
                     res['code'],
                     res['waktu'],
                     res['porsi'],
