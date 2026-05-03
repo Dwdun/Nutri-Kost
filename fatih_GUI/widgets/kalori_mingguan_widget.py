@@ -178,9 +178,11 @@ class KaloriMingguanWidget(QWidget):
 
     # ── Build UI ──────────────────────────────
     def _build_ui(self):
-        root = QVBoxLayout(self)
-        root.setContentsMargins(0, 16, 0, 0)
-        root.setSpacing(0)
+        root = self.layout()
+        if root is None:
+            root = QVBoxLayout(self)
+            root.setContentsMargins(0, 16, 0, 0)
+            root.setSpacing(0)
 
         # ── Container utama dengan border rounded ──
         container = QFrame()

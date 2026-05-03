@@ -95,8 +95,11 @@ def _ambil_detail_makro(db_path: str, id_user: int = 1) -> dict:
             serat = float(row_log[3]) / 7.0
             air_l = (float(row_log[4]) / 1000.0) / 7.0
         else:
-            # Fallback jika belum ada data sama sekali (seperti prototipe)
-            return _get_dummy_data()
+            protein = 0.0
+            carb = 0.0
+            fat = 0.0
+            serat = 0.0
+            air_l = 0.0
 
         # Pastikan tidak dibagi dengan 0 di persentase nantinya, namun UI akan handle
         return {
@@ -108,18 +111,13 @@ def _ambil_detail_makro(db_path: str, id_user: int = 1) -> dict:
         }
         
     except Exception:
-        return _get_dummy_data()
-
-
-def _get_dummy_data():
-    """Nilai dummy jika belum ada data, sesuai prototipe agar UI tetap terlihat rapi."""
-    return {
-        'protein': {'avg': 54.0, 'target': 75.0, 'unit': 'g'},
-        'karbo':   {'avg': 67.0, 'target': 80.0, 'unit': 'g'},
-        'lemak':   {'avg': 32.0, 'target': 70.0, 'unit': 'g'},
-        'serat':   {'avg': 12.0, 'target': 30.0, 'unit': 'g'},
-        'air':     {'avg': 1.8,  'target': 2.0,  'unit': 'L'}
-    }
+        return {
+            'protein': {'avg': 0.0, 'target': 75.0, 'unit': 'g'},
+            'karbo':   {'avg': 0.0, 'target': 300.0, 'unit': 'g'},
+            'lemak':   {'avg': 0.0, 'target': 70.0, 'unit': 'g'},
+            'serat':   {'avg': 0.0, 'target': 30.0, 'unit': 'g'},
+            'air':     {'avg': 0.0, 'target': 2.0,  'unit': 'L'}
+        }
 
 
 # ═════════════════════════════════════════════
@@ -146,9 +144,11 @@ class DetailMakroWidget(QWidget):
         self._build_ui()
 
     def _build_ui(self):
-        root = QVBoxLayout(self)
-        root.setContentsMargins(0, 16, 0, 0)
-        root.setSpacing(0)
+        root = self.layout()
+        if root is None:
+            root = QVBoxLayout(self)
+            root.setContentsMargins(0, 16, 0, 0)
+            root.setSpacing(0)
 
         # ── Container utama dengan border rounded ──
         container = QFrame()
