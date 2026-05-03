@@ -397,16 +397,28 @@ class MainWindow(QMainWindow):
         
         self._add_page("dashboard", self._placeholder("Dashboard", "Modul Fatih"))
         from log_page import LogPage
-        self._add_page("log", LogPage())
+        self.log_page = LogPage()
+        self._add_page("log", self.log_page)
         
         self._add_page("riwayat", self._placeholder("Riwayat", "Modul Irfan"))
         
         from rekomendasi_page import RekomendasiPage
         self._add_page("rekomendasi", RekomendasiPage())
         
-        self._add_page("kalori_mingguan", self._placeholder("Kalori Mingguan", "Modul Fatih"))
-        self._add_page("komposisi_gizi", self._placeholder("Komposisi Gizi", "Modul Fatih"))
-        self._add_page("top_10_makanan", self._placeholder("Top 10 Makanan", "Modul Fatih"))
+        import sys
+        if os.path.join(BASE_DIR, "..", "fatih_GUI") not in sys.path:
+            sys.path.insert(0, os.path.join(BASE_DIR, "..", "fatih_GUI"))
+        from halaman_visualisasi import HalamanVisualisasi
+        
+        self.visualisasi_page = HalamanVisualisasi()
+        self.visualisasi_page.tab_changed.connect(self._on_visualisasi_tab_changed)
+        
+        # Sambungkan sinyal log_updated ke visualisasi_page.refresh agar otomatis update
+        self.log_page.log_updated.connect(self.visualisasi_page.refresh)
+        
+        self._add_page("kalori_mingguan", self.visualisasi_page)
+        self._add_page("komposisi_gizi", self.visualisasi_page)
+        self._add_page("top_10_makanan", self.visualisasi_page)
         
         import sys
         if os.path.join(BASE_DIR, "..", "anindya_profil") not in sys.path:
@@ -443,12 +455,30 @@ class MainWindow(QMainWindow):
     def navigate(self, page_key: str):
         if page_key not in self._page_widgets:
             return
+            
+        if page_key in ["kalori_mingguan", "komposisi_gizi", "top_10_makanan"]:
+            if hasattr(self, 'visualisasi_page'):
+                if page_key == "kalori_mingguan":
+                    self.visualisasi_page.set_tab(0)
+                elif page_key == "komposisi_gizi":
+                    self.visualisasi_page.set_tab(1)
+                elif page_key == "top_10_makanan":
+                    self.visualisasi_page.set_tab(2)
+                    
         for key, btn in self._sidebar_buttons.items():
             if isinstance(btn, NavItem):
                 btn.set_active(key == page_key)
         self._stack.setCurrentWidget(self._page_widgets[page_key])
         title_text = self.PAGE_TITLES.get(page_key, page_key.title())
         self._page_title.setText(f"NutriKos — {title_text}")
+
+    def _on_visualisasi_tab_changed(self, index: int):
+        if index == 0:
+            self.navigate("kalori_mingguan")
+        elif index == 1:
+            self.navigate("komposisi_gizi")
+        elif index == 2:
+            self.navigate("top_10_makanan")
 
     def _on_pilih_makanan(self, makanan: dict):
         print(f"[MainWindow] Makanan dipilih → {makanan.get('food_name')} ({makanan.get('cal')} kkal)")

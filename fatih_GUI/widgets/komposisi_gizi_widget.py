@@ -117,10 +117,7 @@ def _ambil_makronutrien(db_path: str, id_user: int = 1) -> dict:
     except Exception:
         protein, karbo, lemak = 0.0, 0.0, 0.0
 
-    # Jika semua 0, return dummy data agar pie chart tetap tampil
-    if protein == 0 and karbo == 0 and lemak == 0:
-        return {'protein': 30.0, 'karbo': 50.0, 'lemak': 20.0}
-
+    # Jika semua 0, return 0
     return {'protein': protein, 'karbo': karbo, 'lemak': lemak}
 
 
@@ -166,9 +163,11 @@ class KomposisiGiziWidget(QWidget):
 
     # ── Build UI ──────────────────────────────
     def _build_ui(self):
-        root = QVBoxLayout(self)
-        root.setContentsMargins(0, 16, 0, 0)
-        root.setSpacing(0)
+        root = self.layout()
+        if root is None:
+            root = QVBoxLayout(self)
+            root.setContentsMargins(0, 16, 0, 0)
+            root.setSpacing(0)
 
         # ── Container utama dengan border rounded ──
         container = QFrame()
@@ -224,24 +223,37 @@ class KomposisiGiziWidget(QWidget):
         ax.set_facecolor('white')
         ax.patch.set_alpha(0.0)
 
-        # ── Pie ──
-        wedges, _, autotexts = ax.pie(
-            values,
-            colors=MAKRO_COLORS,
-            autopct='%1.0f%%',
-            startangle=90,
-            counterclock=False,
-            labels=None,
-            pctdistance=0.55,
-            wedgeprops={'linewidth': 0},
-        )
+        if sum(values) == 0:
+            # ── Pie Kosong ──
+            wedges, _, autotexts = ax.pie(
+                [100],
+                colors=['#E0E0E0'],
+                autopct='',
+                startangle=90,
+                counterclock=False,
+                labels=None,
+                wedgeprops={'linewidth': 0},
+            )
+            ax.text(0, 0, 'Belum ada\\ndata', ha='center', va='center', fontproperties=_FP_POPPINS_BOLD, fontsize=14, color=C_TEXT_SUB)
+        else:
+            # ── Pie ──
+            wedges, _, autotexts = ax.pie(
+                values,
+                colors=MAKRO_COLORS,
+                autopct='%1.0f%%',
+                startangle=90,
+                counterclock=False,
+                labels=None,
+                pctdistance=0.55,
+                wedgeprops={'linewidth': 0},
+            )
 
-        # Style label persentase di dalam slice
-        for autotext in autotexts:
-            autotext.set_fontproperties(_FP_POPPINS_BOLD)
-            autotext.set_fontsize(13)
-            autotext.set_color(C_WHITE)
-            autotext.set_fontweight('bold')
+            # Style label persentase di dalam slice
+            for autotext in autotexts:
+                autotext.set_fontproperties(_FP_POPPINS_BOLD)
+                autotext.set_fontsize(13)
+                autotext.set_color(C_WHITE)
+                autotext.set_fontweight('bold')
 
         ax.set_aspect('equal')
         fig.subplots_adjust(left=0.02, right=0.98, top=0.95, bottom=0.05)
@@ -262,7 +274,7 @@ class KomposisiGiziWidget(QWidget):
         if total > 0:
             persentase = [v / total * 100 for v in values]
         else:
-            persentase = [33.3, 33.3, 33.4]
+            persentase = [0.0, 0.0, 0.0]
 
         legend = QWidget()
         legend.setStyleSheet('background: transparent; border: none;')

@@ -1,8 +1,8 @@
 import sys
 import os
-from datetime import date
+from datetime import date, datetime
 from PyQt5.QtWidgets import *
-from PyQt5.QtCore import QEvent, Qt
+from PyQt5.QtCore import QEvent, Qt, pyqtSignal
 from PyQt5.QtGui import QFont, QDoubleValidator, QIcon
 
 # Agar bisa load module irfan_calculator
@@ -196,8 +196,8 @@ class TambahPopup(QWidget):
             
             if 'portion' in self.edit_data and self.edit_data['portion']:
                 self.porsi.setText(str(self.edit_data['portion']))
-            if 'meal_time' in self.edit_data and self.edit_data['meal_time']:
-                self.waktu.setCurrentText(self.edit_data['meal_time'])
+            if 'category' in self.edit_data and self.edit_data['category']:
+                self.waktu.setCurrentText(self.edit_data['category'])
 
         self.update_preview()
 
@@ -253,6 +253,8 @@ class TambahPopup(QWidget):
 
 # ================== MAIN PAGE ==================
 class LogPage(QWidget):
+    log_updated = pyqtSignal()
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self.db = LogSystem()
@@ -506,7 +508,7 @@ class LogPage(QWidget):
         filtered_logs = []
         for entry in logs:
             match_search = search_query in entry['food_name'].lower()
-            match_waktu = (selected_waktu == "Semua Waktu" or entry['meal_time'] == selected_waktu)
+            match_waktu = (selected_waktu == "Semua Waktu" or entry['category'] == selected_waktu)
             
             if match_search and match_waktu:
                 filtered_logs.append(entry)
@@ -545,7 +547,7 @@ class LogPage(QWidget):
 
             data = [
                 entry['food_name'], 
-                entry['meal_time'], 
+                entry['category'], 
                 f"{entry['portion']}g",  
                 f"{entry['cal']} kcal",
                 f"{entry['protein']}g", 
@@ -626,7 +628,7 @@ class LogPage(QWidget):
         entry_data = {
             'food_name': makanan.get('food_name'),
             'portion': 100,
-            'meal_time': "Sarapan"
+            'category': "Sarapan"
         }
         self.open_popup(entry_data=entry_data)
 
@@ -639,7 +641,7 @@ class LogPage(QWidget):
                     res['id_log'],
                     1,
                     res['code'],
-                    res['waktu'],
+                    datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
                     res['porsi'],
                     nutrisi['cal'],
                     nutrisi['protein'],
@@ -651,7 +653,7 @@ class LogPage(QWidget):
                 self.db.CreateLog(
                     1,
                     res['code'],
-                    res['waktu'],
+                    datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
                     res['porsi'],
                     nutrisi['cal'],
                     nutrisi['protein'],
@@ -662,6 +664,7 @@ class LogPage(QWidget):
 
         self.close_popup()
         self.load_data()
+        self.log_updated.emit()
 
     def close_popup(self):
         if self.popup:
@@ -670,6 +673,7 @@ class LogPage(QWidget):
     def delete_entry(self, id_log):
         self.db.DeleteLog(id_log)
         self.load_data()
+        self.log_updated.emit()
 
     def eventFilter(self, source, event):
         if source == self.window() and event.type() == QEvent.Resize:

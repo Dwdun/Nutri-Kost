@@ -22,6 +22,7 @@ from PyQt5.QtGui import QFont, QFontDatabase
 # ─────────────────────────────────────────────
 C_GREEN      = '#1A7A34'
 C_TEXT_DARK  = '#1C1C1C'
+C_TEXT_SUB   = '#555555'
 C_WHITE      = '#FFFFFF'
 
 # Warna untuk Rank 1
@@ -73,26 +74,10 @@ def _ambil_top_10_makanan(db_path: str, id_user: int = 1) -> list:
         if rows:
             return [{'name': r[0], 'cal': float(r[1]), 'freq': int(r[2])} for r in rows]
         else:
-            return _get_dummy_data()
+            return []
             
     except Exception:
-        return _get_dummy_data()
-
-
-def _get_dummy_data():
-    """Nilai dummy sesuai prototipe jika database kosong."""
-    return [
-        {'name': 'Nasi Putih',      'cal': 260, 'freq': 7},
-        {'name': 'Nasi Goreng',     'cal': 350, 'freq': 5},
-        {'name': 'Ayam Penyet',     'cal': 500, 'freq': 4},
-        {'name': 'Sate Ayam',       'cal': 400, 'freq': 6},
-        {'name': 'Rendang',         'cal': 600, 'freq': 3},
-        {'name': 'Gado-Gado',       'cal': 300, 'freq': 2},
-        {'name': 'Bakso',           'cal': 450, 'freq': 5},
-        {'name': 'Mie Goreng',      'cal': 550, 'freq': 3},
-        {'name': 'Sup Buntut',      'cal': 700, 'freq': 2},
-        {'name': 'Kwetiau Goreng',  'cal': 480, 'freq': 4},
-    ]
+        return []
 
 
 # ═════════════════════════════════════════════
@@ -119,9 +104,11 @@ class TopMakananWidget(QWidget):
         self._build_ui()
 
     def _build_ui(self):
-        root = QVBoxLayout(self)
-        root.setContentsMargins(0, 16, 0, 0)
-        root.setSpacing(0)
+        root = self.layout()
+        if root is None:
+            root = QVBoxLayout(self)
+            root.setContentsMargins(0, 16, 0, 0)
+            root.setSpacing(0)
 
         # ── Container utama dengan border rounded ──
         container = QFrame()
@@ -146,13 +133,23 @@ class TopMakananWidget(QWidget):
         # ── List Makanan ──
         data = _ambil_top_10_makanan(self._db_path, self._id_user)
         
-        # Urutkan berdasarkan freq descending (karena dummy mungkin belum terurut)
-        data = sorted(data, key=lambda x: x['freq'], reverse=True)
-        
-        for i, item in enumerate(data):
-            rank = i + 1
-            row_widget = self._create_row(rank, item['name'], item['cal'], item['freq'])
-            container_layout.addWidget(row_widget)
+        if not data:
+            empty_lbl = QLabel("Belum ada data asupan makanan bulan ini.")
+            empty_lbl.setFont(self._font_body(12))
+            empty_lbl.setStyleSheet(f"color: {C_TEXT_SUB}; background: transparent;")
+            empty_lbl.setAlignment(Qt.AlignCenter)
+            container_layout.addWidget(empty_lbl)
+            container_layout.addStretch()
+        else:
+            # Urutkan berdasarkan freq descending (karena dummy mungkin belum terurut)
+            data = sorted(data, key=lambda x: x['freq'], reverse=True)
+            
+            for i, item in enumerate(data):
+                rank = i + 1
+                row_widget = self._create_row(rank, item['name'], item['cal'], item['freq'])
+                container_layout.addWidget(row_widget)
+            
+            container_layout.addStretch()
 
         root.addWidget(container)
 
