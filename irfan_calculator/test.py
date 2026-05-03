@@ -1,8 +1,10 @@
 import sys
 import os
+import io
+from contextlib import redirect_stdout
 from datetime import date
 from PyQt5.QtWidgets import *
-from PyQt5.QtCore import QEvent, Qt
+from PyQt5.QtCore import QEvent, Qt, QThread, pyqtSignal
 from PyQt5.QtGui import QFont, QDoubleValidator
 
 # Ensure the system can find LogSystem and templates
@@ -11,31 +13,220 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from LogSystem import LogSystem
 from fatih_GUI.template_halaman import *
 
+# ─── Import AI module dari bima_scrapper ───────────────────────────────────────
+_bima_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "bima_scrapper"))
+if _bima_path not in sys.path:
+    sys.path.append(_bima_path)
+
+try:
+    from test_ai import init_cache_table, proses_nutrisi_terminal
+    init_cache_table()          # pastikan tabel CacheResep sudah ada
+    AI_AVAILABLE = True
+except Exception as _e:
+    print(f"[WARN] Modul AI tidak tersedia: {_e}")
+    AI_AVAILABLE = False
+# ───────────────────────────────────────────────────────────────────────────────
+
+
+# ==================  AI WORKER THREAD  ==================
+class AIWorkerThread(QThread):
+    """Menjalankan proses_nutrisi_terminal di background agar UI tidak freeze."""
+    finished = pyqtSignal(str, bool)   # (nama_makanan, sukses)
+
+    def __init__(self, nama_makanan):
+        super().__init__()
+        self.nama_makanan = nama_makanan
+
+    def run(self):
+        try:
+            # Suppress output terminal supaya tidak banjir di konsol GUI
+            f = io.StringIO()
+            with redirect_stdout(f):
+                proses_nutrisi_terminal(self.nama_makanan)
+            self.finished.emit(self.nama_makanan, True)
+        except Exception as e:
+            print(f"[AI Error] {e}")
+            self.finished.emit(self.nama_makanan, False)
+
+
+# ==================  AI TAMBAH POPUP  ==================
+class AITambahPopup(QWidget):
+    """
+    Popup untuk menambahkan makanan yang tidak ada di database
+    menggunakan analisis AI dari test_ai.py (bima_scrapper).
+    """
+    def __init__(self, parent, back_callback, success_callback):
+        super().__init__(parent)
+        self.back_callback   = back_callback
+        self.success_callback = success_callback
+        self.worker = None
+
+        # ── Overlay gelap ──
+        self.setAttribute(Qt.WA_StyledBackground, True)
+        self.setStyleSheet("background-color: rgba(0, 0, 0, 120);")
+
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setAlignment(Qt.AlignCenter)
+
+        # ── Card ── (style identik dengan TambahPopup)
+        self.card = QFrame()
+        self.card.setFixedSize(380, 370)
+        self.card.setStyleSheet("""
+            QFrame  { background: white; border-radius: 25px; border: none; }
+            QLabel  { border: none; background: transparent; color: #555555; font-family: 'Poppins'; }
+            #AIInput {
+                padding: 5px 15px;
+                border: none;
+                border-radius: 20px;
+                background: rgba(26, 122, 52, 0.25);
+                color: #1A7A34;
+            }
+        """)
+
+        card_layout = QVBoxLayout(self.card)
+        card_layout.setContentsMargins(25, 25, 25, 25)
+        card_layout.setSpacing(10)
+
+        # ── Judul ──
+        lbl_title = QLabel("Tambah Makanan via AI 🤖")
+        lbl_title.setFont(QFont('Poppins', 14, QFont.Bold))
+        lbl_title.setStyleSheet("color: #1A7A34;")
+        card_layout.addWidget(lbl_title)
+
+        # ── Keterangan singkat ──
+        lbl_desc = QLabel(
+            "Masukkan nama makanan yang belum terdaftar.\n"
+            "AI akan menganalisis bahan & nutrisinya secara otomatis."
+        )
+        lbl_desc.setFont(QFont('Poppins', 9))
+        lbl_desc.setWordWrap(True)
+        card_layout.addWidget(lbl_desc)
+
+        # ── Input nama makanan ──
+        card_layout.addWidget(QLabel("Nama Makanan"))
+        self.input_nama = QLineEdit()
+        self.input_nama.setObjectName("AIInput")
+        self.input_nama.setPlaceholderText("contoh: ayam geprek, nasi padang ...")
+        self.input_nama.setFixedHeight(45)
+        self.input_nama.setStyleSheet(
+            "QLineEdit { border: none; border-radius: 20px; padding-left: 15px; "
+            "background: rgba(26, 122, 52, 0.25); color: #1A7A34; }"
+        )
+        # Tekan Enter juga memicu pencarian
+        self.input_nama.returnPressed.connect(self._start_search)
+        card_layout.addWidget(self.input_nama)
+
+        # ── Label status / loading ──
+        self.lbl_status = QLabel("")
+        self.lbl_status.setFont(QFont('Poppins', 9))
+        self.lbl_status.setWordWrap(True)
+        self.lbl_status.setAlignment(Qt.AlignCenter)
+        self.lbl_status.setFixedHeight(50)
+        card_layout.addWidget(self.lbl_status)
+
+        # ── Tombol aksi ──
+        btns = QHBoxLayout()
+
+        self.btn_back = QPushButton("Kembali")
+        self.btn_back.setFixedHeight(50)
+        self.btn_back.setCursor(Qt.PointingHandCursor)
+        self.btn_back.setStyleSheet(
+            "QPushButton { background-color: white; color: rgba(26,122,52,0.5); "
+            "border: 1px solid #1A7A34; border-radius: 25px; font-size: 18px; } "
+            "QPushButton:hover { color: #1A7A34; } "
+            "QPushButton:disabled { border-color: #ccc; color: #ccc; }"
+        )
+
+        self.btn_search = QPushButton("Cari & Tambahkan")
+        self.btn_search.setFixedHeight(50)
+        self.btn_search.setCursor(Qt.PointingHandCursor)
+        self.btn_search.setStyleSheet(
+            "QPushButton { background-color: #1A7A34; color: white; "
+            "border-radius: 25px; font-weight: bold; font-size: 16px; } "
+            "QPushButton:hover { background-color: #155e29; } "
+            "QPushButton:disabled { background-color: #a0c8a8; }"
+        )
+
+        self.btn_back.clicked.connect(self.back_callback)
+        self.btn_search.clicked.connect(self._start_search)
+
+        btns.addWidget(self.btn_back)
+        btns.addWidget(self.btn_search)
+        card_layout.addLayout(btns)
+
+        main_layout.addWidget(self.card)
+
+    # ── Mulai proses AI ──────────────────────────────────────────────────
+    def _start_search(self):
+        nama = self.input_nama.text().strip()
+        if not nama:
+            self._set_status("⚠️  Masukkan nama makanan terlebih dahulu.", "orange")
+            return
+
+        if not AI_AVAILABLE:
+            self._set_status("❌  Modul AI tidak tersedia. Periksa instalasi.", "red")
+            return
+
+        # Kunci tombol & tampilkan loading
+        self.btn_search.setEnabled(False)
+        self.btn_back.setEnabled(False)
+        self.input_nama.setEnabled(False)
+        self._set_status("🤖  AI sedang menganalisis resep... Mohon tunggu.", "#1A7A34")
+
+        self.worker = AIWorkerThread(nama)
+        self.worker.finished.connect(self._on_ai_done)
+        self.worker.start()
+
+    def _on_ai_done(self, nama_makanan, sukses):
+        self.btn_search.setEnabled(True)
+        self.btn_back.setEnabled(True)
+        self.input_nama.setEnabled(True)
+
+        if sukses:
+            self._set_status(
+                f"✅  '{nama_makanan}' berhasil dianalisis & ditambahkan!\n"
+                "Klik Kembali untuk memilihnya.",
+                "#1A7A34"
+            )
+            self.success_callback(nama_makanan)
+        else:
+            self._set_status(
+                "❌  Gagal menganalisis makanan. Periksa koneksi & coba lagi.",
+                "red"
+            )
+
+    def _set_status(self, text, color):
+        self.lbl_status.setText(text)
+        self.lbl_status.setStyleSheet(f"color: {color}; border: none;")
+
+
+# ==================  TAMBAH POPUP (ORIGINAL + MODIFIKASI)  ==================
 class TambahPopup(QWidget):
     def __init__(self, parent, db, save_callback, cancel_callback, edit_data=None):
         super().__init__(parent)
-        self.db = db
-        self.save_callback = save_callback
+        self.db              = db
+        self.save_callback   = save_callback
         self.cancel_callback = cancel_callback
-        self.edit_data = edit_data 
-        self.btn_save = QPushButton("Simpan" if self.edit_data else "Tambah")
-        
+        self.edit_data       = edit_data
+        self.btn_save        = QPushButton("Simpan" if self.edit_data else "Tambah")
+        self.ai_popup        = None
+
         self.setAttribute(Qt.WA_StyledBackground, True)
         self.setStyleSheet("background-color: rgba(0, 0, 0, 120);")
-        
+
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.setAlignment(Qt.AlignCenter)
 
         self.card = QFrame()
-        self.card.setFixedSize(380, 450)
+        self.card.setFixedSize(380, 490)          # +40px dari ukuran asli untuk tombol AI
         self.card.setStyleSheet("""
             QFrame { background: white; border-radius: 25px; border: none; }
             QLabel { border: none; background: transparent; color: #555555; font-family: 'Poppins'; }
             #FoodInput { padding: 5px 15px; border: none; border-radius: 20px; background: rgba(26, 122, 52, 0.25); color: #1A7A34; }
             #FoodInput:disabled { background: #E0E0E0; color: #555555; }
             #FoodInput::drop-down { width: 0px; border: none; }
-
         """)
 
         card_layout = QVBoxLayout(self.card)
@@ -50,22 +241,40 @@ class TambahPopup(QWidget):
         self.nama.setInsertPolicy(QComboBox.NoInsert)
         self.nama.setFixedHeight(45)
         self.nama.lineEdit().setPlaceholderText("Type Here")
-        self.nama.lineEdit().setStyleSheet("background: transparent; border: none; color: #1A7A34; padding-left: 5px;")
-        
+        self.nama.lineEdit().setStyleSheet(
+            "background: transparent; border: none; color: #1A7A34; padding-left: 5px;"
+        )
+
         self.nama.setView(QListView())
         self.nama.view().window().setWindowFlags(Qt.Popup | Qt.FramelessWindowHint | Qt.NoDropShadowWindowHint)
         self.nama.view().window().setAttribute(Qt.WA_TranslucentBackground)
 
-        food_names = []
-        for food in self.db.GetAllFoods():
-            self.nama.addItem(food["food_name"], food["code"])
-            food_names.append(food["food_name"])
-
-        completer = QCompleter(food_names, self.nama)
-        completer.setCaseSensitivity(Qt.CaseInsensitive)
-        completer.setFilterMode(Qt.MatchContains)
-        self.nama.setCompleter(completer)
+        self._populate_food_list()
         card_layout.addWidget(self.nama)
+
+        # ── [BARU] Tombol "Makanan tidak terdaftar? Tambahkan" ──────────────
+        self.btn_ai_tambah = QPushButton("🔍  Makanan tidak terdaftar? Tambahkan")
+        self.btn_ai_tambah.setFixedHeight(28)
+        self.btn_ai_tambah.setCursor(Qt.PointingHandCursor)
+        self.btn_ai_tambah.setStyleSheet("""
+            QPushButton {
+                background: transparent;
+                color: #1A7A34;
+                border: none;
+                text-align: left;
+                font-size: 11px;
+                text-decoration: underline;
+                padding-left: 4px;
+            }
+            QPushButton:hover  { color: #0d5c28; }
+            QPushButton:disabled { color: #aaa; }
+        """)
+        self.btn_ai_tambah.clicked.connect(self._open_ai_popup)
+        # Sembunyikan tombol jika AI tidak tersedia atau sedang mode edit
+        if not AI_AVAILABLE or self.edit_data:
+            self.btn_ai_tambah.setVisible(False)
+        card_layout.addWidget(self.btn_ai_tambah)
+        # ────────────────────────────────────────────────────────────────────
 
         # --- ROW: PORSI & WAKTU ---
         row = QHBoxLayout()
@@ -74,7 +283,10 @@ class TambahPopup(QWidget):
         self.porsi = QLineEdit()
         self.porsi.setPlaceholderText("0")
         self.porsi.setFixedHeight(45)
-        self.porsi.setStyleSheet("QLineEdit { border: none; border-radius: 20px; padding-left: 15px; background: rgba(26, 122, 52, 0.25); color: #1A7A34; }")
+        self.porsi.setStyleSheet(
+            "QLineEdit { border: none; border-radius: 20px; padding-left: 15px; "
+            "background: rgba(26, 122, 52, 0.25); color: #1A7A34; }"
+        )
         validator = QDoubleValidator(0.0, 10000.0, 2)
         validator.setNotation(QDoubleValidator.StandardNotation)
         self.porsi.setValidator(validator)
@@ -84,13 +296,13 @@ class TambahPopup(QWidget):
         col2.addWidget(QLabel("Waktu Makan"))
         self.waktu = QComboBox()
         self.waktu.setFixedHeight(45)
-        self.waktu.setView(QListView()) 
+        self.waktu.setView(QListView())
         self.waktu.setStyleSheet("""
-            QComboBox { 
-                border: none; 
-                border-radius: 16px; 
-                padding: 5px 10px; 
-                background: rgba(26, 122, 52, 0.25); 
+            QComboBox {
+                border: none;
+                border-radius: 16px;
+                padding: 5px 10px;
+                background: rgba(26, 122, 52, 0.25);
                 color: #1A7A34;
             }
             QComboBox::drop-down {
@@ -101,7 +313,7 @@ class TambahPopup(QWidget):
             }
             QComboBox::down-arrow {
                 image: url(./assets/down_arrow.png);
-                width: 14px; 
+                width: 14px;
                 height: 14px;
             }
             QComboBox QAbstractItemView {
@@ -111,7 +323,7 @@ class TambahPopup(QWidget):
                 outline: 0px;
             }
             QComboBox QAbstractItemView::item {
-                min-height: 40px; /* Distance between items */
+                min-height: 40px;
                 padding-left: 10px;
                 color: #555555;
             }
@@ -133,7 +345,7 @@ class TambahPopup(QWidget):
         self.preview_box.setFixedHeight(110)
         self.preview_box.setStyleSheet("background-color: #CDE2D4; border-radius: 20px;")
         preview_layout = QHBoxLayout(self.preview_box)
-        
+
         def create_nut_col(label_text):
             container = QVBoxLayout()
             val_lbl = QLabel("--")
@@ -163,11 +375,18 @@ class TambahPopup(QWidget):
         btns = QHBoxLayout()
         btn_cancel = QPushButton("Batal")
         btn_cancel.setFixedHeight(50)
-        btn_cancel.setStyleSheet("QPushButton { background-color: white; color: rgba(26, 122, 52, 0.5); border: 1px solid #1A7A34; border-radius: 25px; font-size: 20px; } QPushButton:hover { color: #1A7A34 ; }")
-        
+        btn_cancel.setStyleSheet(
+            "QPushButton { background-color: white; color: rgba(26, 122, 52, 0.5); "
+            "border: 1px solid #1A7A34; border-radius: 25px; font-size: 20px; } "
+            "QPushButton:hover { color: #1A7A34; }"
+        )
+
         btn_save = QPushButton("Simpan" if self.edit_data else "Tambah")
         btn_save.setFixedHeight(50)
-        btn_save.setStyleSheet("QPushButton { background-color: #1A7A34; color: white; border-radius: 25px; font-weight: bold; font-size: 20px; }")
+        btn_save.setStyleSheet(
+            "QPushButton { background-color: #1A7A34; color: white; "
+            "border-radius: 25px; font-weight: bold; font-size: 20px; }"
+        )
 
         btn_save.clicked.connect(self.on_save)
         btn_cancel.clicked.connect(self.cancel_callback)
@@ -184,24 +403,67 @@ class TambahPopup(QWidget):
             idx = self.nama.findText(self.edit_data['food_name'])
             if idx >= 0:
                 self.nama.setCurrentIndex(idx)
-            
-            self.nama.setEnabled(False) 
+            self.nama.setEnabled(False)
             self.porsi.setText(str(self.edit_data['portion']))
             self.waktu.setCurrentText(self.edit_data['meal_time'])
 
         self.update_preview()
 
+    # ── Mengisi dropdown makanan dari DB ─────────────────────────────────
+    def _populate_food_list(self):
+        self.nama.clear()
+        food_names = []
+        for food in self.db.GetAllFoods():
+            self.nama.addItem(food["food_name"], food["code"])
+            food_names.append(food["food_name"])
+
+        completer = QCompleter(food_names, self.nama)
+        completer.setCaseSensitivity(Qt.CaseInsensitive)
+        completer.setFilterMode(Qt.MatchContains)
+        self.nama.setCompleter(completer)
+
+    # ── Buka AI popup ─────────────────────────────────────────────────────
+    def _open_ai_popup(self):
+        main_window = self.parent()
+        self.ai_popup = AITambahPopup(
+            main_window,
+            back_callback    = self._close_ai_popup,
+            success_callback = self._on_ai_success
+        )
+        self.ai_popup.setGeometry(0, 0, main_window.width(), main_window.height())
+        self.hide()
+        self.ai_popup.show()
+        self.ai_popup.raise_()
+
+    def _close_ai_popup(self):
+        if self.ai_popup:
+            self.ai_popup.hide()
+            self.ai_popup = None
+        self.show()
+        self.raise_()
+
+    def _on_ai_success(self, nama_makanan):
+        """Dipanggil setelah AI selesai menyimpan makanan baru ke DB."""
+        # Refresh dropdown supaya makanan baru langsung muncul
+        self._populate_food_list()
+
+        # Coba pilih otomatis makanan yang baru ditambahkan
+        idx = self.nama.findText(nama_makanan.title(), Qt.MatchContains)
+        if idx >= 0:
+            self.nama.setCurrentIndex(idx)
+
+    # ── Preview nutrisi ───────────────────────────────────────────────────
     def update_preview(self):
         try:
             porsi = float(self.porsi.text()) if self.porsi.text() else 0
-        except: 
+        except:
             porsi = 0
 
-        idx = self.nama.findText(self.nama.currentText(), Qt.MatchExactly)
+        idx  = self.nama.findText(self.nama.currentText(), Qt.MatchExactly)
         code = self.nama.itemData(idx) if idx >= 0 else None
-        
+
         self.btn_save.setEnabled(code is not None and porsi > 0)
-        
+
         if code:
             data = self.db.kalkulator_nutrisi(code, porsi)
             if data:
@@ -210,14 +472,15 @@ class TambahPopup(QWidget):
                 self.val_kar.setText(str(data['carb']))
                 self.val_lem.setText(str(data['fat']))
         else:
-            for lbl in [self.val_cal, self.val_pro, self.val_kar, self.val_lem]: 
+            for lbl in [self.val_cal, self.val_pro, self.val_kar, self.val_lem]:
                 lbl.setText("--")
 
+    # ── Simpan log ────────────────────────────────────────────────────────
     def on_save(self):
-        idx = self.nama.findText(self.nama.currentText(), Qt.MatchExactly)
+        idx  = self.nama.findText(self.nama.currentText(), Qt.MatchExactly)
         code = self.nama.itemData(idx)
-        
-        if idx == -1 or code is None: 
+
+        if idx == -1 or code is None:
             return
 
         try:
@@ -229,7 +492,7 @@ class TambahPopup(QWidget):
             return
 
         res = {
-            "code": code,
+            "code" : code,
             "porsi": porsi_val,
             "waktu": self.waktu.currentText()
         }
@@ -239,17 +502,17 @@ class TambahPopup(QWidget):
 
         self.save_callback(res)
         self.hide()
-    
 
-# ================== MAIN PAGE ==================
+
+# ==================  MAIN PAGE  ==================
 class DashboardPage(PageTemplate):
     PAGE_NAME = "Log Makanan"
     PAGE_DESC = "Catat semua yang kamu makan hari ini"
-    NAV_INDEX = 2 
+    NAV_INDEX = 2
 
     def __init__(self):
-        self.db = LogSystem()
-        self.popup = None
+        self.db           = LogSystem()
+        self.popup        = None
         self.current_page = 0
         self.items_per_page = 8
         super().__init__()
@@ -271,15 +534,15 @@ class DashboardPage(PageTemplate):
         self.action_btn.setCursor(Qt.PointingHandCursor)
         self.action_btn.setFont(self.font_label(bold=True))
         self.action_btn.setStyleSheet("""
-            QPushButton { 
-                background-color: #1A7A34; 
-                color: white; 
-                border-radius: 16px; 
+            QPushButton {
+                background-color: #1A7A34;
+                color: white;
+                border-radius: 16px;
             }
-            QPushButton:hover { 
-                background-color: white; 
-                color: #1A7A34; 
-                border: 1px solid #1A7A34; 
+            QPushButton:hover {
+                background-color: white;
+                color: #1A7A34;
+                border: 1px solid #1A7A34;
             }
         """)
         self.action_btn.clicked.connect(lambda: self.open_popup())
@@ -290,10 +553,10 @@ class DashboardPage(PageTemplate):
         self.card = QWidget()
         self.card.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
         self.card.setStyleSheet("""
-                background: white;
-                border-radius: 16px; 
-                border: 1px solid #1A7A34;
-            """)
+            background: white;
+            border-radius: 16px;
+            border: 1px solid #1A7A34;
+        """)
         self.card_layout = QVBoxLayout(self.card)
         self.card_layout.setSpacing(0)
 
@@ -306,7 +569,7 @@ class DashboardPage(PageTemplate):
         lbl_title.setFont(self.font_title(20))
         lbl_title.setStyleSheet("color: black; border: none;")
         card_header_layout.addWidget(lbl_title)
-        
+
         card_header_layout.addStretch()
 
         # Search Bar
@@ -350,7 +613,7 @@ class DashboardPage(PageTemplate):
             }
             QComboBox::down-arrow {
                 image: url(./assets/down_arrow.png);
-                width: 14px; 
+                width: 14px;
                 height: 14px;
             }
             QComboBox QAbstractItemView {
@@ -360,7 +623,7 @@ class DashboardPage(PageTemplate):
                 outline: 0px;
             }
             QComboBox QAbstractItemView::item {
-                min-height: 40px; /* Distance between items */
+                min-height: 40px;
                 padding-left: 10px;
                 color: #555555;
             }
@@ -388,7 +651,6 @@ class DashboardPage(PageTemplate):
         line_container = QWidget()
         line_container.setStyleSheet("border: none; background: transparent;")
         line_container_layout = QHBoxLayout(line_container)
-        
         line_container_layout.setContentsMargins(10, 0, 10, 0)
 
         footer_line = QFrame()
@@ -415,7 +677,7 @@ class DashboardPage(PageTemplate):
                 QPushButton:disabled { border: 1px solid #ccc; color: #ccc; }
                 QPushButton:hover { background-color: rgba(26, 122, 52, 0.25); }
             """)
-        
+
         self.btn_prev.clicked.connect(self.prev_page)
         self.btn_next.clicked.connect(self.next_page)
 
@@ -424,7 +686,7 @@ class DashboardPage(PageTemplate):
         self.lbl_total_cal.setStyleSheet("color: #1A7A34; border: none;")
 
         footer_layout.addWidget(self.lbl_count)
-        footer_layout.addStretch() 
+        footer_layout.addStretch()
         footer_layout.addWidget(self.btn_prev)
         footer_layout.addSpacing(10)
         footer_layout.addWidget(self.btn_next)
@@ -449,7 +711,7 @@ class DashboardPage(PageTemplate):
     def prev_page(self):
         self.current_page -= 1
         self.load_data()
-        
+
     def load_data(self):
         while self.rows_layout.count():
             item = self.rows_layout.takeAt(0)
@@ -463,41 +725,35 @@ class DashboardPage(PageTemplate):
             lbl.setStyleSheet("color: black; border: none;")
             self.rows_layout.addWidget(lbl, 0, col)
 
-        # Fetch Raw Logs
         logs = self.db.ReadLog() or []
-        
-        search_query = self.search_bar.text().lower()
+
+        search_query  = self.search_bar.text().lower()
         selected_waktu = self.filter_waktu.currentText()
-        
+
         filtered_logs = []
         for entry in logs:
             match_search = search_query in entry['food_name'].lower()
-            match_waktu = (selected_waktu == "Semua Waktu" or entry['meal_time'] == selected_waktu)
-            
+            match_waktu  = (selected_waktu == "Semua Waktu" or entry['meal_time'] == selected_waktu)
             if match_search and match_waktu:
                 filtered_logs.append(entry)
 
-        # Calculate total calories for the whole filtered list
         total_calories = sum(e.get('cal', 0) for e in filtered_logs)
 
-        # --- PAGINATION LOGIC ---
+        # --- PAGINATION ---
         total_items = len(filtered_logs)
-        max_pages = max(1, (total_items + self.items_per_page - 1) // self.items_per_page)
+        max_pages   = max(1, (total_items + self.items_per_page - 1) // self.items_per_page)
 
         if self.current_page >= max_pages:
             self.current_page = max_pages - 1
         if self.current_page < 0:
             self.current_page = 0
 
-        start_idx = self.current_page * self.items_per_page
-        end_idx = start_idx + self.items_per_page
+        start_idx  = self.current_page * self.items_per_page
+        end_idx    = start_idx + self.items_per_page
         page_items = filtered_logs[start_idx:end_idx]
 
-        # Update button states
         self.btn_prev.setEnabled(self.current_page > 0)
         self.btn_next.setEnabled(end_idx < total_items)
-        
-        # ------------------------
 
         if not page_items:
             empty_lbl = QLabel("Tidak ada data makanan yang sesuai.")
@@ -508,67 +764,61 @@ class DashboardPage(PageTemplate):
             return
 
         for i, entry in enumerate(page_items, start=1):
-            line_idx = (i * 2) + 1  
-            row_idx = line_idx + 1 
+            line_idx = (i * 2) + 1
+            row_idx  = line_idx + 1
 
             data = [
-                entry['food_name'], 
-                entry['meal_time'], 
-                f"{entry['portion']}g",  
+                entry['food_name'],
+                entry['meal_time'],
+                f"{entry['portion']}g",
                 f"{entry['cal']} kcal",
-                f"{entry['protein']}g", 
-                f"{entry['carb']}g", 
+                f"{entry['protein']}g",
+                f"{entry['carb']}g",
                 f"{entry['fat']}g"
             ]
 
             for col_idx, widget_text in enumerate(data):
                 lbl = QLabel(str(widget_text))
-
-                # --- [MODIFIED] BOLD ONLY COLUMN 0 ---
                 if col_idx == 0:
                     lbl.setFont(self.font_label(12, bold=True))
                     lbl.setStyleSheet("border: none;")
                 else:
                     lbl.setFont(self.font_body(12))
                     lbl.setStyleSheet("border: none; color: #555555;")
-                
                 self.rows_layout.addWidget(lbl, row_idx, col_idx)
 
-            # --- Edit Button ---
+            # Edit Button
             btn_edit = QPushButton()
             btn_edit.setFixedSize(30, 30)
             btn_edit.setCursor(Qt.PointingHandCursor)
-            
-            # Apply the style with Icon states
             btn_edit.setStyleSheet("""
-                QPushButton { 
-                    background-color: white; 
+                QPushButton {
+                    background-color: white;
                     border-radius: 6px;
                     image: url("assets/icons/State=Default.png");
                 }
-                QPushButton:hover { 
-                    background-color: none; 
-                    border: none; 
+                QPushButton:hover {
+                    background-color: none;
+                    border: none;
                     image: url("assets/icons/State=Hover-Edit.png");
                 }
             """)
             btn_edit.clicked.connect(lambda _, e=entry: self.open_popup(e))
             self.rows_layout.addWidget(btn_edit, row_idx, 7)
 
-            # --- Delete Button ---
+            # Delete Button
             btn_delete = QPushButton()
             btn_delete.setFixedSize(30, 30)
             btn_delete.setCursor(Qt.PointingHandCursor)
-            
             btn_delete.setStyleSheet("""
-                QPushButton { 
-                    background-color: white; 
+                QPushButton {
+                    background-color: white;
                     border-radius: 6px;
                     image: url("assets/icons/State=Default (1).png");
                 }
-                QPushButton:hover { 
-                    background-color: #E03030; 
-                    border: none; 
+                QPushButton:hover {
+                    background-color: #E03030;
+                    border: none;
                     image: url("assets/icons/State=Hover-delete.png");
                 }
             """)
@@ -581,7 +831,6 @@ class DashboardPage(PageTemplate):
             line.setFixedHeight(1)
             self.rows_layout.addWidget(line, line_idx, 0, 1, 9)
 
-        # Update labels
         current_showing = len(page_items)
         self.lbl_count.setText(f"Showing {current_showing} of {total_items} (Page {self.current_page + 1}/{max_pages})")
         self.lbl_total_cal.setText(f"Total Kalori: {total_calories:.1f} kcal")
@@ -589,8 +838,8 @@ class DashboardPage(PageTemplate):
     def open_popup(self, entry_data=None):
         main_window = self.window()
         self.popup = TambahPopup(main_window, self.db, self.save_popup_data, self.close_popup, edit_data=entry_data)
-        main_window.installEventFilter(self) 
-        
+        main_window.installEventFilter(self)
+
         self.popup.setGeometry(0, 0, main_window.width(), main_window.height())
         self.popup.show()
         self.popup.raise_()
@@ -601,27 +850,14 @@ class DashboardPage(PageTemplate):
         if nutrisi:
             if "id_log" in res:
                 self.db.UpdateLog(
-                    res['id_log'],
-                    1,
-                    res['code'],
-                    res['waktu'],
-                    res['porsi'],
-                    nutrisi['cal'],
-                    nutrisi['protein'],
-                    nutrisi['carb'],
-                    nutrisi['fat'],
-                    res['waktu'] 
+                    res['id_log'], 1, res['code'], res['waktu'], res['porsi'],
+                    nutrisi['cal'], nutrisi['protein'], nutrisi['carb'], nutrisi['fat'],
+                    res['waktu']
                 )
             else:
                 self.db.CreateLog(
-                    1,
-                    res['code'],
-                    res['waktu'],
-                    res['porsi'],
-                    nutrisi['cal'],
-                    nutrisi['protein'],
-                    nutrisi['carb'],
-                    nutrisi['fat'],
+                    1, res['code'], res['waktu'], res['porsi'],
+                    nutrisi['cal'], nutrisi['protein'], nutrisi['carb'], nutrisi['fat'],
                     res['waktu']
                 )
 
@@ -641,6 +877,7 @@ class DashboardPage(PageTemplate):
             if self.popup and self.popup.isVisible():
                 self.popup.resize(event.size())
         return super().eventFilter(source, event)
+
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
