@@ -6,8 +6,8 @@ from PyQt5.QtWidgets import (
     QPushButton, QFrame, QMessageBox, QFileDialog,
     QScrollArea, QSizePolicy
 )
-from PyQt5.QtCore import Qt, QSettings
-from PyQt5.QtGui import QFont
+from PyQt5.QtCore import Qt, QSettings, QPropertyAnimation, pyqtProperty, QEasingCurve
+from PyQt5.QtGui import QFont, QPainter, QColor
 
 ACCENT_GREEN  = "#1A7A34"
 CONTENT_BG    = "#f5f7f5"
@@ -28,45 +28,59 @@ class ToggleSwitch(QPushButton):
         self.setCheckable(True)
         self.setFixedSize(52, 28)
         self.setCursor(Qt.PointingHandCursor)
-        self.toggled.connect(self._update_style)
-        self._update_style(False)
+        self._position = 0
+        self.animation = QPropertyAnimation(self, b"position")
+        self.animation.setEasingCurve(QEasingCurve.InOutQuad)
+        self.animation.setDuration(200)
+        self.toggled.connect(self.setup_animation)
 
-    #ubah tampilan visual sesuai state
-    def _update_style(self, checked: bool):
-        if checked:
-            self.setStyleSheet("""
-                QPushButton {
-                    background-color: #1A7A34;
-                    border-radius: 14px;
-                    border: none;
-                }
-                QPushButton::after {
-                    content: '';
-                }
-            """)
-            self.setText("✓")
-            self.setStyleSheet("""
-                QPushButton {
-                    background-color: #1A7A34;
-                    color: white;
-                    border-radius: 14px;
-                    border: none;
-                    font-size: 14px;
-                    font-weight: bold;
-                    padding-right: 4px;
-                }
-            """)
-        else:
-            self.setStyleSheet("""
-                QPushButton {
-                    background-color: #d1d5db;
-                    color: transparent;
-                    border-radius: 14px;
-                    border: none;
-                    font-size: 14px;
-                }
-            """)
-            self.setText("  ")
+    @pyqtProperty(float)
+    def position(self):
+        return self._position
+
+    @position.setter
+    def position(self, pos):
+        self._position = pos
+        self.update()
+
+    def setup_animation(self, value):
+        self.animation.stop()
+        self.animation.setEndValue(1.0 if value else 0.0)
+        self.animation.start()
+
+    def setChecked(self, checked):
+        super().setChecked(checked)
+        self._position = 1.0 if checked else 0.0
+        self.update()
+
+    def paintEvent(self, e):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+
+        # Background
+        track_color = QColor("#1A7A34") if self.isChecked() else QColor("#e5e7eb")
+        painter.setBrush(track_color)
+        painter.setPen(Qt.NoPen)
+        painter.drawRoundedRect(0, 0, self.width(), self.height(), self.height() / 2, self.height() / 2)
+
+        # Thumb
+        thumb_color = QColor("#ffffff")
+        thumb_radius = self.height() - 4
+        
+        # Calculate thumb position
+        travel = self.width() - thumb_radius - 4
+        x = 2 + travel * self._position
+        y = 2
+        
+        # Draw shadow
+        painter.setBrush(QColor(0, 0, 0, 30))
+        painter.drawEllipse(int(x), int(y) + 1, thumb_radius, thumb_radius)
+        
+        # Draw thumb
+        painter.setBrush(thumb_color)
+        painter.drawEllipse(int(x), int(y), thumb_radius, thumb_radius)
+        
+        painter.end()
 
 
 # ── Card Settings ────────────────────
@@ -93,11 +107,11 @@ class SettingItem(QFrame):
         text_col.setSpacing(3)
 
         lbl_title = QLabel(title)
-        lbl_title.setFont(QFont("Montserrat Alternates", 11, QFont.Bold))
+        lbl_title.setFont(QFont("Montserrat", 11, QFont.Bold))
         lbl_title.setStyleSheet(f"color: {TEXT_MAIN}; border: none; background: transparent;")
 
         lbl_desc = QLabel(description)
-        lbl_desc.setFont(QFont("Montserrat Alternates", 9))
+        lbl_desc.setFont(QFont("Montserrat", 9))
         lbl_desc.setStyleSheet(f"color: {TEXT_SUB}; border: none; background: transparent;")
         lbl_desc.setWordWrap(True)
 
@@ -111,7 +125,7 @@ class SettingItem(QFrame):
 # ── Section header ────────────────────────────────
 def _make_section_label(text: str) -> QLabel:
     lbl = QLabel(text)
-    lbl.setFont(QFont("Montserrat Alternates", 11, QFont.Bold))
+    lbl.setFont(QFont("Montserrat", 11, QFont.Bold))
     lbl.setStyleSheet(f"color: {TEXT_MAIN}; background: transparent;")
     lbl.setContentsMargins(4, 0, 0, 0)
     return lbl
@@ -161,12 +175,12 @@ class SettingPage(QWidget):
 
         # ── Judul halaman ─────────────────────────────────────────────────────
         lbl_title = QLabel("Pengaturan")
-        lbl_title.setFont(QFont("Montserrat Alternates", 18, QFont.Bold))
-        lbl_title.setStyleSheet(f"color: {TEXT_MAIN}; background: transparent;")
+        lbl_title.setFont(QFont("Montserrat Alternates", 32, QFont.Bold))
+        lbl_title.setStyleSheet(f"color: {TEXT_MAIN}; background: transparent; font-family: 'Montserrat Alternates'; font-size: 32px; font-weight: bold;")
 
         lbl_sub = QLabel("Sesuaikan preferensi aplikasimu")
-        lbl_sub.setFont(QFont("Montserrat Alternates", 10))
-        lbl_sub.setStyleSheet(f"color: {TEXT_SUB}; background: transparent;")
+        lbl_sub.setFont(QFont("Montserrat", 10))
+        lbl_sub.setStyleSheet(f"color: {TEXT_SUB}; background: transparent; font-family: 'Montserrat'; font-size: 14px;")
 
         main_layout.addWidget(lbl_title)
         main_layout.addWidget(lbl_sub)
@@ -209,7 +223,7 @@ class SettingPage(QWidget):
         btn_export = QPushButton("  Export Data")
         btn_export.setFixedSize(130, 36)
         btn_export.setCursor(Qt.PointingHandCursor)
-        btn_export.setFont(QFont("Montserrat Alternates", 10))
+        btn_export.setFont(QFont("Montserrat", 10))
         btn_export.setStyleSheet(f"""
             QPushButton {{
                 background-color: {CARD_BG};
@@ -236,7 +250,7 @@ class SettingPage(QWidget):
         btn_hapus = QPushButton("  Hapus Data")
         btn_hapus.setFixedSize(130, 36)
         btn_hapus.setCursor(Qt.PointingHandCursor)
-        btn_hapus.setFont(QFont("Montserrat Alternates", 10, QFont.Bold))
+        btn_hapus.setFont(QFont("Montserrat", 10, QFont.Bold))
         btn_hapus.setStyleSheet(f"""
             QPushButton {{
                 background-color: {RED_DANGER};
