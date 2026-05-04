@@ -1,12 +1,202 @@
 import sys
 import os
+import io
 from datetime import date, datetime
+from contextlib import redirect_stdout
 from PyQt5.QtWidgets import *
-from PyQt5.QtCore import QEvent, Qt, pyqtSignal
+from PyQt5.QtCore import QEvent, Qt, pyqtSignal, QThread
 from PyQt5.QtGui import QFont, QDoubleValidator, QIcon
 
 # Agar bisa load module irfan_calculator
 from irfan_calculator.LogSystem import LogSystem
+
+# ─── Import AI module dari bima_scrapper ───────────────────────────────────────
+_bima_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "bima_scrapper"))
+if _bima_path not in sys.path:
+    sys.path.append(_bima_path)
+
+try:
+    from test_ai import init_cache_table, proses_nutrisi_terminal
+    init_cache_table()          # pastikan tabel CacheResep sudah ada
+    AI_AVAILABLE = True
+except Exception as _e:
+    print(f"[WARN] Modul AI tidak tersedia: {_e}")
+    AI_AVAILABLE = False
+# ───────────────────────────────────────────────────────────────────────────────
+
+
+# ==================  AI WORKER THREAD  ==================
+class AIWorkerThread(QThread):
+    """Menjalankan proses_nutrisi_terminal di background agar UI tidak freeze."""
+    finished = pyqtSignal(str, bool)   # (nama_makanan, sukses)
+
+    def __init__(self, nama_makanan):
+        super().__init__()
+        self.nama_makanan = nama_makanan
+
+    def run(self):
+        try:
+            # Suppress output terminal supaya tidak banjir di konsol GUI
+            f = io.StringIO()
+            with redirect_stdout(f):
+                proses_nutrisi_terminal(self.nama_makanan)
+            self.finished.emit(self.nama_makanan, True)
+        except Exception as e:
+            print(f"[AI Error] {e}")
+            self.finished.emit(self.nama_makanan, False)
+
+
+# ==================  AI TAMBAH POPUP  ==================
+class AITambahPopup(QWidget):
+    """
+    Popup untuk menambahkan makanan yang tidak ada di database
+    menggunakan analisis AI dari test_ai.py (bima_scrapper).
+    """
+    def __init__(self, parent, back_callback, success_callback):
+        super().__init__(parent)
+        self.back_callback   = back_callback
+        self.success_callback = success_callback
+        self.worker = None
+
+        # ── Overlay gelap ──
+        self.setAttribute(Qt.WA_StyledBackground, True)
+        self.setStyleSheet("background-color: rgba(0, 0, 0, 120);")
+
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setAlignment(Qt.AlignCenter)
+
+        # ── Card ── (style identik dengan TambahPopup)
+        self.card = QFrame()
+        self.card.setFixedSize(380, 370)
+        self.card.setStyleSheet("""
+            QFrame  { background: white; border-radius: 25px; border: none; }
+            QLabel  { border: none; background: transparent; color: #555555; font-family: 'Poppins'; }
+            #AIInput {
+                padding: 5px 15px;
+                border: none;
+                border-radius: 20px;
+                background: rgba(26, 122, 52, 0.25);
+                color: #1A7A34;
+            }
+        """)
+
+        card_layout = QVBoxLayout(self.card)
+        card_layout.setContentsMargins(25, 25, 25, 25)
+        card_layout.setSpacing(10)
+
+        # ── Judul ──
+        lbl_title = QLabel("Tambah Makanan via AI 🤖")
+        lbl_title.setFont(QFont('Poppins', 14, QFont.Bold))
+        lbl_title.setStyleSheet("color: #1A7A34;")
+        card_layout.addWidget(lbl_title)
+
+        # ── Keterangan singkat ──
+        lbl_desc = QLabel(
+            "Masukkan nama makanan yang belum terdaftar.\n"
+            "AI akan menganalisis bahan & nutrisinya secara otomatis."
+        )
+        lbl_desc.setFont(QFont('Poppins', 9))
+        lbl_desc.setWordWrap(True)
+        card_layout.addWidget(lbl_desc)
+
+        # ── Input nama makanan ──
+        card_layout.addWidget(QLabel("Nama Makanan"))
+        self.input_nama = QLineEdit()
+        self.input_nama.setObjectName("AIInput")
+        self.input_nama.setPlaceholderText("contoh: ayam geprek, nasi padang ...")
+        self.input_nama.setFixedHeight(45)
+        self.input_nama.setStyleSheet(
+            "QLineEdit { border: none; border-radius: 20px; padding-left: 15px; "
+            "background: rgba(26, 122, 52, 0.25); color: #1A7A34; }"
+        )
+        # Tekan Enter juga memicu pencarian
+        self.input_nama.returnPressed.connect(self._start_search)
+        card_layout.addWidget(self.input_nama)
+
+        # ── Label status / loading ──
+        self.lbl_status = QLabel("")
+        self.lbl_status.setFont(QFont('Poppins', 9))
+        self.lbl_status.setWordWrap(True)
+        self.lbl_status.setAlignment(Qt.AlignCenter)
+        self.lbl_status.setFixedHeight(50)
+        card_layout.addWidget(self.lbl_status)
+
+        # ── Tombol aksi ──
+        btns = QHBoxLayout()
+
+        self.btn_back = QPushButton("Kembali")
+        self.btn_back.setFixedHeight(50)
+        self.btn_back.setCursor(Qt.PointingHandCursor)
+        self.btn_back.setStyleSheet(
+            "QPushButton { background-color: white; color: rgba(26,122,52,0.5); "
+            "border: 1px solid #1A7A34; border-radius: 25px; font-size: 18px; font-family: 'Poppins'; } "
+            "QPushButton:hover { color: #1A7A34; } "
+            "QPushButton:disabled { border-color: #ccc; color: #ccc; }"
+        )
+
+        self.btn_search = QPushButton("Cari & Tambahkan")
+        self.btn_search.setFixedHeight(50)
+        self.btn_search.setCursor(Qt.PointingHandCursor)
+        self.btn_search.setStyleSheet(
+            "QPushButton { background-color: #1A7A34; color: white; "
+            "border-radius: 25px; font-weight: bold; font-size: 16px; font-family: 'Poppins'; } "
+            "QPushButton:hover { background-color: #155e29; } "
+            "QPushButton:disabled { background-color: #a0c8a8; }"
+        )
+
+        self.btn_back.clicked.connect(self.back_callback)
+        self.btn_search.clicked.connect(self._start_search)
+
+        btns.addWidget(self.btn_back)
+        btns.addWidget(self.btn_search)
+        card_layout.addLayout(btns)
+
+        main_layout.addWidget(self.card)
+
+    # ── Mulai proses AI ──────────────────────────────────────────────────
+    def _start_search(self):
+        nama = self.input_nama.text().strip()
+        if not nama:
+            self._set_status("⚠️  Masukkan nama makanan terlebih dahulu.", "orange")
+            return
+
+        if not AI_AVAILABLE:
+            self._set_status("❌  Modul AI tidak tersedia. Periksa instalasi.", "red")
+            return
+
+        # Kunci tombol & tampilkan loading
+        self.btn_search.setEnabled(False)
+        self.btn_back.setEnabled(False)
+        self.input_nama.setEnabled(False)
+        self._set_status("🤖  AI sedang menganalisis resep... Mohon tunggu.", "#1A7A34")
+
+        self.worker = AIWorkerThread(nama)
+        self.worker.finished.connect(self._on_ai_done)
+        self.worker.start()
+
+    def _on_ai_done(self, nama_makanan, sukses):
+        self.btn_search.setEnabled(True)
+        self.btn_back.setEnabled(True)
+        self.input_nama.setEnabled(True)
+
+        if sukses:
+            self._set_status(
+                f"✅  '{nama_makanan}' berhasil dianalisis & ditambahkan!\n"
+                "Klik Kembali untuk memilihnya.",
+                "#1A7A34"
+            )
+            self.success_callback(nama_makanan)
+        else:
+            self._set_status(
+                "❌  Gagal menganalisis makanan. Periksa koneksi & coba lagi.",
+                "red"
+            )
+
+    def _set_status(self, text, color):
+        self.lbl_status.setText(text)
+        self.lbl_status.setStyleSheet(f"color: {color}; border: none;")
+
 
 class TambahPopup(QWidget):
     def __init__(self, parent, db, save_callback, cancel_callback, edit_data=None):
@@ -15,6 +205,7 @@ class TambahPopup(QWidget):
         self.save_callback = save_callback
         self.cancel_callback = cancel_callback
         self.edit_data = edit_data 
+        self.ai_popup = None
         
         # Check apakah ini "edit beneran" (punya id_log) atau "pre-fill dari search"
         self.is_real_edit = (self.edit_data is not None) and ('id_log' in self.edit_data)
@@ -29,7 +220,7 @@ class TambahPopup(QWidget):
         main_layout.setAlignment(Qt.AlignCenter)
 
         self.card = QFrame()
-        self.card.setFixedSize(380, 450)
+        self.card.setFixedSize(380, 490)
         self.card.setStyleSheet("""
             QFrame { background: white; border-radius: 25px; border: none; }
             QLabel { border: none; background: transparent; color: #555555; font-family: 'Poppins'; }
@@ -56,19 +247,33 @@ class TambahPopup(QWidget):
         self.nama.view().window().setWindowFlags(Qt.Popup | Qt.FramelessWindowHint | Qt.NoDropShadowWindowHint)
         self.nama.view().window().setAttribute(Qt.WA_TranslucentBackground)
 
-        food_names = []
-        try:
-            for food in self.db.GetAllFoods():
-                self.nama.addItem(food["food_name"], food["code"])
-                food_names.append(food["food_name"])
-        except Exception as e:
-            print(f"[TambahPopup] Mocking GetAllFoods due to DB error: {e}")
-
-        completer = QCompleter(food_names, self.nama)
-        completer.setCaseSensitivity(Qt.CaseInsensitive)
-        completer.setFilterMode(Qt.MatchContains)
-        self.nama.setCompleter(completer)
+        self._populate_food_list()
         card_layout.addWidget(self.nama)
+
+        # ── [BARU] Tombol "Makanan tidak terdaftar? Tambahkan" ──────────────
+        self.btn_ai_tambah = QPushButton("🔍  Makanan tidak terdaftar? Tambahkan")
+        self.btn_ai_tambah.setFixedHeight(28)
+        self.btn_ai_tambah.setCursor(Qt.PointingHandCursor)
+        self.btn_ai_tambah.setStyleSheet("""
+            QPushButton {
+                background: transparent;
+                color: #1A7A34;
+                border: none;
+                text-align: left;
+                font-size: 11px;
+                text-decoration: underline;
+                padding-left: 4px;
+                font-family: 'Poppins';
+            }
+            QPushButton:hover  { color: #0d5c28; }
+            QPushButton:disabled { color: #aaa; }
+        """)
+        self.btn_ai_tambah.clicked.connect(self._open_ai_popup)
+        # Sembunyikan tombol jika AI tidak tersedia atau sedang mode edit
+        if not AI_AVAILABLE or self.is_real_edit:
+            self.btn_ai_tambah.setVisible(False)
+        card_layout.addWidget(self.btn_ai_tambah)
+        # ────────────────────────────────────────────────────────────────────
 
         # --- ROW: PORSI & WAKTU ---
         row = QHBoxLayout()
@@ -200,6 +405,50 @@ class TambahPopup(QWidget):
                 self.waktu.setCurrentText(self.edit_data['category'])
 
         self.update_preview()
+
+    def _populate_food_list(self):
+        self.nama.clear()
+        food_names = []
+        try:
+            for food in self.db.GetAllFoods():
+                self.nama.addItem(food["food_name"], food["code"])
+                food_names.append(food["food_name"])
+        except Exception as e:
+            print(f"[TambahPopup] Mocking GetAllFoods due to DB error: {e}")
+
+        completer = QCompleter(food_names, self.nama)
+        completer.setCaseSensitivity(Qt.CaseInsensitive)
+        completer.setFilterMode(Qt.MatchContains)
+        self.nama.setCompleter(completer)
+
+    def _open_ai_popup(self):
+        main_window = self.parent()
+        self.ai_popup = AITambahPopup(
+            main_window,
+            back_callback    = self._close_ai_popup,
+            success_callback = self._on_ai_success
+        )
+        self.ai_popup.setGeometry(0, 0, main_window.width(), main_window.height())
+        self.hide()
+        self.ai_popup.show()
+        self.ai_popup.raise_()
+
+    def _close_ai_popup(self):
+        if self.ai_popup:
+            self.ai_popup.hide()
+            self.ai_popup = None
+        self.show()
+        self.raise_()
+
+    def _on_ai_success(self, nama_makanan):
+        """Dipanggil setelah AI selesai menyimpan makanan baru ke DB."""
+        # Refresh dropdown supaya makanan baru langsung muncul
+        self._populate_food_list()
+
+        # Coba pilih otomatis makanan yang baru ditambahkan
+        idx = self.nama.findText(nama_makanan.title(), Qt.MatchContains)
+        if idx >= 0:
+            self.nama.setCurrentIndex(idx)
 
     def update_preview(self):
         try:
