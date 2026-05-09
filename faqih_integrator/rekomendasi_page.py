@@ -167,7 +167,7 @@ def _download_image(url: str, signal: '_ImageSignal'):
 
 class RecipeCard(QWidget):
     ASPECT_W = 4
-    ASPECT_H = 3
+    ASPECT_H = 4
     RADIUS   = 12
     MIN_W    = 140
 

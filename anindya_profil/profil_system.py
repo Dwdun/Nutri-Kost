@@ -36,7 +36,7 @@ class ProfilSystem:
         if not user_exists:
              return False, "Akun tidak ditemukan. Silakan daftar terlebih dahulu."
              
-        return False, "Username atau Password salah!"
+        return False, "Email atau Password salah!"
 
     def __init__(self):
         self.data_helper = DBHelper()
