@@ -2,8 +2,9 @@ from PyQt5.QtWidgets import (
     QMainWindow, QWidget, QHBoxLayout, QVBoxLayout,
     QPushButton, QLabel, QStackedWidget, QFrame, QSizePolicy
 )
-from PyQt5.QtCore import Qt, QSize, QPropertyAnimation, QEasingCurve
+from PyQt5.QtCore import Qt, QSize, QPropertyAnimation, QEasingCurve, QTimer, QTime, QSettings
 from PyQt5.QtGui import QFont, QPixmap, QIcon, QCursor, QPainter, QColor
+from PyQt5.QtWidgets import QMessageBox
 import os
 
 # collor pallete
@@ -165,6 +166,38 @@ class MainWindow(QMainWindow):
         self._build_ui()
         self.setupRouting()
         self.navigate("dashboard")
+        self.setupNotificationTimer()
+
+    def setupNotificationTimer(self):
+        self._notif_timer = QTimer(self)
+        self._notif_timer.timeout.connect(self._check_notifications)
+        self._notif_timer.start(10000) # Cek setiap 10 detik agar responsif
+        
+        # Menyimpan notifikasi yang sudah muncul agar tidak spam di menit yang sama
+        self._shown_notifs = set()
+
+    def _check_notifications(self):
+        settings = QSettings("NutriKost", "Pengaturan")
+        if settings.value("notif_makan", False, type=bool):
+            now = QTime.currentTime()
+            current_hm = now.toString("HH:mm")
+            
+            times = {
+                "Sarapan": str(settings.value("waktu_sarapan", "07:00")),
+                "Makan Siang": str(settings.value("waktu_siang", "12:00")),
+                "Makan Malam": str(settings.value("waktu_malam", "19:00"))
+            }
+            
+            for meal, time_str in times.items():
+                if current_hm == time_str:
+                    notif_id = f"{meal}_{current_hm}"
+                    if notif_id not in self._shown_notifs:
+                        self._shown_notifs.add(notif_id)
+                        QMessageBox.information(self, "Waktunya Makan!", f"Hai, sudah waktunya {meal}! Jangan lupa catat asupan makananmu di NutriKost ya.")
+        
+        # Reset list shown_notifs ketika jam berganti
+        current_hm = QTime.currentTime().toString("HH:mm")
+        self._shown_notifs = {n for n in self._shown_notifs if n.split("_")[1] == current_hm}
 
     def _build_ui(self):
         root = QWidget()
@@ -397,7 +430,7 @@ class MainWindow(QMainWindow):
         
         self._add_page("dashboard", self._placeholder("Dashboard", "Modul Fatih"))
         from log_page import LogPage
-        self.log_page = LogPage()
+        self.log_page = LogPage(self.sistem_profil)
         self._add_page("log", self.log_page)
         
         self._add_page("riwayat", self._placeholder("Riwayat", "Modul Irfan"))
@@ -415,6 +448,8 @@ class MainWindow(QMainWindow):
         
         # Sambungkan sinyal log_updated ke visualisasi_page.refresh agar otomatis update
         self.log_page.log_updated.connect(self.visualisasi_page.refresh)
+        # Dan untuk mengecek batas kalori
+        self.log_page.log_updated.connect(self._check_calorie_limit)
         
         self._add_page("kalori_mingguan", self.visualisasi_page)
         self._add_page("komposisi_gizi", self.visualisasi_page)
@@ -430,7 +465,23 @@ class MainWindow(QMainWindow):
         self._add_page("profil", self.profil_app)
         
         from setting_page import SettingPage
-        self._add_page("setting", SettingPage())
+        self._add_page("setting", SettingPage(self.sistem_profil))
+
+    def _check_calorie_limit(self):
+        settings = QSettings("NutriKost", "Pengaturan")
+        if settings.value("notif_kalori", False, type=bool):
+            try:
+                if self.sistem_profil and self.sistem_profil.current_profil:
+                    target_cal = self.sistem_profil.current_profil.get('calory', 2100)
+                    persentase = settings.value("batas_kalori", 100, type=int)
+                    maks_kalori = int(target_cal * (persentase / 100.0))
+                    
+                    realisasi = self.sistem_profil.getRealisasiKalori()
+                    
+                    if realisasi >= maks_kalori:
+                        QMessageBox.warning(self, "Peringatan Kalori!", f"Total kalori harianmu ({realisasi} kkal) telah mencapai/melebihi batas yang kamu atur ({maks_kalori} kkal)!\n\nKurangi porsi makan atau perbanyak olahraga ya.")
+            except Exception as e:
+                print(f"Error checking calorie limit: {e}")
 
     def _add_page(self, key: str, widget: QWidget):
         self._page_widgets[key] = widget
