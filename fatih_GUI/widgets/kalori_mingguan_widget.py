@@ -283,6 +283,7 @@ class KaloriMingguanWidget(QWidget):
         canvas.setStyleSheet('background: transparent; border: none;')
         canvas.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         canvas.setMinimumHeight(250)
+        canvas.setMinimumWidth(10)
         return canvas
 
     # ── Kartu Ringkasan ───────────────────────

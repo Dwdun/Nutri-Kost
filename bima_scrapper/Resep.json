@@ -1,5 +1,58 @@
 [
     {
+        "judul": "Soup Sehat",
+        "link": "https://cookpad.com/id/resep/25748260",
+        "gambar": "https://img-global.cpcdn.com/recipes/95df8749dcba4546/1200x630cq80/photo.jpg",
+        "komposisi_singkat": "dada ayam•telur•Tahu putih•bawang putih•bawang merah/ goreng•tomat•daun bawang bagian yg putih•minyak wijen•saus tiram•garam•penyedap rasa•air",
+        "bahan_detail": [
+            "1/2 kg dada ayam",
+            "1 butir telur",
+            "200 gr Tahu putih",
+            "4 siung bawang putih",
+            "3 siung bawang merah/ goreng",
+            "1 buah tomat",
+            "1 batang daun bawang bagian yg putih",
+            "1 sendok minyak wijen",
+            "1 sendok saus tiram",
+            "3 sendok garam",
+            "2 sendok penyedap rasa",
+            "1 liter air"
+        ],
+        "langkah_langkah": [
+            "Haluskan /cooper dada ayam bersama 1 putih telur, 1 siung bawang putih, 1 sendok minyak wijen, 1 sendok saus tiram, 1 sendok garam dan 1 sendok penyedap rasa, setelah halus, sisihkan.",
+            "Tumis bawang putih yg sudah dicincang hingga harum dan sedikit kecoklatan kemudian masukkan 1 liter air, diamkan hingga sedikit panas.",
+            "Jika sdh panas airnya masukkan adonan ayam yg sdh kita harusnya dan bulatkan seperti bakso,kemudian masukkan ke air perlahan2, agar tdk hancur dan masukkan Tahu.",
+            "Jika bakso sudah mengapung semua masukkan daun bawang diiris memanjang dan tomat yg diiris kotak, garam dan penyedap",
+            "Setelah mendidih taburkan bawang merah goreng dan soup siap disajikan."
+        ]
+    },
+    {
+        "judul": "Healthy Salad",
+        "link": "https://cookpad.com/id/resep/25736397",
+        "gambar": "https://img-global.cpcdn.com/recipes/64dcd41b64ed180b/1200x630cq80/photo.jpg",
+        "komposisi_singkat": "selada butterhead•tomat cherry•wortel•jagung•dada ayam•saus kikkoman teriyaki•baput dan bamer blender halus•olive oil•perasan lemon•madu•garam dan lada hitam",
+        "bahan_detail": [
+            "10 lembar selada butterhead",
+            "3 biji tomat cherry",
+            "1/2 batang wortel",
+            "1/2 batang jagung",
+            "100 gr dada ayam",
+            "1 sdm saus kikkoman teriyaki",
+            "1 siung baput dan bamer blender halus",
+            "1 sdm olive oil",
+            "2 sdm perasan lemon",
+            "1 sdm madu",
+            "Sejumput garam dan lada hitam"
+        ],
+        "langkah_langkah": [
+            "Kukus ayam yang sudah dimarinasi dengan bamer dan baput lalu tumis dengan saus kikkoman teriyaki dengan sedikit olive oil.",
+            "Kukus jagung yang sudah dipipil dan wortel yang dipotong panjang.",
+            "Potong selada dan tomat ceri menjadi 2 bagian.",
+            "Untuk dressing: campur olive oil, lemon, madu, garam, dan lada hitam.",
+            "Campur semua bahan, tuang dressing. Lebih nikmat disajikan dingin."
+        ]
+    },
+    {
         "judul": "Sup Sehat",
         "link": "https://cookpad.com/id/resep/25717050",
         "gambar": "https://img-global.cpcdn.com/recipes/a97ccaa78bdaecff/1200x630cq80/photo.jpg",
@@ -27,12 +80,12 @@
         "gambar": "https://img-global.cpcdn.com/recipes/1ff4c205a3eeeb91/1200x630cq80/photo.jpg",
         "komposisi_singkat": "Oat (sy : Rolled Oat)•Pisang Cavendish matang ukuran sedang•Kismis (bisa juga 3-4 bj Kurma)•Garam•Air Panas•Chip Chocolate (opsional, utk topping)",
         "bahan_detail": [
-            "1,5 cup Oat (sy : Rolled Oat)",
+            "1,5 cup Oat (sy : Rolled Oat )",
             "1 bh Pisang Cavendish matang ukuran sedang",
-            "1-2 sdm Kismis (bisa juga 3-4 bj Kurma)",
+            "1-2 sdm Kismis (bisa juga 3-4 bj Kurma )",
             "Sejumput Garam",
             "75 ml Air Panas",
-            "1 sdm Chip Chocolate (opsional, utk topping)"
+            "1 sdm Chip Chocolate (opsional, utk topping )"
         ],
         "langkah_langkah": [
             "Siapkan Bahan2. Panaskan oven 180°C",
@@ -326,47 +379,6 @@
             "Siapkan sawi putihnya, lalu beri adonan lipat dan gulung seperti melipat lumpia/piscok",
             "Didihkan air di panci, stlh mendidih masukkan sawi kedalam panci kukus slma 15 menit api sedang,",
             "Jika ingin dipan sebagian pecahkan 1 btr telur kocok lalu panggang ke pan yang sudah diolesi minyak sedikit"
-        ]
-    },
-    {
-        "judul": "Bening Sehat",
-        "link": "https://cookpad.com/id/resep/25601960",
-        "gambar": "https://img-global.cpcdn.com/recipes/87d1f5ba5cb4658f/1200x630cq80/photo.jpg",
-        "komposisi_singkat": "daun katuk•daun kelor•jagung•wortel•Air•Garam",
-        "bahan_detail": [
-            "100 gram daun katuk",
-            "50 gram daun kelor",
-            "1 buah jagung",
-            "1/2 potong wortel",
-            "secukupnya Air",
-            "secukupnya Garam"
-        ],
-        "langkah_langkah": [
-            "Petik sayuran siapkan bahan",
-            "Petik sayur katuk, daun kelor cuci bersih, cuci jagung iris, cuci wortel potong sesuai selera",
-            "Masukkan air dalam panci masukkan jagung dan wortel, rebus hingga mendidih supaya jagung dan wortel empuk.",
-            "Kalau sudah empuk masukkan sayur katuk dan kelor aduk hingga layu hijau. Matikan api jangan lupa seasoning.",
-            "Bening sayuran siap dihidangkan, gampang. Yok makan."
-        ]
-    },
-    {
-        "judul": "Sayur Bening Bayam Sehat",
-        "link": "https://cookpad.com/id/resep/25601375",
-        "gambar": "https://img-global.cpcdn.com/recipes/215cd9f74a0e8dc4/1200x630cq80/photo.jpg",
-        "komposisi_singkat": "bayam (ikatan kecil, saya pakai bayam organik)•Bawang merah•Bawang putih•kaldu bubuk•Air•Garam•Gula",
-        "bahan_detail": [
-            "1 ikat bayam (ikatan kecil, saya pakai bayam organik)",
-            "2 siung Bawang merah",
-            "1 siung Bawang putih",
-            "1/2 sdt kaldu bubuk",
-            "500 ml Air",
-            "1/2 sdt Garam",
-            "1/2 sdt Gula"
-        ],
-        "langkah_langkah": [
-            "Iris bawang merah, bawang putih. Didihkan air, masukkan irisan bawang. Masak sebentar",
-            "Masukkan batang bayam, garam, kaldu bubuk dan gula pasir. Setelah layu, masukkan daun bayam, matikan api. Aduk sebentar",
-            "Sajikan"
         ]
     }
 ]

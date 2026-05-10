@@ -262,6 +262,8 @@ class KomposisiGiziWidget(QWidget):
         canvas.setStyleSheet('background: transparent; border: none;')
         canvas.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         canvas.setMinimumHeight(280)
+        canvas.setMinimumWidth(10)
+
         return canvas
 
     # ── Legend (PyQt5) ────────────────────────
