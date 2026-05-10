@@ -256,8 +256,9 @@ class HalamanLogin(QWidget):
 class HalamanRegister(QWidget):
     go_datadiri = pyqtSignal(dict)
 
-    def __init__(self, parent=None):
+    def __init__(self, sistem=None, parent=None):
         super().__init__(parent)
+        self._sistem = sistem
         layout = QVBoxLayout(self)
         layout.setAlignment(Qt.AlignCenter)
         layout.setSpacing(40)
@@ -359,6 +360,13 @@ class HalamanRegister(QWidget):
             
         if p1 != p2:
             QMessageBox.warning(self, "Oops", "Password tidak cocok!")
+            return
+        
+        # Validasi Email Duplikat
+        # Dilakukan sebelum pindah ke halaman Data Diri
+        sistem_val = self._sistem or ProfilSystem()
+        if sistem_val.cekEmailTerdaftar(email):
+            QMessageBox.warning(self, "Oops", "Email sudah terdaftar. Silakan gunakan email lain.")
             return
         
         data = {
@@ -1116,7 +1124,7 @@ class MainApplication(QMainWindow):
     def init_auth_flow(self):
         # Create auth pages inside their wrapper
         self.login_p = HalamanLogin(self._sistem)
-        self.register_p = HalamanRegister()
+        self.register_p = HalamanRegister(self._sistem)
         self.datadiri_p = HalamanDataDiri(self._sistem)
 
         self.login_wrapper = AuthBaseWidget(self.login_p)
