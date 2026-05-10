@@ -1,21 +1,14 @@
 import sys
 import os
 import sqlite3
+import csv
 from datetime import datetime
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QFont, QFontMetrics
 
-# Helper functions for styling
-def font_body(size=12):
-    return QFont("Segoe UI", size)
-
-def font_title(size=24):
-    return QFont("Segoe UI", size, QFont.Bold)
-
 # Path Configuration
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-# Correctly pointing to bima_scrapper sibling folder
 db_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "bima_scrapper", "nutrikost.db"))
 
 from LogSystem import LogSystem
@@ -23,7 +16,7 @@ from fatih_GUI.template_halaman import *
 
 class RiwayatPage(PageTemplate):
     PAGE_NAME = 'Riwayat Nutrisi'
-    PAGE_DESC = 'Tijau kembali pola makan harianmu'
+    PAGE_DESC = 'Tinjau kembali pola makan harianmu'
     NAV_INDEX = 3
 
     def build_content(self, container: QWidget):
@@ -52,9 +45,9 @@ class RiwayatPage(PageTemplate):
             QPushButton:hover {
                 background-color: #1A7A34;
                 color: white;
-                border: 1px solid #1A7A34;
             }
         """)
+        self.action_btn.clicked.connect(self.export_to_csv)
         h_header_layout.addWidget(self.action_btn)
         main_layout.insertLayout(0, h_header_layout)
 
@@ -69,7 +62,7 @@ class RiwayatPage(PageTemplate):
         filter_layout.setSpacing(0)
 
         self.filter_group = QButtonGroup(container)
-        self.filter_group.setExclusive(False)
+        self.filter_group.setExclusive(False) 
 
         filters = ["7 Hari", "14 Hari", "30 Hari", "Bulan ini"]
         for i, text in enumerate(filters):
@@ -91,23 +84,55 @@ class RiwayatPage(PageTemplate):
                     color: black;
                 }
             ''')
+            btn.clicked.connect(lambda checked, b=btn: self.handle_filter_click(b))
             self.filter_group.addButton(btn, i)
             filter_layout.addWidget(btn, 1) 
 
-        self.filter_group.button(0).setChecked(True)
+        self.filter_group.button(0).setChecked(False)
         container.layout().addWidget(filter_container)
 
-        # --- DYNAMIC CARDS FROM DATABASE ---
+        # --- DYNAMIC CONTENT AREA ---
+        self.cards_layout = QVBoxLayout()
+        container.layout().addLayout(self.cards_layout)
+        container.layout().addStretch()
+        self.refresh_data()
+
+    def handle_filter_click(self, clicked_btn):
+        if clicked_btn.isChecked():
+            for btn in self.filter_group.buttons():
+                if btn != clicked_btn:
+                    btn.setChecked(False)
+        
+        self.refresh_data()
+
+    def refresh_data(self):
+        for i in reversed(range(self.cards_layout.count())): 
+            widget = self.cards_layout.itemAt(i).widget()
+            if widget is not None:
+                widget.setParent(None)
+
+        condition = ""
+        checked_btn = self.filter_group.checkedButton()
+        if checked_btn:
+            text = checked_btn.text()
+            if text == "7 Hari":
+                condition = "WHERE DATE(l.meal_time) >= DATE('now', '-7 days')"
+            elif text == "14 Hari":
+                condition = "WHERE DATE(l.meal_time) >= DATE('now', '-14 days')"
+            elif text == "30 Hari":
+                condition = "WHERE DATE(l.meal_time) >= DATE('now', '-30 days')"
+            elif text == "Bulan ini":
+                condition = "WHERE strftime('%Y-%m', l.meal_time) = strftime('%Y-%m', 'now')"
+
         try:
             conn = sqlite3.connect(db_path)
             cursor = conn.cursor()
 
             cursor.execute("SELECT calory FROM ProfilUser LIMIT 1")
             res = cursor.fetchone()
-            # Fix for NoneType: Use 2000 if res or res[0] is None
             goal_cal = (res[0] if res and res[0] is not None else 2000)
 
-            query = """
+            query = f"""
                 SELECT 
                     DATE(l.meal_time) as date_val,
                     SUM(l.cal) as total_cal,
@@ -115,6 +140,7 @@ class RiwayatPage(PageTemplate):
                     GROUP_CONCAT(m.food_name, ', ') as food_list
                 FROM LogHarian l
                 JOIN Makanan m ON l.kode_makanan = m.code
+                {condition}
                 GROUP BY date_val
                 ORDER BY date_val DESC
             """
@@ -124,14 +150,24 @@ class RiwayatPage(PageTemplate):
             for row in rows:
                 date_str, current_cal, count, foods = row
                 dt = datetime.strptime(date_str, '%Y-%m-%d')
+
+                # Dictionary for translation
+                DAYS_ID = {
+                    "Sunday": "Minggu", "Monday": "Senin", "Tuesday": "Selasa",
+                    "Wednesday": "Rabu", "Thursday": "Kamis", "Friday": "Jumat", "Saturday": "Sabtu"
+                }
+
+                day_en = dt.strftime('%A')
+                day_id = DAYS_ID.get(day_en, day_en)
+
+                title_label = QLabel(f"{day_id} - {count} Makanan")
                 
-                # Card Container
                 main_card = QFrame()
                 main_card.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
                 main_card.setFixedHeight(120)
                 main_card.setStyleSheet(
                     'QFrame { background: rgba(255,255,255,0.7); border: 1px solid #1A7A34; border-radius: 16px; }'
-                    'QLabel { border: none; background: transparent; }' # Explicitly safety-cleaning labels
+                    'QLabel { border: none; background: transparent; }'
                 )
                 main_card_layout = QHBoxLayout(main_card)
                 main_card_layout.setSpacing(15)
@@ -157,7 +193,7 @@ class RiwayatPage(PageTemplate):
                 text_stack.setSpacing(0)
                 text_stack.setContentsMargins(0, 0, 0, 5) 
 
-                title_label = QLabel(f"{dt.strftime('%A')} - {count} Makanan")
+                title_label = QLabel(f"{day_id} - {count} Makanan")
                 title_label.setFont(font_body(16))
                 title_label.setStyleSheet("color: black; font-weight: bold; border: none; background: transparent;")
                 
@@ -189,7 +225,6 @@ class RiwayatPage(PageTemplate):
                 right_layout.setSpacing(0)
                 right_layout.setContentsMargins(0, 0, 0, 0)
                 
-                # Handling None for calorie calculations
                 safe_current = current_cal or 0
                 val_current = QLabel(str(int(safe_current)))
                 val_current.setFont(font_body(16))
@@ -238,13 +273,45 @@ class RiwayatPage(PageTemplate):
                     QProgressBar::chunk {{ background-color: {bar_color}; border-radius: 8px; }}
                 ''')
 
-                container.layout().addWidget(main_card)
+                self.cards_layout.addWidget(main_card)
 
             conn.close()
         except Exception as e:
             print(f"Error Database: {e}")
 
-        container.layout().addStretch()
+    def _clean_text(self, text):
+        if not text:
+            return ""
+        import re
+        cleaned = re.sub(r'[\r\n\t]+', ' ', str(text))
+        cleaned = re.sub(r' {2,}', ' ', cleaned)
+        return cleaned.strip()
+
+    def export_to_csv(self):
+        default_name = f"Riwayat_Nutrisi.csv"
+        file_path, _ = QFileDialog.getSaveFileName(self, "Export CSV", default_name, "CSV Files (*.csv)")
+        if not file_path:
+            return
+        try:
+            conn = sqlite3.connect(db_path)
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT DATE(l.meal_time), l.category, m.food_name, l.portion, l.cal, l.protein, l.carb, l.fat
+                FROM LogHarian l 
+                JOIN Makanan m ON l.kode_makanan = m.code
+                ORDER BY l.meal_time DESC
+            """)
+            rows = cursor.fetchall()
+            with open(file_path, "w", newline="", encoding="utf-8-sig") as file:
+                writer = csv.writer(file, delimiter=';', quoting=csv.QUOTE_MINIMAL)
+                writer.writerow(["Tanggal", "Waktu", "Makanan", "Porsi", "Kalori", "Protein", "Karbohidrat", "Lemak"])
+                for row in rows:
+                    writer.writerow([row[0], str(row[1] or "Lainnya").capitalize(), self._clean_text(row[2]), 
+                                     round(row[3], 1), round(row[4], 1), round(row[5], 1), round(row[6], 1), round(row[7], 1)])
+            conn.close()
+            QMessageBox.information(self, "Berhasil", f"Data berhasil diekspor.")
+        except Exception as e:
+            QMessageBox.critical(self, "Export Error", f"Gagal: {str(e)}")
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
