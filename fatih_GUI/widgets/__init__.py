@@ -2,3 +2,4 @@ from .kalori_mingguan_widget import KaloriMingguanWidget
 from .komposisi_gizi_widget import KomposisiGiziWidget
 from .detail_makro_widget import DetailMakroWidget
 from .top_makanan_widget import TopMakananWidget
+from .nav_card_widget import NavCardWidget
