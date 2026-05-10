@@ -1,15 +1,22 @@
 import sys
 import os
-import io
 import sqlite3
-from contextlib import redirect_stdout
-from datetime import date, datetime
+from datetime import datetime
 from PyQt5.QtWidgets import *
-from PyQt5.QtCore import QEvent, Qt, QThread, pyqtSignal
-from PyQt5.QtGui import QFont, QDoubleValidator
+from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QFont, QFontMetrics
 
-# Ensure the system can find LogSystem and templates
+# Helper functions for styling
+def font_body(size=12):
+    return QFont("Segoe UI", size)
+
+def font_title(size=24):
+    return QFont("Segoe UI", size, QFont.Bold)
+
+# Path Configuration
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+# Correctly pointing to bima_scrapper sibling folder
+db_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "bima_scrapper", "nutrikost.db"))
 
 from LogSystem import LogSystem
 from fatih_GUI.template_halaman import *
@@ -20,104 +27,224 @@ class RiwayatPage(PageTemplate):
     NAV_INDEX = 3
 
     def build_content(self, container: QWidget):
-        # placeholder konten
-        main_card = QFrame()
-        main_card.setStyleSheet(
-            'background: rgba(255,255,255,0.7);'
-            'border: 1px solid #1A7A34;'
-            'border-radius: 16px;'
-            'padding: 4px;'
-        )
+        self.container = container
+        main_layout = self._scroll.widget().layout()
 
-        main_card_layout = QHBoxLayout(main_card)
-        main_card_layout.setSpacing(15)
+        # --- HEADER ---
+        h_header_layout = QHBoxLayout()
+        text_vbox = QVBoxLayout()
+        text_vbox.addWidget(self._page_title)
+        text_vbox.addWidget(self._page_desc)
+        h_header_layout.addLayout(text_vbox)
+        h_header_layout.addStretch()
 
-        date_holder = QLabel()
-        date_holder.setFixedSize(72, 75)
-        date_holder.setFont(font_title())
-        date_holder.setAlignment(Qt.AlignCenter)
+        self.action_btn = QPushButton("Export CSV")
+        self.action_btn.setFixedSize(145, 56)
+        self.action_btn.setCursor(Qt.PointingHandCursor)
+        self.action_btn.setFont(self.font_label(bold=True))
+        self.action_btn.setStyleSheet("""
+            QPushButton {
+                background-color: transparent;
+                color: #1A7A34;
+                border: 1px solid #1A7A34;
+                border-radius: 16px;
+            }
+            QPushButton:hover {
+                background-color: #1A7A34;
+                color: white;
+                border: 1px solid #1A7A34;
+            }
+        """)
+        h_header_layout.addWidget(self.action_btn)
+        main_layout.insertLayout(0, h_header_layout)
 
-        date_text = (
-            '<div style="margin-top: -16px; line-height: 0.8;">'
-            '  <span style="font-size: 32px;">12</span><br>'
-            '  <span style="font-size: 14px; letter-spacing: 1px;">MAY</span>'
-            '</div>'
-        )
-        date_holder.setText(date_text)
+        # --- Filter Bar Container ---
+        filter_container = QFrame()
+        filter_container.setFixedHeight(48) 
+        filter_container.setMaximumWidth(400)
+        filter_container.setStyleSheet('QFrame { background-color: #1A7A34; border-radius: 24px; }')
 
-        date_holder.setStyleSheet(
-            'color: #1A7A34;'
-            'border: none;'
-            'border-radius: 16px;'
-            'padding-bottom: 12px;'
-            'background: rgba(43, 188, 82, 0.25);'
-            )
+        filter_layout = QHBoxLayout(filter_container)
+        filter_layout.setContentsMargins(2, 2, 2, 2)
+        filter_layout.setSpacing(0)
 
-        main_card_layout.addWidget(date_holder)
-        
-        # Text Stack
-        text_stack = QVBoxLayout()
-        text_stack.setSpacing(0)
-        text_stack.setContentsMargins(0, 0, 0, 5) 
+        self.filter_group = QButtonGroup(container)
+        self.filter_group.setExclusive(False)
 
-        title_label = QLabel("Placeholder Title")
-        title_label.setFont(font_body(16))
-        title_label.setStyleSheet("color: black; font-weight: bold; border: none; background: transparent;")
-        
-        subtitle_label = QLabel("Supporting description text goes here")
-        subtitle_label.setFont(font_body(12))
-        subtitle_label.setStyleSheet("color: #868686; border: none; background: transparent;")
+        filters = ["7 Hari", "14 Hari", "30 Hari", "Bulan ini"]
+        for i, text in enumerate(filters):
+            btn = QPushButton(text)
+            btn.setCheckable(True) 
+            btn.setFixedWidth(90)
+            btn.setFont(font_body(12))
+            btn.setStyleSheet('''
+                QPushButton {
+                    background-color: transparent;
+                    color: white;
+                    font-weight: bold;
+                    border: 3px solid transparent;
+                    border-radius: 16px;
+                }
+                QPushButton:hover, QPushButton:checked {
+                    background-color: white;
+                    border: 3px solid white;
+                    color: black;
+                }
+            ''')
+            self.filter_group.addButton(btn, i)
+            filter_layout.addWidget(btn, 1) 
 
-        self.progress = QProgressBar()
-        self.progress.setFixedHeight(6)
-        self.progress.setTextVisible(False)
-        self.update_progress_style(90)
+        self.filter_group.button(0).setChecked(True)
+        container.layout().addWidget(filter_container)
 
-        bar_container = QWidget()
-        bar_container.setStyleSheet("background: transparent; border: none;")
-        bar_layout = QHBoxLayout(bar_container)
-        bar_layout.setContentsMargins(-5, 0, 0, 0) 
-        bar_layout.addWidget(self.progress)
-        
-        text_stack.addWidget(title_label)
-        text_stack.addSpacing(-10)
-        text_stack.addWidget(subtitle_label)
-        text_stack.addSpacing(2)
-        text_stack.addWidget(bar_container)
-        
-        main_card_layout.addLayout(text_stack, 1)
+        # --- DYNAMIC CARDS FROM DATABASE ---
+        try:
+            conn = sqlite3.connect(db_path)
+            cursor = conn.cursor()
 
-        main_card_layout.addStretch(0)
+            cursor.execute("SELECT calory FROM ProfilUser LIMIT 1")
+            res = cursor.fetchone()
+            # Fix for NoneType: Use 2000 if res or res[0] is None
+            goal_cal = (res[0] if res and res[0] is not None else 2000)
 
-        container.layout().addWidget(main_card)
+            query = """
+                SELECT 
+                    DATE(l.meal_time) as date_val,
+                    SUM(l.cal) as total_cal,
+                    COUNT(l.id_log) as food_count,
+                    GROUP_CONCAT(m.food_name, ', ') as food_list
+                FROM LogHarian l
+                JOIN Makanan m ON l.kode_makanan = m.code
+                GROUP BY date_val
+                ORDER BY date_val DESC
+            """
+            cursor.execute(query)
+            rows = cursor.fetchall()
+            
+            for row in rows:
+                date_str, current_cal, count, foods = row
+                dt = datetime.strptime(date_str, '%Y-%m-%d')
+                
+                # Card Container
+                main_card = QFrame()
+                main_card.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+                main_card.setFixedHeight(120)
+                main_card.setStyleSheet(
+                    'QFrame { background: rgba(255,255,255,0.7); border: 1px solid #1A7A34; border-radius: 16px; }'
+                    'QLabel { border: none; background: transparent; }' # Explicitly safety-cleaning labels
+                )
+                main_card_layout = QHBoxLayout(main_card)
+                main_card_layout.setSpacing(15)
 
-    def update_progress_style(self, value):
-        self.progress.setValue(value)
-        
-        # Logic for colors:
-        # < 60% -> #1A7A3440 (Low Opacity Green)
-        # > 60% -> #1A7A34 (Solid Green)
-        # High -> #E03030 (Red) - Note: Adjust threshold as needed
-        
-        color = "#C9EED3" 
-        if value > 100:
-            color = "#E03030"
-        elif value >= 60:
-            color = "#1A7A34"
+                # Date Section
+                date_holder = QLabel()
+                date_holder.setFixedSize(72, 75)
+                date_holder.setAlignment(Qt.AlignCenter)
+                date_text = (
+                    f'<div style="margin-top: -16px; line-height: 0.8;">'
+                    f'  <span style="font-size: 32px; font-weight: bold;">{dt.strftime("%d")}</span><br>'
+                    f'  <span style="font-size: 14px; letter-spacing: 1px;">{dt.strftime("%b").upper()}</span>'
+                    f'</div>'
+                )
+                date_holder.setText(date_text)
+                date_holder.setStyleSheet(
+                    'color: #1A7A34; border: none; border-radius: 16px; padding-bottom: 12px; background: rgba(43, 188, 82, 0.25);'
+                )
+                main_card_layout.addWidget(date_holder)
 
-        self.progress.setStyleSheet(f'''
-            QProgressBar {{
-                background-color: rgba(43, 188, 82, 0.40);
-                border-radius: 3px;
-                border: 0px solid transparent;
-                padding: 0px;
-            }}
-            QProgressBar::chunk {{
-                background-color: {color};
-                border-radius: 3px;
-                margin: 0px;
-            }}
-        ''')
+                # Info Section
+                text_stack = QVBoxLayout()
+                text_stack.setSpacing(0)
+                text_stack.setContentsMargins(0, 0, 0, 5) 
+
+                title_label = QLabel(f"{dt.strftime('%A')} - {count} Makanan")
+                title_label.setFont(font_body(16))
+                title_label.setStyleSheet("color: black; font-weight: bold; border: none; background: transparent;")
+                
+                metrics = QFontMetrics(font_body(12))
+                elided_foods = metrics.elidedText(foods or "", Qt.ElideRight, 350)
+                subtitle_label = QLabel(elided_foods)
+                subtitle_label.setFont(font_body(12))
+                subtitle_label.setStyleSheet("color: #868686; border: none; background: transparent;")
+
+                progress_bar = QProgressBar()
+                progress_bar.setFixedHeight(6)
+                progress_bar.setTextVisible(False)
+
+                bar_container = QWidget()
+                bar_layout = QHBoxLayout(bar_container)
+                bar_layout.setContentsMargins(-5, 0, 0, 0) 
+                bar_layout.addWidget(progress_bar)
+                
+                text_stack.addWidget(title_label)
+                text_stack.addSpacing(-4)
+                text_stack.addWidget(subtitle_label)
+                text_stack.addSpacing(2)
+                text_stack.addWidget(bar_container)
+                main_card_layout.addLayout(text_stack, 1)
+
+                # Calories Section
+                right_container = QWidget()
+                right_layout = QVBoxLayout(right_container)
+                right_layout.setSpacing(0)
+                right_layout.setContentsMargins(0, 0, 0, 0)
+                
+                # Handling None for calorie calculations
+                safe_current = current_cal or 0
+                val_current = QLabel(str(int(safe_current)))
+                val_current.setFont(font_body(16))
+                val_current.setAlignment(Qt.AlignRight | Qt.AlignBottom)
+                
+                val_goal = QLabel(f"/{int(goal_cal)}")
+                val_goal.setFont(font_body(10))
+                val_goal.setStyleSheet("color: #868686;")
+                val_goal.setAlignment(Qt.AlignRight | Qt.AlignTop)
+
+                status_layout = QHBoxLayout()
+                status_layout.setSpacing(4)
+                status_layout.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+                status_icon = QLabel()
+                status_icon.setFixedSize(12, 4) 
+                status_text = QLabel("Status")
+                status_text.setFont(font_body(10))
+                status_layout.addWidget(status_icon)
+                status_layout.addWidget(status_text)
+
+                right_layout.addWidget(val_current)
+                right_layout.addSpacing(-2)
+                right_layout.addWidget(val_goal)
+                right_layout.addSpacing(8) 
+                right_layout.addLayout(status_layout)
+                right_layout.addStretch()
+                main_card_layout.addWidget(right_container, 0)
+
+                # Coloring Logic
+                percentage = (safe_current / goal_cal) * 100 if goal_cal > 0 else 0
+                progress_bar.setValue(min(int(percentage), 100))
+                
+                if percentage > 100:
+                    bar_color, status = "#E03030", "Lebih"
+                elif percentage >= 60:
+                    bar_color, status = "#1A7A34", "Normal"
+                else:
+                    bar_color, status = "#A0E2B2", "Kurang"
+
+                val_current.setStyleSheet(f"color: {bar_color}; font-weight: bold; border: none; background: transparent;")
+                status_text.setText(status)
+                status_text.setStyleSheet(f"color: {bar_color}; font-weight: bold; border: none; background: transparent;")
+                status_icon.setStyleSheet(f"background-color: {bar_color}; border-radius: 2px;")
+                progress_bar.setStyleSheet(f'''
+                    QProgressBar {{ background-color: #F0F0F0; border-radius: 8px; border: none; }}
+                    QProgressBar::chunk {{ background-color: {bar_color}; border-radius: 8px; }}
+                ''')
+
+                container.layout().addWidget(main_card)
+
+            conn.close()
+        except Exception as e:
+            print(f"Error Database: {e}")
+
+        container.layout().addStretch()
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
