@@ -255,6 +255,7 @@ class KaloriHariIniWidget(QWidget):
         canvas.setStyleSheet('background: transparent; border: none;')
         canvas.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         canvas.setMinimumHeight(200)
+        canvas.setMinimumWidth(10)
         return canvas
 
     def _create_summary(self, dikonsumsi: int, target: int) -> QWidget:
