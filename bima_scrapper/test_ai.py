@@ -105,16 +105,15 @@ def bongkar_resep_dengan_gemini(nama_makanan):
     Sebutkan bahan-bahan mentah utama untuk membuat 1 PORSI masakan '{nama_makanan}'.
     
     ATURAN SANGAT PENTING:
-    1. SKALA PORSI: Takaran HARUS disesuaikan untuk 1 PORSI standar makan 1 orang.
-    2. KONVERSI WAJIB KE GRAM: Kamu HARUS menakar dan mengonversi SEMUA bahan ke dalam satuan "gram". 
+    1. VALIDASI MAKANAN: Analisis secara logis apakah '{nama_makanan}' benar-benar makanan/minuman yang wajar dikonsumsi manusia. Jika itu adalah benda mati (misal: monitor, meja, laptop), nama orang, bangunan, atau hal absurd, kamu WAJIB menolak dan HANYA mengembalikan JSON array kosong: []
+    2. SKALA PORSI: Takaran HARUS disesuaikan untuk 1 PORSI standar makan 1 orang.
+    3. KONVERSI WAJIB KE GRAM: Kamu HARUS menakar dan mengonversi SEMUA bahan ke dalam satuan "gram". 
        - JANGAN PERNAH menggunakan satuan buah, siung, sdm, sdt, ikat, atau lembar.
        - Gunakan logika dan pengetahuanmu tentang berat asli bahan! (Contoh: 5 buah cabai rawit = ~10 gram, 1 siung bawang putih = ~3 gram, 1 sdm minyak = ~15 gram).
        - Jika angkanya desimal, gunakan titik (misal: 2.5 gram).
-    3. PENAMAAN BAHAN: Nama bahan HARUS spesifik ke bahan mentah. 
-       - Wajib gunakan "daging ayam", "daging sapi" (bukan sekadar "ayam" atau "sapi").
-       - Jika resepnya berbahan dasar nasi, gunakan "beras putih matang".
-    4. FORMAT: Berikan respons HANYA dalam format JSON array of strings tanpa blok markdown.
-    5. STRUKTUR TEKS: Setiap string HARUS memiliki format kaku: "[Angka] gram [Nama Bahan Baku]".
+    4. PENAMAAN BAHAN: Nama bahan HARUS spesifik ke bahan mentah (misal: "daging ayam", "beras putih matang"). 
+    5. FORMAT: Berikan respons HANYA dalam format JSON array of strings tanpa blok markdown.
+    6. STRUKTUR TEKS: Setiap string HARUS memiliki format kaku: "[Angka] gram [Nama Bahan Baku]".
     
     Contoh output yang benar untuk 1 porsi (misal input: ayam geprek): 
     ["150 gram daging ayam", "6 gram bawang putih", "15 gram minyak goreng", "10 gram cabai rawit", "20 gram tepung terigu"]
@@ -132,6 +131,100 @@ def bongkar_resep_dengan_gemini(nama_makanan):
     except Exception as e:
         print(f"\n[Error] Gagal menghubungi Gemini: {e}")
         return []
+
+def proses_nutrisi_terminal(nama_makanan):
+    db = DBHelper('nutrikost.db')
+    conn = db._get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT code, food_name, cal, protein, carb, fat FROM Makanan")
+    db_makanan = cursor.fetchall()
+    
+    nama_makanan_db = {row['food_name']: row for row in db_makanan}
+    list_nama_db = list(nama_makanan_db.keys())
+
+    # 1. Cek di db TKPI USDA
+    kecocokan_master, skor_master = process.extractOne(nama_makanan.lower(), list_nama_db)
+    
+    if kecocokan_master and skor_master >= 90:
+        print(f"\n[🌟 MASTER DB HIT] Makanan langsung ditemukan di database sebagai '{kecocokan_master}' (Akurasi: {skor_master}%)")
+        data_nutrisi = nama_makanan_db[kecocokan_master]
+        conn.close()
+        return 
+
+    # 2. Cek di tabel cache, jika tidak ada, panggil AI
+    print(f"\n[INFO] '{nama_makanan}' tidak ada di database utama. Memulai proses dekonstruksi bahan...")
+    
+    daftar_bahan_mentah = get_or_fetch_resep(nama_makanan)
+
+    # =======================================================
+    # VALIDASI BLOKIR NON-MAKANAN
+    # =======================================================
+    if not daftar_bahan_mentah:
+        conn.close()
+        # Munculkan pesan error ini, agar GUI test.py bisa menangkapnya di kotak pesan warning!
+        raise ValueError(f"Masukan '{nama_makanan}' tidak dikenali sebagai makanan/minuman yang valid.")
+    # =======================================================
+
+    print(f"\nBahan baku: {daftar_bahan_mentah}\n")
+    print("=" * 60)
+    print(" KALKULASI NUTRISI DARI BAHAN MENTAH ".center(60))
+    print("=" * 60)
+
+    total_kalori = 0
+    total_protein = 0
+    total_karbo = 0
+    total_lemak = 0
+    total_berat_semua = 0
+
+    for teks_bahan in daftar_bahan_mentah:
+        match = re.search(r'([\d\./]+)\s*([a-zA-Z]+)\s*(.*)', teks_bahan)
+        
+        if match:
+            kuantitas_str = match.group(1).replace('/', '.0/')
+            try:
+                kuantitas = float(eval(kuantitas_str))
+            except:
+                kuantitas = 1.0
+                
+            satuan = match.group(2).lower()
+            nama_bahan_mentah = match.group(3).strip()
+
+            kecocokan_terbaik, skor_bahan = process.extractOne(nama_bahan_mentah, list_nama_db)
+
+            if kecocokan_terbaik and skor_bahan >= 70:
+                data_nutrisi = nama_makanan_db[kecocokan_terbaik]
+
+                pengali_gram = KONVERSI_GRAM.get(satuan, 100) 
+                total_berat_gram = kuantitas * pengali_gram
+                
+                total_berat_semua += total_berat_gram
+
+                kalori_bahan = (total_berat_gram / 100) * float(data_nutrisi['cal'])
+                protein_bahan = (total_berat_gram / 100) * float(data_nutrisi['protein'])
+                karbo_bahan = (total_berat_gram / 100) * float(data_nutrisi['carb'])
+                lemak_bahan = (total_berat_gram / 100) * float(data_nutrisi['fat'])
+
+                total_kalori += kalori_bahan
+                total_protein += protein_bahan
+                total_karbo += karbo_bahan
+                total_lemak += lemak_bahan
+                
+                print(f"[ ✓ ] {teks_bahan} -> {kecocokan_terbaik}")
+
+    conn.close()
+
+    # 3. Proses Insert ke Master Database (Tabel Makanan)
+    if total_berat_semua > 0:
+        cal_100g = (total_kalori / total_berat_semua) * 100
+        pro_100g = (total_protein / total_berat_semua) * 100
+        carb_100g = (total_karbo / total_berat_semua) * 100
+        fat_100g = (total_lemak / total_berat_semua) * 100
+        
+        simpan_ke_makanan_master(nama_makanan, cal_100g, pro_100g, carb_100g, fat_100g)
+    else:
+        # Antisipasi jika AI membalas bahan dengan format salah semua
+        raise ValueError(f"Gagal mengkalkulasi nutrisi untuk '{nama_makanan}'. Format bahan tidak sesuai.")
 
 def proses_nutrisi_terminal(nama_makanan):
     db = DBHelper('nutrikost.db')
