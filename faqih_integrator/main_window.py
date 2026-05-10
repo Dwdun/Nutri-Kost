@@ -433,7 +433,13 @@ class MainWindow(QMainWindow):
         self.log_page = LogPage(self.sistem_profil)
         self._add_page("log", self.log_page)
         
-        self._add_page("riwayat", self._placeholder("Riwayat", "Modul Irfan"))
+        from riwayat_page import RiwayatPage
+        
+        self.riwayat_page = RiwayatPage()
+        self._add_page("riwayat", self.riwayat_page)
+        
+        # Hubungkan update log makanan ke refresh data di riwayat
+        self.log_page.log_updated.connect(self.riwayat_page.refresh_data)
         
         from rekomendasi_page import RekomendasiPage
         self._add_page("rekomendasi", RekomendasiPage())
