@@ -10,6 +10,7 @@ from PyQt5.QtWidgets import (
     QFrame, QStackedWidget, QCheckBox, QSpacerItem, QSizePolicy, QGraphicsDropShadowEffect, QScrollArea, QDialog, QListView
 )
 from PyQt5.QtCore import Qt, QSize, pyqtSignal
+from fatih_GUI.toast_notification import show_toast, TOAST_SUCCESS, TOAST_ERROR, TOAST_NORMAL
 from PyQt5.QtGui import QFont, QPixmap, QIcon, QColor, QPainter, QCursor
 
 from profil_system import ProfilSystem
@@ -251,7 +252,7 @@ class HalamanLogin(QWidget):
         if success:
             self.login_success.emit()
         else:
-            QMessageBox.warning(self, "Gagal", msg)
+            show_toast(self, msg, TOAST_ERROR)
 
 class HalamanRegister(QWidget):
     go_datadiri = pyqtSignal(dict)
@@ -340,33 +341,33 @@ class HalamanRegister(QWidget):
         email = self.inp_email.text()
         
         if not full_name:
-            QMessageBox.warning(self, "Oops", "Nama tidak boleh kosong!")
+            show_toast(self, "Nama tidak boleh kosong!", TOAST_ERROR)
             return
             
         if '@' not in email or '.' not in email:
-            QMessageBox.warning(self, "Invalid Email", "Format email tidak valid! Harus mengandung '@' dan '.'.")
+            show_toast(self, "Format email tidak valid! Harus mengandung '@' dan '.'.", TOAST_ERROR)
             return
 
         if not self.chk_terms.isChecked():
-            QMessageBox.warning(self, "Oops", "Anda harus setuju dengan S&K")
+            show_toast(self, "Anda harus setuju dengan S&K", TOAST_ERROR)
             return
             
         p1 = self.inp_pass.text()
         p2 = self.inp_konf.text()
         
         if len(p1) < 6:
-            QMessageBox.warning(self, "Oops", "Password minimal 6 karakter!")
+            show_toast(self, "Password minimal 6 karakter!", TOAST_ERROR)
             return
             
         if p1 != p2:
-            QMessageBox.warning(self, "Oops", "Password tidak cocok!")
+            show_toast(self, "Password tidak cocok!", TOAST_ERROR)
             return
         
         # Validasi Email Duplikat
         # Dilakukan sebelum pindah ke halaman Data Diri
         sistem_val = self._sistem or ProfilSystem()
         if sistem_val.cekEmailTerdaftar(email):
-            QMessageBox.warning(self, "Oops", "Email sudah terdaftar. Silakan gunakan email lain.")
+            show_toast(self, "Email sudah terdaftar. Silakan gunakan email lain.", TOAST_ERROR)
             return
         
         data = {
@@ -575,9 +576,9 @@ class HalamanDataDiri(QWidget):
             if success:
                 self.register_success.emit()
             else:
-                QMessageBox.warning(self, "Error", f"{msg}")
+                show_toast(self, f"{msg}", TOAST_ERROR)
         except ValueError:
-            QMessageBox.warning(self, "Error", "Usia, berat, dan tinggi harus berupa angka!")
+            show_toast(self, "Usia, berat, dan tinggi harus berupa angka!", TOAST_ERROR)
 
     def _lewati(self):
         # Set dummy parameters so 'ValidasiInput' doesn't block the onboarding flow.
@@ -593,7 +594,7 @@ class HalamanDataDiri(QWidget):
                 self.inp_akt.currentText()
             )
         except:
-            QMessageBox.warning(self, "Error", "Input tidak valid! Pastikan Usia, BB, dan TB berisi nilai angka.")
+            show_toast(self, "Input tidak valid! Pastikan Usia, BB, dan TB berisi nilai angka.", TOAST_ERROR)
 
 
 
@@ -754,7 +755,7 @@ class EditProfileDialog(QDialog):
         try:
             nama = self.inp_nama.text().strip()
             if not nama:
-                QMessageBox.warning(self, "Error", "Nama tidak boleh kosong!")
+                show_toast(self, "Nama tidak boleh kosong!", TOAST_ERROR)
                 return
             
             bb = float(self.inp_bb.text() or 0)
@@ -777,12 +778,12 @@ class EditProfileDialog(QDialog):
             }
 
             if self.sistem.updateProfil(data):
-                QMessageBox.information(self, "Sukses", "Update data berhasil!")
+                show_toast(self, "Update data berhasil!", TOAST_SUCCESS)
                 self.accept()
             else:
-                QMessageBox.warning(self, "Error", "Gagal update profile!")
+                show_toast(self, "Gagal update profile!", TOAST_ERROR)
         except ValueError:
-             QMessageBox.warning(self, "Error", "Usia, BB, TB harus angka!")
+             show_toast(self, "Usia, BB, TB harus angka!", TOAST_ERROR)
 
 # ==========================================
 # MAIN DASHBOARD / PROFILE 

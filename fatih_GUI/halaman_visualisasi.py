@@ -10,6 +10,7 @@ from PyQt5.QtWidgets import (
     QStackedWidget, QFileDialog, QMessageBox, QApplication, QLabel
 )
 from PyQt5.QtCore import Qt, pyqtSignal
+from fatih_GUI.toast_notification import show_toast, TOAST_SUCCESS, TOAST_ERROR
 from PyQt5.QtPrintSupport import QPrinter
 from PyQt5.QtGui import QPainter, QPageLayout, QFont
 
@@ -218,15 +219,9 @@ class HalamanVisualisasi(QWidget):
             widget_to_export = self._stack.widget(self._active_tab)
             self._export_widget_to_pdf(widget_to_export, file_path)
             
-            QMessageBox.information(
-                self, 'Berhasil',
-                f'PDF berhasil disimpan:\n{file_path}'
-            )
+            show_toast(self, f'PDF berhasil disimpan:\n{file_path}', TOAST_SUCCESS)
         except Exception as e:
-            QMessageBox.critical(
-                self, 'Gagal Export',
-                f'Terjadi kesalahan:\n{str(e)}'
-            )
+            show_toast(self, f'Terjadi kesalahan:\n{str(e)}', TOAST_ERROR)
 
     def _export_widget_to_pdf(self, widget: QWidget, file_path: str):
         """Mengekspor isi dari widget secara persis (WYSIWYG) ke PDF A4 Landscape."""

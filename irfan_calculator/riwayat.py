@@ -13,6 +13,7 @@ db_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "bima_sc
 
 from LogSystem import LogSystem
 from fatih_GUI.template_halaman import *
+from fatih_GUI.toast_notification import show_toast, TOAST_SUCCESS, TOAST_ERROR
 
 class RiwayatPage(PageTemplate):
     PAGE_NAME = 'Riwayat Nutrisi'
@@ -309,9 +310,9 @@ class RiwayatPage(PageTemplate):
                     writer.writerow([row[0], str(row[1] or "Lainnya").capitalize(), self._clean_text(row[2]), 
                                      round(row[3], 1), round(row[4], 1), round(row[5], 1), round(row[6], 1), round(row[7], 1)])
             conn.close()
-            QMessageBox.information(self, "Berhasil", f"Data berhasil diekspor.")
+            show_toast(self, f"Data berhasil diekspor.", TOAST_SUCCESS)
         except Exception as e:
-            QMessageBox.critical(self, "Export Error", f"Gagal: {str(e)}")
+            show_toast(self, f"Gagal: {str(e)}", TOAST_ERROR)
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)

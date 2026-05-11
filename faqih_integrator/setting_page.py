@@ -8,6 +8,7 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtCore import Qt, QSettings, QPropertyAnimation, pyqtProperty, QEasingCurve, QTime
 from PyQt5.QtGui import QFont, QPainter, QColor
+from fatih_GUI.toast_notification import show_toast, TOAST_SUCCESS, TOAST_ERROR, TOAST_NORMAL
 
 ACCENT_GREEN  = "#1A7A34"
 CONTENT_BG    = "#f5f7f5"
@@ -413,18 +414,18 @@ class SettingPage(QWidget):
     # ── Export CSV ────────────────────────────────────────────────────────────
     def exportToCSV(self):
         if self._db is None:
-            QMessageBox.warning(self, "Error", "Database tidak tersedia.")
+            show_toast(self, "Database tidak tersedia.", TOAST_ERROR)
             return
 
         # Ambil data log dari DB
         try:
             logs = self._db.get_all_logs(limit=10000)
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Gagal mengambil data:\n{e}")
+            show_toast(self, f"Gagal mengambil data:\n{e}", TOAST_ERROR)
             return
 
         if not logs:
-            QMessageBox.information(self, "Export Data", "Belum ada data log yang tersimpan.")
+            show_toast(self, "Belum ada data log yang tersimpan.", TOAST_NORMAL)
             return
 
         # Dialog pilih lokasi simpan
@@ -440,12 +441,9 @@ class SettingPage(QWidget):
                 writer.writeheader()
                 writer.writerows(logs)
 
-            QMessageBox.information(
-                self, "Export Berhasil",
-                f"Data berhasil disimpan ke:\n{filepath}"
-            )
+            show_toast(self, f"Data berhasil disimpan ke:\n{filepath}", TOAST_SUCCESS)
         except Exception as e:
-            QMessageBox.critical(self, "Export Gagal", f"Terjadi kesalahan:\n{e}")
+            show_toast(self, f"Terjadi kesalahan:\n{e}", TOAST_ERROR)
 
     # ── Hapus Semua Data ──────────────────────────────────────────────────────
     def deleteAllData(self):
@@ -462,7 +460,7 @@ class SettingPage(QWidget):
             return
 
         if self._db is None:
-            QMessageBox.warning(self, "Error", "Database tidak tersedia.")
+            show_toast(self, "Database tidak tersedia.", TOAST_ERROR)
             return
 
         try:
@@ -472,9 +470,6 @@ class SettingPage(QWidget):
             conn.commit()
             conn.close()
 
-            QMessageBox.information(
-                self, "Berhasil",
-                "Semua data telah dihapus."
-            )
+            show_toast(self, "Semua data telah dihapus.", TOAST_SUCCESS)
         except Exception as e:
-            QMessageBox.critical(self, "Gagal", f"Terjadi kesalahan saat menghapus data:\n{e}")
+            show_toast(self, f"Terjadi kesalahan saat menghapus data:\n{e}", TOAST_ERROR)
