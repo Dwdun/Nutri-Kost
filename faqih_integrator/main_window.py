@@ -482,6 +482,7 @@ class MainWindow(QMainWindow):
         
         self.profil_app = anindya_test.ProfilApp(self.sistem_profil)
         self.profil_app.logout_signal.connect(self.logout_signal.emit)
+        self.profil_app.go_back.connect(lambda: self.navigate("dashboard"))
         self._add_page("profil", self.profil_app)
         
         from setting_page import SettingPage

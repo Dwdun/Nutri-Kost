@@ -43,7 +43,10 @@ class AppLauncher(QMainWindow):
         self.login_p.login_success.connect(self.show_dashboard)
         
         self.register_p.go_datadiri.connect(self.show_datadiri)
+        self.register_p.go_back.connect(self.show_login)
+        
         self.datadiri_p.register_success.connect(self.show_dashboard)
+        self.datadiri_p.go_back.connect(self.show_register)
 
         self.stack.addWidget(self.login_wrapper)
         self.stack.addWidget(self.register_wrapper)
