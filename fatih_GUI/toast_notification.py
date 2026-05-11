@@ -153,7 +153,7 @@ class _ToastManager(QObject):
         self._watched: set[int] = set()
 
     def show(self, parent_window: QWidget, message: str,
-             toast_type: str = TOAST_NORMAL, duration: int = 3500):
+             toast_type: str = TOAST_NORMAL, duration: int = 5000):
         # parent_window = top-level window (QMainWindow)
         root = parent_window.window()
 
@@ -200,7 +200,7 @@ def show_toast(
     parent_window: QWidget,
     message: str,
     toast_type: str = TOAST_NORMAL,
-    duration: int = 3500,
+    duration: int = 5000,
 ):
     """
     Tampilkan toast notification di pojok kanan bawah window.
@@ -217,6 +217,6 @@ def show_toast(
         TOAST_SUCCESS → hijau, ikon centang
         TOAST_NORMAL  → hijau tua, ikon chat
     duration : int
-        Berapa ms toast tampil sebelum fade-out (default 3500 ms).
+        Berapa ms toast tampil sebelum fade-out (default 5000 ms).
     """
     _manager.show(parent_window, message, toast_type, duration)
