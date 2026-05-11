@@ -238,6 +238,10 @@ class SettingPage(QWidget):
         self._time_siang.timeChanged.connect(lambda t: self._save_preference("waktu_siang", t.toString("HH:mm")))
         self._time_malam.timeChanged.connect(lambda t: self._save_preference("waktu_malam", t.toString("HH:mm")))
         
+        self._time_sarapan.editingFinished.connect(lambda: self._show_time_notification("Sarapan", self._time_sarapan))
+        self._time_siang.editingFinished.connect(lambda: self._show_time_notification("Makan Siang", self._time_siang))
+        self._time_malam.editingFinished.connect(lambda: self._show_time_notification("Makan Malam", self._time_malam))
+        
         main_layout.addWidget(self._makan_details)
         self._toggle_makan.toggled.connect(self._makan_details.setVisible)
 
@@ -343,8 +347,12 @@ class SettingPage(QWidget):
 
         main_layout.addStretch()
 
+    def _show_time_notification(self, label: str, time_widget):
+        time_str = time_widget.time().toString("HH:mm")
+        QMessageBox.information(self, "Pengingat Diperbarui", f"Pengingat {label} akan di set pada pukul {time_str}")
+
     # ── Preferensi ────────────────────────────────────────────────────────────
-    def _save_preference(self, key: str, value: bool):
+    def _save_preference(self, key: str, value):
         self._settings.setValue(key, value)
 
     def _on_batas_changed(self, v):
