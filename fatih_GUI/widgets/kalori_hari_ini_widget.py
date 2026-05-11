@@ -173,7 +173,7 @@ class KaloriHariIniWidget(QWidget):
 
         # ── Judul "Kalori hari ini" ──
         title = QLabel('Kalori hari ini')
-        title.setFont(self._font_title(14))
+        title.setFont(self._font_title(20))
         title.setAlignment(Qt.AlignCenter)
         title.setStyleSheet(
             f'color: {C_GREEN}; background: transparent; border: none;'
