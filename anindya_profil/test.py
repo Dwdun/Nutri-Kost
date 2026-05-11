@@ -447,12 +447,11 @@ class HalamanDataDiri(QWidget):
         layout.setSpacing(40)
 
         title = QLabel("Data Diri")
-        title.setFont(font_title(24))
+        title.setAlignment(Qt.AlignCenter)
         f = QFont('Montserrat Alternates Medium', 24)
         f.setStyleHint(QFont.SansSerif)
         title.setFont(f)
-        title.setAlignment(Qt.AlignCenter)
-        title.setStyleSheet("color: #333333;")
+        title.setStyleSheet("color: #1C1C1C; margin-bottom: 20px;")
         layout.addWidget(title)
 
         card = AuthCard()
