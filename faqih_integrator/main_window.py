@@ -429,7 +429,18 @@ class MainWindow(QMainWindow):
         from search_page import SearchPage
         self._add_page("search", SearchPage(on_pilih_makanan=self._on_pilih_makanan))
         
-        self._add_page("dashboard", self._placeholder("Dashboard", "Modul Fatih"))
+        from fatih_GUI.halaman_dashboard import HalamanDashboard
+        import os as _os
+        _db_path = _os.path.normpath(_os.path.join(BASE_DIR, '..', 'bima_scrapper', 'nutrikost.db'))
+        _id_user = (
+            self.sistem_profil.current_profil.get('id_user', 1)
+            if (hasattr(self, 'sistem_profil') and self.sistem_profil and self.sistem_profil.current_profil)
+            else 1
+        )
+        self.dashboard_page = HalamanDashboard(id_user=_id_user, db_path=_db_path)
+        self.dashboard_page.navigate_to.connect(self.navigate)
+        self.dashboard_page.tambah_makanan_clicked.connect(lambda: self.navigate("log"))
+        self._add_page("dashboard", self.dashboard_page)
         from log_page import LogPage
         self.log_page = LogPage(self.sistem_profil)
         self._add_page("log", self.log_page)
@@ -441,6 +452,8 @@ class MainWindow(QMainWindow):
         
         # Hubungkan update log makanan ke refresh data di riwayat
         self.log_page.log_updated.connect(self.riwayat_page.refresh_data)
+        # Hubungkan update log makanan ke refresh dashboard
+        self.log_page.log_updated.connect(self.dashboard_page.refresh)
         
         from rekomendasi_page import RekomendasiPage
         self._add_page("rekomendasi", RekomendasiPage())
@@ -522,6 +535,9 @@ class MainWindow(QMainWindow):
                     self.visualisasi_page.set_tab(1)
                 elif page_key == "top_10_makanan":
                     self.visualisasi_page.set_tab(2)
+
+        if page_key == "dashboard" and hasattr(self, 'dashboard_page'):
+            self.dashboard_page.refresh()
                     
         for key, btn in self._sidebar_buttons.items():
             if isinstance(btn, NavItem):
