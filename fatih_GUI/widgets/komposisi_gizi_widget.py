@@ -185,7 +185,7 @@ class KomposisiGiziWidget(QWidget):
 
         # ── Judul ──
         title = QLabel('Makronutrien Minggu Ini')
-        title.setFont(self._font_title(18))
+        title.setFont(self._font_title(20))
         title.setStyleSheet(f'color: {C_TEXT_DARK}; border: none; background: transparent;')
         container_layout.addWidget(title)
 

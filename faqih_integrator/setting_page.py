@@ -349,7 +349,7 @@ class SettingPage(QWidget):
 
     def _show_time_notification(self, label: str, time_widget):
         time_str = time_widget.time().toString("HH:mm")
-        QMessageBox.information(self, "Pengingat Diperbarui", f"Pengingat {label} akan di set pada pukul {time_str}")
+        show_toast(self, f"Pengingat {label} akan di set pada pukul {time_str}", TOAST_SUCCESS)
 
     # ── Preferensi ────────────────────────────────────────────────────────────
     def _save_preference(self, key: str, value):
