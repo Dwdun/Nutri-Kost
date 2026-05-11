@@ -113,6 +113,7 @@ class ProfilSystem:
             'weight'    : data['weight'],
             'height'    : data['height'],
             'activity'  : aktivitas,
+            'diet_goal' : data.get('diet_goal', 'Maintain Berat Badan'),
             'calory'    : target_cal,
             'email'     : data['email'].strip(),
             'password'  : self._hash_password(data['password'])
