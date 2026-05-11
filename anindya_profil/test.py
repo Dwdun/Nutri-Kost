@@ -1,8 +1,8 @@
 import sys
 import os
 
-sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'bima_scrapper'))
-sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'fatih_GUI'))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'fatih_GUI')))
 
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
@@ -14,7 +14,7 @@ from fatih_GUI.toast_notification import show_toast, TOAST_SUCCESS, TOAST_ERROR,
 from PyQt5.QtGui import QFont, QPixmap, QIcon, QColor, QPainter, QCursor
 
 from profil_system import ProfilSystem
-from template_halaman import (
+from fatih_GUI.template_halaman import (
     PageTemplate, PatternWidget, ICONS_DIR, 
     font_title, font_body, font_label, load_fonts,
     C_NAVBAR_HVR, C_TEXT_DARK, C_TEXT_SUB
@@ -128,6 +128,7 @@ class AuthCard(QFrame):
 class HalamanLogin(QWidget):
     go_register = pyqtSignal()
     login_success = pyqtSignal()
+    go_back = pyqtSignal()
 
     def __init__(self, sistem: ProfilSystem, parent=None):
         super().__init__(parent)
@@ -140,14 +141,45 @@ class HalamanLogin(QWidget):
         # Title
         title = QLabel("Welcome Back, User")
         title.setAlignment(Qt.AlignCenter)
-        title.setStyleSheet("color: #1C1C1C; margin-bottom: 20px; font-family: 'Montserrat Alternates'; font-size: 32px; font-weight: bold;")
+        f = QFont('Montserrat Alternates Medium', 24)
+        f.setStyleHint(QFont.SansSerif)
+        title.setFont(f)
+        title.setStyleSheet("color: #1C1C1C; margin-bottom: 20px;")
         layout.addWidget(title)
 
         # Card
         card = AuthCard()
         cl = QVBoxLayout(card)
-        cl.setContentsMargins(30, 36, 30, 36)
+        cl.setContentsMargins(30, 24, 30, 36)
         cl.setSpacing(10)
+
+        # Header Row inside Card
+        header_row = QHBoxLayout()
+        header_row.setContentsMargins(0, 0, 0, 0)
+        
+        self.btn_back = QPushButton()
+        self.btn_back.setFixedSize(32, 32)
+        self.btn_back.setCursor(Qt.PointingHandCursor)
+        arrow_path = os.path.join(ICONS_DIR, 'famicons_arrow-back-outline.png')
+        if os.path.exists(arrow_path):
+            self.btn_back.setIcon(QIcon(arrow_path))
+            self.btn_back.setIconSize(QSize(24, 24))
+        self.btn_back.setStyleSheet("QPushButton { background: transparent; border: none; }")
+        self.btn_back.clicked.connect(self.go_back.emit)
+        header_row.addWidget(self.btn_back)
+        
+        header_row.addStretch()
+        
+        internal_title = QLabel("Login Page")
+        internal_title.setFont(font_label(12, bold=False))
+        internal_title.setStyleSheet("color: black; background: transparent;")
+        header_row.addWidget(internal_title)
+        
+        header_row.addStretch()
+        header_row.addSpacing(30) # Spacer to center title
+        
+        cl.addLayout(header_row)
+        cl.addSpacing(10)
 
         # Email
         lbl_email = buat_label("Email", 10)
@@ -253,6 +285,7 @@ class HalamanLogin(QWidget):
 
 class HalamanRegister(QWidget):
     go_datadiri = pyqtSignal(dict)
+    go_back = pyqtSignal()
 
     def __init__(self, sistem=None, parent=None):
         super().__init__(parent)
@@ -263,13 +296,44 @@ class HalamanRegister(QWidget):
 
         title = QLabel("Daftar")
         title.setAlignment(Qt.AlignCenter)
-        title.setStyleSheet("color: #1C1C1C; margin-bottom: 20px; font-family: 'Montserrat Alternates'; font-size: 32px; font-weight: bold;")
+        f = QFont('Montserrat Alternates Medium', 24)
+        f.setStyleHint(QFont.SansSerif)
+        title.setFont(f)
+        title.setStyleSheet("color: #1C1C1C; margin-bottom: 20px;")
         layout.addWidget(title)
 
         card = AuthCard()
         cl = QVBoxLayout(card)
         cl.setContentsMargins(32, 24, 32, 24)
         cl.setSpacing(8)
+
+        # Header Row inside Card
+        header_row = QHBoxLayout()
+        header_row.setContentsMargins(0, 0, 0, 0)
+        
+        self.btn_back = QPushButton()
+        self.btn_back.setFixedSize(32, 32)
+        self.btn_back.setCursor(Qt.PointingHandCursor)
+        arrow_path = os.path.join(ICONS_DIR, 'famicons_arrow-back-outline.png')
+        if os.path.exists(arrow_path):
+            self.btn_back.setIcon(QIcon(arrow_path))
+            self.btn_back.setIconSize(QSize(24, 24))
+        self.btn_back.setStyleSheet("QPushButton { background: transparent; border: none; }")
+        self.btn_back.clicked.connect(self.go_back.emit)
+        header_row.addWidget(self.btn_back)
+        
+        header_row.addStretch()
+        
+        internal_title = QLabel("Register Page")
+        internal_title.setFont(font_label(12, bold=False))
+        internal_title.setStyleSheet("color: black; background: transparent;")
+        header_row.addWidget(internal_title)
+        
+        header_row.addStretch()
+        header_row.addSpacing(30) # Spacer to center title
+        
+        cl.addLayout(header_row)
+        cl.addSpacing(10)
 
         lbl_nama = buat_label("Nama Lengkap")
         lbl_nama.setStyleSheet("color: #115724; background: transparent;")
@@ -372,6 +436,7 @@ class HalamanRegister(QWidget):
 
 class HalamanDataDiri(QWidget):
     register_success = pyqtSignal()
+    go_back = pyqtSignal()
     register_data = {}
 
     def __init__(self, sistem: ProfilSystem, parent=None):
@@ -394,6 +459,34 @@ class HalamanDataDiri(QWidget):
         cl = QVBoxLayout(card)
         cl.setContentsMargins(32, 24, 32, 24)
         cl.setSpacing(8)
+
+        # Header Row inside Card
+        header_row = QHBoxLayout()
+        header_row.setContentsMargins(0, 0, 0, 0)
+        
+        self.btn_back = QPushButton()
+        self.btn_back.setFixedSize(32, 32)
+        self.btn_back.setCursor(Qt.PointingHandCursor)
+        arrow_path = os.path.join(ICONS_DIR, 'famicons_arrow-back-outline.png')
+        if os.path.exists(arrow_path):
+            self.btn_back.setIcon(QIcon(arrow_path))
+            self.btn_back.setIconSize(QSize(24, 24))
+        self.btn_back.setStyleSheet("QPushButton { background: transparent; border: none; }")
+        self.btn_back.clicked.connect(self.go_back.emit)
+        header_row.addWidget(self.btn_back)
+        
+        header_row.addStretch()
+        
+        internal_title = QLabel("Register Page") # Using 'Register Page' as seen in the mockup for this step
+        internal_title.setFont(font_label(12, bold=False))
+        internal_title.setStyleSheet("color: black; background: transparent;")
+        header_row.addWidget(internal_title)
+        
+        header_row.addStretch()
+        header_row.addSpacing(30) # Spacer to center title
+        
+        cl.addLayout(header_row)
+        cl.addSpacing(10)
 
         # Layout: Jenis Kelamin (Full)
         lbl_jk = buat_label("Jenis Kelamin")
@@ -478,6 +571,17 @@ class HalamanDataDiri(QWidget):
         r3.addLayout(c32, 1)
         cl.addLayout(r3)
 
+        # Row 4: Tujuan Diet
+        lbl_diet = buat_label("Tujuan Diet")
+        lbl_diet.setStyleSheet("color: #115724; background: transparent;")
+        cl.addWidget(lbl_diet)
+        self.inp_diet = QComboBox()
+        self.inp_diet.addItems(["Maintain Berat Badan", "Turun Berat Badan", "Naik Berat Badan"])
+        self.inp_diet.setFixedHeight(48)
+        self.inp_diet.setView(QListView())
+        self.inp_diet.setStyleSheet(combo_style)
+        cl.addWidget(self.inp_diet)
+
         cl.addSpacing(10)
         
         cl.addSpacing(12)
@@ -558,6 +662,7 @@ class HalamanDataDiri(QWidget):
             data['age'] = usia
             data['gender'] = jk
             data['activity'] = aktivitas
+            data['diet_goal'] = self.inp_diet.currentText()
             
             res = self._sistem.createProfil(data)
             if isinstance(res, tuple):
@@ -1127,9 +1232,13 @@ class MainApplication(QMainWindow):
 
         self.login_p.go_register.connect(self.show_register)
         self.login_p.login_success.connect(self.show_dashboard)
+        self.login_p.go_back.connect(self.show_login) # Or exit? For now just stay on login
         
         self.register_p.go_datadiri.connect(self.show_datadiri)
+        self.register_p.go_back.connect(self.show_login)
+        
         self.datadiri_p.register_success.connect(self.show_dashboard)
+        self.datadiri_p.go_back.connect(self.show_register_simple) # Need a helper to show register without clearing it if possible, but stack is fine
 
         # 0
         self.stack.addWidget(self.login_wrapper)
@@ -1147,6 +1256,9 @@ class MainApplication(QMainWindow):
     def show_datadiri(self, data):
         self.datadiri_p.register_data = data
         self.stack.setCurrentWidget(self.datadiri_wrapper)
+
+    def show_register_simple(self):
+        self.stack.setCurrentWidget(self.register_wrapper)
 
     def show_dashboard(self):
         self.dashboard = ProfilApp(self._sistem)
