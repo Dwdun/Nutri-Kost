@@ -13,6 +13,7 @@ from PyQt5.QtWidgets import (
     QScrollArea, QGridLayout, QFrame
 )
 from PyQt5.QtCore import Qt, QUrl, QObject, pyqtSignal
+from fatih_GUI.toast_notification import show_toast, TOAST_SUCCESS, TOAST_ERROR
 from PyQt5.QtGui import (
     QFont, QColor, QPainter, QLinearGradient, QPixmap, QCursor, QBrush, QPainterPath, QDesktopServices
 )
@@ -491,11 +492,9 @@ class RekomendasiPage(QWidget):
             self._baca_json_lokal()
             self._render_grid()
 
-            QMessageBox.information(
-                self, "Selesai", f"Berhasil memuat {len(self.resep_data)} resep terbaru!"
-            )
+            show_toast(self, f"Berhasil memuat {len(self.resep_data)} resep terbaru!", TOAST_SUCCESS)
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Terjadi kesalahan saat memuat resep: {e}")
+            show_toast(self, f"Terjadi kesalahan saat memuat resep: {e}", TOAST_ERROR)
         finally:
             QApplication.restoreOverrideCursor()
             self.btn_scrape.setText("Perbarui & Muat Resep")

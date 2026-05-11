@@ -5,6 +5,7 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtCore import Qt, QSize, QPropertyAnimation, QEasingCurve, QTimer, QTime, QSettings
 from PyQt5.QtGui import QFont, QPixmap, QIcon, QCursor, QPainter, QColor
 from PyQt5.QtWidgets import QMessageBox
+from fatih_GUI.toast_notification import show_toast, TOAST_NORMAL, TOAST_ERROR
 import os
 
 # collor pallete
@@ -193,7 +194,7 @@ class MainWindow(QMainWindow):
                     notif_id = f"{meal}_{current_hm}"
                     if notif_id not in self._shown_notifs:
                         self._shown_notifs.add(notif_id)
-                        QMessageBox.information(self, "Waktunya Makan!", f"Hai, sudah waktunya {meal}! Jangan lupa catat asupan makananmu di NutriKost ya.")
+                        show_toast(self, f"Hai, sudah waktunya {meal}! Jangan lupa catat asupan makananmu ya.", TOAST_NORMAL)
         
         # Reset list shown_notifs ketika jam berganti
         current_hm = QTime.currentTime().toString("HH:mm")
@@ -485,7 +486,7 @@ class MainWindow(QMainWindow):
                     realisasi = self.sistem_profil.getRealisasiKalori()
                     
                     if realisasi >= maks_kalori:
-                        QMessageBox.warning(self, "Peringatan Kalori!", f"Total kalori harianmu ({realisasi} kkal) telah mencapai/melebihi batas yang kamu atur ({maks_kalori} kkal)!\n\nKurangi porsi makan atau perbanyak olahraga ya.")
+                        show_toast(self, f"Kalori ({realisasi} kkal) melebihi batas {maks_kalori} kkal!\nKurangi porsi makan atau olahraga.", TOAST_ERROR)
             except Exception as e:
                 print(f"Error checking calorie limit: {e}")
 
