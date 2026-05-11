@@ -157,17 +157,6 @@ class HalamanLogin(QWidget):
         header_row = QHBoxLayout()
         header_row.setContentsMargins(0, 0, 0, 0)
         
-        self.btn_back = QPushButton()
-        self.btn_back.setFixedSize(32, 32)
-        self.btn_back.setCursor(Qt.PointingHandCursor)
-        arrow_path = os.path.join(ICONS_DIR, 'famicons_arrow-back-outline.png')
-        if os.path.exists(arrow_path):
-            self.btn_back.setIcon(QIcon(arrow_path))
-            self.btn_back.setIconSize(QSize(24, 24))
-        self.btn_back.setStyleSheet("QPushButton { background: transparent; border: none; }")
-        self.btn_back.clicked.connect(self.go_back.emit)
-        header_row.addWidget(self.btn_back)
-        
         header_row.addStretch()
         
         internal_title = QLabel("Login Page")
@@ -176,7 +165,6 @@ class HalamanLogin(QWidget):
         header_row.addWidget(internal_title)
         
         header_row.addStretch()
-        header_row.addSpacing(30) # Spacer to center title
         
         cl.addLayout(header_row)
         cl.addSpacing(10)
