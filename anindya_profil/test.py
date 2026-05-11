@@ -139,11 +139,8 @@ class HalamanLogin(QWidget):
 
         # Title
         title = QLabel("Welcome Back, User")
-        f = QFont('Montserrat Alternates Medium', 24)
-        f.setStyleHint(QFont.SansSerif)
-        title.setFont(f)
         title.setAlignment(Qt.AlignCenter)
-        title.setStyleSheet("color: #1C1C1C; margin-bottom: 20px;")
+        title.setStyleSheet("color: #1C1C1C; margin-bottom: 20px; font-family: 'Montserrat Alternates'; font-size: 32px; font-weight: bold;")
         layout.addWidget(title)
 
         # Card
@@ -265,12 +262,8 @@ class HalamanRegister(QWidget):
         layout.setSpacing(40)
 
         title = QLabel("Daftar")
-        title.setFont(font_title(24))
-        f = QFont('Montserrat Alternates Medium', 24)
-        f.setStyleHint(QFont.SansSerif)
-        title.setFont(f)
         title.setAlignment(Qt.AlignCenter)
-        title.setStyleSheet("color: #1C1C1C;")
+        title.setStyleSheet("color: #1C1C1C; margin-bottom: 20px; font-family: 'Montserrat Alternates'; font-size: 32px; font-weight: bold;")
         layout.addWidget(title)
 
         card = AuthCard()

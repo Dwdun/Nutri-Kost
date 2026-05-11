@@ -754,13 +754,15 @@ class LogPage(QWidget):
         
         search_query = self.search_bar.text().lower()
         selected_waktu = self.filter_waktu.currentText()
+        today_str = datetime.now().strftime('%Y-%m-%d')
         
         filtered_logs = []
         for entry in logs:
             match_search = search_query in entry['food_name'].lower()
             match_waktu = (selected_waktu == "Semua Waktu" or entry['category'] == selected_waktu)
+            match_today = str(entry['meal_time']).startswith(today_str) if entry.get('meal_time') else False
             
-            if match_search and match_waktu:
+            if match_search and match_waktu and match_today:
                 filtered_logs.append(entry)
 
         # Calculate total calories for the whole filtered list

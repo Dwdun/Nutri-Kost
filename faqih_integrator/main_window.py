@@ -463,7 +463,7 @@ class MainWindow(QMainWindow):
             sys.path.insert(0, os.path.join(BASE_DIR, "..", "fatih_GUI"))
         from halaman_visualisasi import HalamanVisualisasi
         
-        self.visualisasi_page = HalamanVisualisasi()
+        self.visualisasi_page = HalamanVisualisasi(id_user=_id_user, db_path=_db_path)
         self.visualisasi_page.tab_changed.connect(self._on_visualisasi_tab_changed)
         
         # Sambungkan sinyal log_updated ke visualisasi_page.refresh agar otomatis update

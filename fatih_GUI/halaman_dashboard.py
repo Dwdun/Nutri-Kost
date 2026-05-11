@@ -188,12 +188,10 @@ class HalamanDashboard(QWidget):
 
         nama = _ambil_nama_user(self._db_path, self._id_user)
         title = QLabel(f'Halo, {nama}')
-        title.setFont(self._font_title(22))
-        title.setStyleSheet(f'color: {C_TEXT_DARK}; background: transparent;')
+        title.setStyleSheet(f"color: {C_TEXT_DARK}; background: transparent; font-family: 'Montserrat Alternates'; font-size: 32px; font-weight: bold;")
 
         desc = QLabel('Pantau asupan nutrisimu hari ini')
-        desc.setFont(self._font_body(11))
-        desc.setStyleSheet(f'color: {C_TEXT_SUB}; background: transparent;')
+        desc.setStyleSheet(f"color: {C_TEXT_SUB}; background: transparent; font-family: 'Montserrat'; font-size: 14px;")
 
         left.addWidget(title)
         left.addWidget(desc)
