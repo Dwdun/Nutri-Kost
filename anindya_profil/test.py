@@ -879,6 +879,86 @@ class EditProfileDialog(QDialog):
         except ValueError:
              show_toast(self, "Usia, BB, TB harus angka!", TOAST_ERROR)
 
+class LogoutConfirmDialog(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        
+        self.setWindowFlags(Qt.FramelessWindowHint | Qt.Dialog)
+        self.setAttribute(Qt.WA_TranslucentBackground)
+        self.setObjectName("OverlayDialog")
+        self.setStyleSheet("#OverlayDialog { background-color: rgba(0, 0, 0, 120); }")
+        
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setAlignment(Qt.AlignCenter)
+        
+        self.card = QFrame()
+        self.card.setFixedSize(420, 280)
+        self.card.setStyleSheet("""
+            QFrame { background: white; border-radius: 25px; border: none; }
+            QLabel { border: none; background: transparent; color: #555555; font-family: 'Poppins'; }
+        """)
+
+        shadow = QGraphicsDropShadowEffect()
+        shadow.setBlurRadius(30)
+        shadow.setColor(QColor(0, 0, 0, 60))
+        shadow.setOffset(0, 10)
+        self.card.setGraphicsEffect(shadow)
+
+        
+        card_layout = QVBoxLayout(self.card)
+        card_layout.setContentsMargins(35, 35, 35, 35)
+        card_layout.setSpacing(20)
+
+        title = QLabel("Konfirmasi Keluar")
+        title.setFont(QFont('Poppins', 16, QFont.Bold))
+        title.setStyleSheet("color: #1A7A34;")
+        card_layout.addWidget(title)
+
+        message = QLabel("Apakah Anda yakin ingin keluar?")
+        message.setFont(QFont('Poppins', 12))
+        message.setWordWrap(True)
+        message.setStyleSheet("line-height: 150%;")
+        card_layout.addWidget(message)
+
+        card_layout.addStretch()
+
+
+        btns = QHBoxLayout()
+        btns.setSpacing(15)
+        
+        btn_batal = QPushButton("Batal")
+        btn_batal.setFixedHeight(50)
+        btn_batal.setCursor(Qt.PointingHandCursor)
+        btn_batal.setStyleSheet(
+            "QPushButton { background-color: white; color: #1A7A34; "
+            "border: 2px solid #1A7A34; border-radius: 25px; font-size: 16px; font-weight: bold; } "
+            "QPushButton:hover { background-color: #f0fdf4; }"
+        )
+        btn_batal.clicked.connect(self.reject)
+
+        btn_keluar = QPushButton("Ya, Keluar")
+        btn_keluar.setFixedHeight(50)
+        btn_keluar.setCursor(Qt.PointingHandCursor)
+        btn_keluar.setStyleSheet(
+            "QPushButton { background-color: #1A7A34; color: white; "
+            "border-radius: 25px; font-weight: bold; font-size: 16px; }"
+            "QPushButton:hover { background-color: #145925; }"
+        )
+        btn_keluar.clicked.connect(self.accept)
+
+
+        btns.addWidget(btn_batal)
+        btns.addWidget(btn_keluar)
+        
+        card_layout.addLayout(btns)
+        main_layout.addWidget(self.card)
+
+    def resizeEvent(self, event):
+        if self.parent():
+            self.resize(self.parent().size())
+        super().resizeEvent(event)
+
 # ==========================================
 # MAIN DASHBOARD / PROFILE 
 # ==========================================
@@ -903,8 +983,13 @@ class ProfilApp(QWidget):
         self.build_content(layout)
 
     def _aksi_logout(self):
-        self._sistem.current_profil = None
-        self.logout_signal.emit()
+        dlg = LogoutConfirmDialog(self.window())
+        dlg.setGeometry(0, 0, self.window().width(), self.window().height())
+        if dlg.exec_() == QDialog.Accepted:
+            self._sistem.current_profil = None
+            self.logout_signal.emit()
+
+
 
     def build_content(self, layout: QVBoxLayout):
         profil = self._sistem.current_profil or {}
