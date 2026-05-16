@@ -707,16 +707,18 @@ class EditProfileDialog(QDialog):
         main_layout.setAlignment(Qt.AlignCenter)
         
         self.card = QFrame()
-        self.card.setFixedSize(380, 500)
+        self.card.setFixedSize(400, 600)
         self.card.setStyleSheet("""
             QFrame { background: white; border-radius: 25px; border: none; }
             QLabel { border: none; background: transparent; color: #555555; font-family: 'Poppins'; }
             QLineEdit { border: none; border-radius: 20px; padding-left: 15px; background: rgba(26, 122, 52, 0.25); color: #1A7A34; }
         """)
+
         
         card_layout = QVBoxLayout(self.card)
-        card_layout.setContentsMargins(25, 25, 25, 25)
-        card_layout.setSpacing(10)
+        card_layout.setContentsMargins(30, 30, 30, 30)
+        card_layout.setSpacing(12)
+
 
         title = QLabel("Edit Profile")
         title.setFont(QFont('Poppins', 14, QFont.Bold))
@@ -762,6 +764,9 @@ class EditProfileDialog(QDialog):
         row.addLayout(v2)
         row.addLayout(v3)
         card_layout.addLayout(row)
+        
+        card_layout.addSpacing(5)
+
 
         combo_style = '''
             QComboBox {
@@ -998,19 +1003,9 @@ class ProfilApp(QWidget):
         top_row = QHBoxLayout()
         top_row.setContentsMargins(0, 0, 0, 0)
         
-        self.btn_back = QPushButton()
-        self.btn_back.setFixedSize(32, 32)
-        self.btn_back.setCursor(Qt.PointingHandCursor)
-        arrow_path = os.path.join(ICONS_DIR, 'famicons_arrow-back-outline.png')
-        if os.path.exists(arrow_path):
-            self.btn_back.setIcon(QIcon(arrow_path))
-            self.btn_back.setIconSize(QSize(24, 24))
-        self.btn_back.setStyleSheet("QPushButton { background: transparent; border: none; }")
-        self.btn_back.clicked.connect(self.go_back.emit)
-        top_row.addWidget(self.btn_back)
-        top_row.addSpacing(16)
         
         header_text_layout = QVBoxLayout()
+
         header_text_layout.setSpacing(2)
         profile_title = QLabel("Profile")
         profile_title.setFont(QFont('Montserrat Alternates SemiBold', 24))
