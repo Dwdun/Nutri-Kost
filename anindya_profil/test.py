@@ -191,7 +191,9 @@ class HalamanLogin(QWidget):
         lupa.setFont(font_label(10))
         lupa.setCursor(Qt.PointingHandCursor)
         lupa.setStyleSheet("QPushButton { background: transparent; color: black; border: none; text-align: right; }")
+        lupa.clicked.connect(self._aksi_lupa)
         pw_row.addWidget(lupa)
+
         cl.addLayout(pw_row)
         
         self.inp_pass = buat_input("********", True)
@@ -273,6 +275,19 @@ class HalamanLogin(QWidget):
             self.login_success.emit()
         else:
             show_toast(self, msg, TOAST_ERROR)
+
+    def _aksi_lupa(self):
+        dlg = ForgotPasswordDialog(self.window())
+        dlg.setGeometry(0, 0, self.window().width(), self.window().height())
+        if dlg.exec_() == QDialog.Accepted:
+            email = dlg.email_value
+            if email:
+                if self._sistem.cekEmailTerdaftar(email):
+                    show_toast(self, f"Instruksi reset telah dikirim ke {email}", TOAST_NORMAL)
+                else:
+                    show_toast(self, "Email tidak terdaftar!", TOAST_ERROR)
+
+
 
 class HalamanRegister(QWidget):
     go_datadiri = pyqtSignal(dict)
@@ -964,6 +979,94 @@ class LogoutConfirmDialog(QDialog):
             self.resize(self.parent().size())
         super().resizeEvent(event)
 
+class ForgotPasswordDialog(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.email_value = ""
+        
+        self.setWindowFlags(Qt.FramelessWindowHint | Qt.Dialog)
+        self.setAttribute(Qt.WA_TranslucentBackground)
+        self.setObjectName("OverlayDialog")
+        self.setStyleSheet("#OverlayDialog { background-color: rgba(0, 0, 0, 120); }")
+        
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setAlignment(Qt.AlignCenter)
+        
+        self.card = QFrame()
+        self.card.setFixedSize(420, 320)
+        self.card.setStyleSheet("""
+            QFrame { background: white; border-radius: 25px; border: none; }
+            QLabel { border: none; background: transparent; color: #555555; font-family: 'Poppins'; }
+            QLineEdit { border: none; border-radius: 20px; padding-left: 15px; background: rgba(26, 122, 52, 0.1); color: #1A7A34; }
+        """)
+
+        shadow = QGraphicsDropShadowEffect()
+        shadow.setBlurRadius(30)
+        shadow.setColor(QColor(0, 0, 0, 60))
+        shadow.setOffset(0, 10)
+        self.card.setGraphicsEffect(shadow)
+        
+        card_layout = QVBoxLayout(self.card)
+        card_layout.setContentsMargins(35, 35, 35, 35)
+        card_layout.setSpacing(15)
+
+        title = QLabel("Lupa Password")
+        title.setFont(QFont('Poppins', 16, QFont.Bold))
+        title.setStyleSheet("color: #1A7A34;")
+        card_layout.addWidget(title)
+
+        message = QLabel("Masukkan email Anda untuk reset password:")
+        message.setFont(QFont('Poppins', 10))
+        message.setWordWrap(True)
+        card_layout.addWidget(message)
+
+        self.inp_email = QLineEdit()
+        self.inp_email.setFixedHeight(45)
+        self.inp_email.setPlaceholderText("yourname@mail.com")
+        card_layout.addWidget(self.inp_email)
+
+        card_layout.addStretch()
+
+        btns = QHBoxLayout()
+        btns.setSpacing(15)
+        
+        btn_batal = QPushButton("Batal")
+        btn_batal.setFixedHeight(50)
+        btn_batal.setCursor(Qt.PointingHandCursor)
+        btn_batal.setStyleSheet(
+            "QPushButton { background-color: white; color: #1A7A34; "
+            "border: 2px solid #1A7A34; border-radius: 25px; font-size: 16px; font-weight: bold; } "
+            "QPushButton:hover { background-color: #f0fdf4; }"
+        )
+        btn_batal.clicked.connect(self.reject)
+
+        btn_kirim = QPushButton("Kirim")
+        btn_kirim.setFixedHeight(50)
+        btn_kirim.setCursor(Qt.PointingHandCursor)
+        btn_kirim.setStyleSheet(
+            "QPushButton { background-color: #1A7A34; color: white; "
+            "border-radius: 25px; font-weight: bold; font-size: 16px; }"
+            "QPushButton:hover { background-color: #145925; }"
+        )
+        btn_kirim.clicked.connect(self._handle_kirim)
+
+        btns.addWidget(btn_batal)
+        btns.addWidget(btn_kirim)
+        
+        card_layout.addLayout(btns)
+        main_layout.addWidget(self.card)
+
+    def _handle_kirim(self):
+        self.email_value = self.inp_email.text().strip()
+        self.accept()
+
+    def resizeEvent(self, event):
+        if self.parent():
+            self.resize(self.parent().size())
+        super().resizeEvent(event)
+
+
 # ==========================================
 # MAIN DASHBOARD / PROFILE 
 # ==========================================
@@ -1196,6 +1299,8 @@ class ProfilApp(QWidget):
             }}
         """)
         lc_lay.addWidget(norm_badge, alignment=Qt.AlignCenter)
+        lc_lay.addStretch()
+
 
         # --- RIGHT COLUMN: List Data ---
         right_col = QVBoxLayout()
@@ -1282,6 +1387,8 @@ class ProfilApp(QWidget):
         content_row.addLayout(right_col, 1)
 
         layout.addLayout(content_row)
+        layout.addStretch()
+
 
     def _go_to_edit(self):
         dlg = EditProfileDialog(self._sistem, self.window())
