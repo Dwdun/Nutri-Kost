@@ -155,6 +155,10 @@ class MainWindow(QMainWindow):
     def __init__(self, sistem_profil=None):
         super().__init__()
         self.sistem_profil = sistem_profil
+        self.is_admin = False
+        if self.sistem_profil and self.sistem_profil.current_profil and self.sistem_profil.current_profil.get('email') == 'admin123@gmail.com':
+            self.is_admin = True
+            
         self.setWindowTitle("NutriKost — Pemantau Gizi Mahasiswa Kos")
         self.setMinimumSize(1000, 640)
         self.resize(1200, 720)
@@ -293,37 +297,50 @@ class MainWindow(QMainWindow):
         sb_layout.addWidget(divider)
         sb_layout.addSpacing(16)
 
-        # Menu Utama
-        lbl_menu = SectionLabel("Menu Utama")
-        self._section_labels.append(lbl_menu)
-        sb_layout.addWidget(lbl_menu)
+        if not self.is_admin:
+            # Menu Utama
+            lbl_menu = SectionLabel("Menu Utama")
+            self._section_labels.append(lbl_menu)
+            sb_layout.addWidget(lbl_menu)
 
-        for icon, label, key in self.MENU_UTAMA:
-            btn = NavItem(icon, label)
-            btn.clicked.connect(lambda checked, k=key: self.navigate(k))
-            self._sidebar_buttons[key] = btn
-            sb_layout.addWidget(btn)
+            for icon, label, key in self.MENU_UTAMA:
+                btn = NavItem(icon, label)
+                btn.clicked.connect(lambda checked, k=key: self.navigate(k))
+                self._sidebar_buttons[key] = btn
+                sb_layout.addWidget(btn)
 
-        sb_layout.addSpacing(16)
+            sb_layout.addSpacing(16)
 
-        # Visualisasi
-        lbl_vis = SectionLabel("Visualisasi")
-        self._section_labels.append(lbl_vis)
-        sb_layout.addWidget(lbl_vis)
+            # Visualisasi
+            lbl_vis = SectionLabel("Visualisasi")
+            self._section_labels.append(lbl_vis)
+            sb_layout.addWidget(lbl_vis)
 
-        for icon, label, key in self.VISUALISASI:
-            btn = NavItem(icon, label)
-            btn.clicked.connect(lambda checked, k=key: self.navigate(k))
-            self._sidebar_buttons[key] = btn
-            sb_layout.addWidget(btn)
+            for icon, label, key in self.VISUALISASI:
+                btn = NavItem(icon, label)
+                btn.clicked.connect(lambda checked, k=key: self.navigate(k))
+                self._sidebar_buttons[key] = btn
+                sb_layout.addWidget(btn)
 
-        sb_layout.addStretch()
+            sb_layout.addStretch()
 
-        # Pengaturan
-        btn_setting = NavItem("solar_settings-bold.png", "Pengaturan")
-        btn_setting.clicked.connect(lambda checked, k="setting": self.navigate(k))
-        self._sidebar_buttons["setting"] = btn_setting
-        sb_layout.addWidget(btn_setting)
+            # Pengaturan
+            btn_setting = NavItem("solar_settings-bold.png", "Pengaturan")
+            btn_setting.clicked.connect(lambda checked, k="setting": self.navigate(k))
+            self._sidebar_buttons["setting"] = btn_setting
+            sb_layout.addWidget(btn_setting)
+        else:
+            # Hide logo for admin
+            logo_icon.setVisible(False)
+            self._logo_text.setVisible(False)
+            
+            # Hanya Dashboard untuk admin
+            btn_admin_dash = NavItem("material-symbols_home-rounded.png", "Dashboard Admin")
+            btn_admin_dash.clicked.connect(lambda checked, k="dashboard": self.navigate(k))
+            self._sidebar_buttons["dashboard"] = btn_admin_dash
+            sb_layout.addWidget(btn_admin_dash)
+            
+            sb_layout.addStretch()
 
         # Divider before profile
         div_prof = QFrame()
@@ -415,7 +432,8 @@ class MainWindow(QMainWindow):
         self._anim.start()
         self._anim_max.start()
 
-        self._logo_text.setVisible(not self._collapsed)
+        if not self.is_admin:
+            self._logo_text.setVisible(not self._collapsed)
         for lbl in self._section_labels:
             lbl.set_collapsed(self._collapsed)
         self._prof_info.setVisible(not self._collapsed)
@@ -426,8 +444,20 @@ class MainWindow(QMainWindow):
                 btn.set_collapsed(self._collapsed)
 
     def setupRouting(self):
-        import sys
-        from search_page import SearchPage
+        if self.is_admin:
+            from bima_scrapper.halaman_request import RequestPage
+            self.dashboard_page = RequestPage()
+            self._add_page("dashboard", self.dashboard_page)
+            
+            from anindya_profil import test as anindya_test
+            
+            self.profil_app = anindya_test.ProfilApp(self.sistem_profil)
+            self.profil_app.logout_signal.connect(self.logout_signal.emit)
+            self.profil_app.go_back.connect(lambda: self.navigate("dashboard"))
+            self._add_page("profil", self.profil_app)
+            return
+
+        from faqih_integrator.search_page import SearchPage
         self._add_page("search", SearchPage(on_pilih_makanan=self._on_pilih_makanan))
         
         from fatih_GUI.halaman_dashboard import HalamanDashboard
@@ -442,14 +472,12 @@ class MainWindow(QMainWindow):
         self.dashboard_page.navigate_to.connect(self.navigate)
         self.dashboard_page.tambah_makanan_clicked.connect(lambda: self.navigate("log"))
         self._add_page("dashboard", self.dashboard_page)
-
-        if os.path.join(BASE_DIR, "..", "irfan_calculator") not in sys.path:
-            sys.path.insert(0, os.path.join(BASE_DIR, "..", "irfan_calculator"))
-        from log_page import LogPage
+        from irfan_calculator.test import LogPage
         self.log_page = LogPage(self.sistem_profil)
         self._add_page("log", self.log_page)
         
-        from riwayat import RiwayatPage 
+        from irfan_calculator.riwayat import RiwayatPage
+        
         self.riwayat_page = RiwayatPage()
         self._add_page("riwayat", self.riwayat_page)
         
@@ -458,14 +486,10 @@ class MainWindow(QMainWindow):
         # Hubungkan update log makanan ke refresh dashboard
         self.log_page.log_updated.connect(self.dashboard_page.refresh)
         
-        if os.path.join(BASE_DIR, "..", "bima_scrapper") not in sys.path:
-            sys.path.insert(0, os.path.join(BASE_DIR, "..", "bima_scrapper"))
-        from test_resep import RekomendasiPage
+        from bima_scrapper.test_resep import RekomendasiPage
         self._add_page("rekomendasi", RekomendasiPage())
         
-        if os.path.join(BASE_DIR, "..", "fatih_GUI") not in sys.path:
-            sys.path.insert(0, os.path.join(BASE_DIR, "..", "fatih_GUI"))
-        from halaman_visualisasi import HalamanVisualisasi
+        from fatih_GUI.halaman_visualisasi import HalamanVisualisasi
         
         self.visualisasi_page = HalamanVisualisasi(id_user=_id_user, db_path=_db_path)
         self.visualisasi_page.tab_changed.connect(self._on_visualisasi_tab_changed)
@@ -479,16 +503,14 @@ class MainWindow(QMainWindow):
         self._add_page("komposisi_gizi", self.visualisasi_page)
         self._add_page("top_10_makanan", self.visualisasi_page)
         
-        if os.path.join(BASE_DIR, "..", "anindya_profil") not in sys.path:
-            sys.path.insert(0, os.path.join(BASE_DIR, "..", "anindya_profil"))
-        import test as anindya_test
+        from anindya_profil import test as anindya_test
         
         self.profil_app = anindya_test.ProfilApp(self.sistem_profil)
         self.profil_app.logout_signal.connect(self.logout_signal.emit)
         self.profil_app.go_back.connect(lambda: self.navigate("dashboard"))
         self._add_page("profil", self.profil_app)
         
-        from setting_page import SettingPage
+        from faqih_integrator.setting_page import SettingPage
         self._add_page("setting", SettingPage(self.sistem_profil))
 
     def _check_calorie_limit(self):

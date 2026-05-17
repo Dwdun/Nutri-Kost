@@ -5,7 +5,7 @@ import csv
 from datetime import datetime
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QFont, QFontMetrics
+from PyQt5.QtGui import QFont, QFontMetrics, QIcon
 
 # Path Configuration
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -55,10 +55,14 @@ class RiwayatPage(QWidget):
                 color: #1A7A34;
                 border: 1px solid #1A7A34;
                 border-radius: 16px;
+                outline: none;
             }
             QPushButton:hover {
                 background-color: #1A7A34;
                 color: white;
+            }
+            QPushButton:pressed {
+                background-color: #156329;
             }
         """)
         self.action_btn.clicked.connect(self.export_to_csv)
@@ -89,13 +93,21 @@ class RiwayatPage(QWidget):
                     background-color: transparent;
                     color: white;
                     font-weight: bold;
-                    border: 3px solid transparent;
-                    border-radius: 16px;
+                    border: none;
+                    border-radius: 22px;
+                    outline: none;
                 }
-                QPushButton:hover, QPushButton:checked {
+                QPushButton:hover {
+                    background-color: rgba(255, 255, 255, 0.2);
+                    color: white;
+                    border: none;
+                    border-radius: 22px;
+                }
+                QPushButton:checked {
                     background-color: white;
-                    border: 3px solid white;
-                    color: black;
+                    color: #1A7A34;
+                    border: none;
+                    border-radius: 22px;
                 }
             ''')
             btn.clicked.connect(lambda checked, b=btn: self.handle_filter_click(b))
@@ -342,7 +354,24 @@ class RiwayatPage(QWidget):
             show_toast(self, f"Gagal: {str(e)}", TOAST_ERROR)
 
 if __name__ == '__main__':
+    import os
+    import ctypes
+    # Agar taskbar icon di Windows berubah, set AppUserModelID
+    try:
+        myappid = 'nutrikost.app.1.0'
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
+    except Exception:
+        pass
+
     app = QApplication(sys.argv)
+    
+    # Set window icon untuk taskbar dan pojok kiri atas
+    BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    icon_path = os.path.join(BASE, "assets", "icons", "Logo.png")
+    if os.path.exists(icon_path):
+        app.setWindowIcon(QIcon(icon_path))
+        
+    app.setStyle("Fusion")
     window = RiwayatPage()
     window.show()
     sys.exit(app.exec_())

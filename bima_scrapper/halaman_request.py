@@ -11,7 +11,138 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from fatih_GUI.template_halaman import PageTemplate
 
 import models
+from PyQt5.QtGui import QColor
 
+class DeclineConfirmDialog(QDialog):
+    def __init__(self, nama_makanan, parent=None):
+        super().__init__(parent)
+        
+        self.setWindowFlags(Qt.FramelessWindowHint | Qt.Dialog)
+        self.setAttribute(Qt.WA_TranslucentBackground)
+        self.setObjectName("OverlayDialog")
+        
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(30, 30, 30, 30)
+        main_layout.setAlignment(Qt.AlignCenter)
+        
+        self.card = QFrame()
+        self.card.setFixedSize(420, 280)
+        self.card.setStyleSheet("""
+            QFrame { background: white; border-radius: 25px; border: none; }
+            QLabel { border: none; background: transparent; color: #555555; font-family: 'Poppins'; }
+        """)
+
+        shadow = QGraphicsDropShadowEffect()
+        shadow.setBlurRadius(30)
+        shadow.setColor(QColor(0, 0, 0, 60))
+        shadow.setOffset(0, 10)
+        self.card.setGraphicsEffect(shadow)
+        
+        card_layout = QVBoxLayout(self.card)
+        card_layout.setContentsMargins(35, 35, 35, 35)
+        card_layout.setSpacing(20)
+
+        title = QLabel("Konfirmasi Penolakan")
+        title.setFont(QFont('Poppins', 16, QFont.Bold))
+        title.setStyleSheet("color: #1A7A34;")
+        card_layout.addWidget(title)
+
+        message = QLabel(f"Apakah Anda yakin ingin menolak request makanan '{nama_makanan.title()}'?\nMakanan ini tidak akan ditambahkan ke database.")
+        message.setFont(QFont('Poppins', 11))
+        message.setWordWrap(True)
+        message.setStyleSheet("line-height: 150%;")
+        card_layout.addWidget(message)
+
+        card_layout.addStretch()
+
+        btns = QHBoxLayout()
+        btns.setSpacing(15)
+        
+        btn_batal = QPushButton("Batal")
+        btn_batal.setFixedHeight(50)
+        btn_batal.setCursor(Qt.PointingHandCursor)
+        btn_batal.setStyleSheet(
+            "QPushButton { background-color: white; color: #1A7A34; "
+            "border: 2px solid #1A7A34; border-radius: 25px; font-size: 16px; font-weight: bold; } "
+            "QPushButton:hover { background-color: #f0fdf4; }"
+        )
+        btn_batal.clicked.connect(self.reject)
+
+        btn_keluar = QPushButton("Ya, Tolak")
+        btn_keluar.setFixedHeight(50)
+        btn_keluar.setCursor(Qt.PointingHandCursor)
+        btn_keluar.setStyleSheet(
+            "QPushButton { background-color: #1A7A34; color: white; "
+            "border-radius: 25px; font-weight: bold; font-size: 16px; border: none; }"
+            "QPushButton:hover { background-color: #145925; }"
+        )
+        btn_keluar.clicked.connect(self.accept)
+
+        btns.addWidget(btn_batal)
+        btns.addWidget(btn_keluar)
+        
+        card_layout.addLayout(btns)
+        main_layout.addWidget(self.card)
+
+class InfoDialog(QDialog):
+    def __init__(self, title_text, message_text, is_success=True, parent=None):
+        super().__init__(parent)
+        
+        self.setWindowFlags(Qt.FramelessWindowHint | Qt.Dialog)
+        self.setAttribute(Qt.WA_TranslucentBackground)
+        self.setObjectName("OverlayDialog")
+        
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(30, 30, 30, 30)
+        main_layout.setAlignment(Qt.AlignCenter)
+        
+        self.card = QFrame()
+        self.card.setFixedSize(420, 240)
+        self.card.setStyleSheet("""
+            QFrame { background: white; border-radius: 25px; border: none; }
+            QLabel { border: none; background: transparent; color: #555555; font-family: 'Poppins'; }
+        """)
+
+        shadow = QGraphicsDropShadowEffect()
+        shadow.setBlurRadius(30)
+        shadow.setColor(QColor(0, 0, 0, 60))
+        shadow.setOffset(0, 10)
+        self.card.setGraphicsEffect(shadow)
+        
+        card_layout = QVBoxLayout(self.card)
+        card_layout.setContentsMargins(35, 30, 35, 30)
+        card_layout.setSpacing(15)
+
+        title = QLabel(title_text)
+        title.setFont(QFont('Poppins', 16, QFont.Bold))
+        title.setStyleSheet(f"color: {'#1A7A34' if is_success else '#F44336'};")
+        card_layout.addWidget(title)
+
+        message = QLabel(message_text)
+        message.setFont(QFont('Poppins', 11))
+        message.setWordWrap(True)
+        message.setStyleSheet("line-height: 150%;")
+        card_layout.addWidget(message)
+
+        card_layout.addStretch()
+
+        btns = QHBoxLayout()
+        btns.setSpacing(15)
+        btns.addStretch()
+        
+        btn_ok = QPushButton("OK")
+        btn_ok.setFixedSize(120, 45)
+        btn_ok.setCursor(Qt.PointingHandCursor)
+        btn_ok.setStyleSheet(f"""
+            QPushButton {{ background-color: {'#1A7A34' if is_success else '#F44336'}; color: white; 
+            border-radius: 22px; font-weight: bold; font-size: 14px; border: none; }}
+            QPushButton:hover {{ background-color: {'#145925' if is_success else '#D32F2F'}; }}
+        """)
+        btn_ok.clicked.connect(self.accept)
+
+        btns.addWidget(btn_ok)
+        card_layout.addLayout(btns)
+        main_layout.addWidget(self.card)
 
 class DialogDetailBahan(QDialog):
     """Pop-up yang menampilkan daftar bahan dari data_json_bahan."""
@@ -23,6 +154,7 @@ class DialogDetailBahan(QDialog):
         self.setModal(True)
 
         layout = QVBoxLayout(self)
+        self.setStyleSheet("background-color: white;")
         layout.setContentsMargins(24, 24, 24, 24)
         layout.setSpacing(12)
 
@@ -114,6 +246,10 @@ class RequestPage(PageTemplate):
     def __init__(self):
         self.db = models.DBHelper()
         super().__init__()
+        if hasattr(self, '_sidebar') and self._sidebar:
+            self._sidebar.hide()
+        if hasattr(self, '_header') and self._header:
+            self._header.hide()
 
     def build_content(self, container):
         self.container = container
@@ -124,13 +260,33 @@ class RequestPage(PageTemplate):
         main_layout.setContentsMargins(24, 24, 24, 24)
         main_layout.setSpacing(16)
 
-        # --- HEADER ---
         h_header_layout = QHBoxLayout()
         text_vbox = QVBoxLayout()
         text_vbox.addWidget(self._page_title)
         text_vbox.addWidget(self._page_desc)
         h_header_layout.addLayout(text_vbox)
         h_header_layout.addStretch()
+        
+        self.btn_refresh = QPushButton("↻ Refresh")
+        self.btn_refresh.setFixedSize(145, 56)
+        self.btn_refresh.setCursor(Qt.PointingHandCursor)
+        self.btn_refresh.setFont(QFont("Poppins", 10, QFont.Bold))
+        self.btn_refresh.setStyleSheet("""
+            QPushButton {
+                background-color: transparent;
+                color: #1A7A34;
+                border: 1px solid #1A7A34;
+                border-radius: 16px;
+                outline: none;
+            }
+            QPushButton:hover {
+                background-color: #1A7A34;
+                color: white;
+            }
+        """)
+        self.btn_refresh.clicked.connect(self.refresh)
+        h_header_layout.addWidget(self.btn_refresh)
+        
         main_layout.insertLayout(0, h_header_layout)
 
         # --- MAIN CARD --- (disisipkan di index 1, tepat setelah header)
@@ -171,6 +327,9 @@ class RequestPage(PageTemplate):
         self.card_layout.addWidget(self.rows_container)
         main_layout.insertWidget(1, self.card)
 
+        self.load_data()
+
+    def refresh(self):
         self.load_data()
 
     def load_data(self):
@@ -297,6 +456,11 @@ class RequestPage(PageTemplate):
             btn_accept.setFixedHeight(30)
             btn_accept.setCursor(Qt.PointingHandCursor)
             btn_accept.setObjectName(f"accept_{nama}")
+            
+            btn_decline = QPushButton("✗ Decline")
+            btn_decline.setFixedHeight(30)
+            btn_decline.setCursor(Qt.PointingHandCursor)
+            btn_decline.setObjectName(f"decline_{nama}")
 
             if status == 2:
                 # Sudah di-accept sebelumnya
@@ -314,10 +478,16 @@ class RequestPage(PageTemplate):
                         border: none;
                     }
                 """)
-            elif has_nutrisi:
-                btn_accept.setStyleSheet("""
+                btn_decline.setVisible(False)
+            elif status == 3:
+                # Sudah di-decline sebelumnya
+                btn_accept.setVisible(False)
+                btn_decline.setEnabled(False)
+                btn_decline.setText("✗ Ditolak")
+                btn_decline.setToolTip("Makanan ini sudah ditolak.")
+                btn_decline.setStyleSheet("""
                     QPushButton {
-                        background-color: #2196F3;
+                        background-color: #F44336;
                         color: white;
                         border-radius: 6px;
                         font-size: 11px;
@@ -325,33 +495,60 @@ class RequestPage(PageTemplate):
                         padding: 0 10px;
                         border: none;
                     }
-                    QPushButton:hover { background-color: #1565C0; }
-                    QPushButton:disabled {
-                        background-color: #AAAAAA;
-                        color: #EEEEEE;
-                    }
                 """)
-                btn_accept.clicked.connect(
-                    lambda checked, n=nama, c=cal, p=protein, k=carb, l=fat, btn=btn_accept:
-                        self._accept_makanan(n, c, p, k, l, btn)
-                )
             else:
-                btn_accept.setEnabled(False)
-                btn_accept.setToolTip("Nutrisi belum tersedia. Jalankan analisis lewat CLI terlebih dahulu.")
-                btn_accept.setStyleSheet("""
+                btn_decline.setStyleSheet("""
                     QPushButton {
-                        background-color: #CCCCCC;
-                        color: #888888;
+                        background-color: #F44336;
+                        color: white;
                         border-radius: 6px;
                         font-size: 11px;
                         font-weight: bold;
                         padding: 0 10px;
                         border: none;
                     }
+                    QPushButton:hover { background-color: #D32F2F; }
                 """)
+                btn_decline.clicked.connect(
+                    lambda checked=False, n=nama, ba=btn_accept, bd=btn_decline:
+                        self._decline_makanan(n, ba, bd)
+                )
+
+                if has_nutrisi:
+                    btn_accept.setStyleSheet("""
+                        QPushButton {
+                            background-color: #2196F3;
+                            color: white;
+                            border-radius: 6px;
+                            font-size: 11px;
+                            font-weight: bold;
+                            padding: 0 10px;
+                            border: none;
+                        }
+                        QPushButton:hover { background-color: #1565C0; }
+                    """)
+                    btn_accept.clicked.connect(
+                        lambda checked=False, n=nama, c=cal, p=protein, k=carb, l=fat, ba=btn_accept, bd=btn_decline:
+                            self._accept_makanan(n, c, p, k, l, ba, bd)
+                    )
+                else:
+                    btn_accept.setEnabled(False)
+                    btn_accept.setToolTip("Nutrisi belum tersedia. Jalankan analisis lewat CLI terlebih dahulu.")
+                    btn_accept.setStyleSheet("""
+                        QPushButton {
+                            background-color: #CCCCCC;
+                            color: #888888;
+                            border-radius: 6px;
+                            font-size: 11px;
+                            font-weight: bold;
+                            padding: 0 10px;
+                            border: none;
+                        }
+                    """)
 
             aksi_layout.addWidget(btn_lihat)
             aksi_layout.addWidget(btn_accept)
+            aksi_layout.addWidget(btn_decline)
             self.rows_layout.addWidget(aksi_widget, data_row, 8, Qt.AlignVCenter)
 
             # --- Garis pemisah ---
@@ -361,7 +558,7 @@ class RequestPage(PageTemplate):
             line.setFixedHeight(1)
             self.rows_layout.addWidget(line, sep_row, 0, 1, 9)
 
-    def _accept_makanan(self, nama_makanan, cal, protein, carb, fat, btn_accept):
+    def _accept_makanan(self, nama_makanan, cal, protein, carb, fat, btn_accept, btn_decline):
         """Insert entri CacheResep ke tabel Makanan dengan kode unik."""
         success, code, pesan = self.db.accept_cache_to_makanan(nama_makanan, cal, protein, carb, fat)
 
@@ -380,12 +577,39 @@ class RequestPage(PageTemplate):
                 }
             """)
             btn_accept.setToolTip(f"Kode: {code}")
-            QMessageBox.information(
-                self, "Berhasil Ditambahkan",
-                f"{pesan}\n\nKode Makanan : {code}"
-            )
+            btn_decline.setVisible(False)
+            msg = InfoDialog("Berhasil Ditambahkan", f"{pesan}\n\nKode Makanan : {code}", is_success=True, parent=self)
+            msg.exec_()
         else:
-            QMessageBox.warning(self, "Gagal", pesan)
+            msg = InfoDialog("Gagal", pesan, is_success=False, parent=self)
+            msg.exec_()
+
+    def _decline_makanan(self, nama_makanan, btn_accept, btn_decline):
+        dialog = DeclineConfirmDialog(nama_makanan, self)
+        reply = dialog.exec_()
+        
+        if reply == QDialog.Accepted:
+            success, pesan = self.db.decline_cache(nama_makanan)
+            if success:
+                btn_accept.setVisible(False)
+                btn_decline.setEnabled(False)
+                btn_decline.setText("✗ Ditolak")
+                btn_decline.setStyleSheet("""
+                    QPushButton {
+                        background-color: #F44336;
+                        color: white;
+                        border-radius: 6px;
+                        font-size: 11px;
+                        font-weight: bold;
+                        padding: 0 10px;
+                        border: none;
+                    }
+                """)
+                msg_info = InfoDialog("Ditolak", pesan, is_success=True, parent=self)
+                msg_info.exec_()
+            else:
+                msg_err = InfoDialog("Gagal", pesan, is_success=False, parent=self)
+                msg_err.exec_()
 
     def _show_detail(self, nama_makanan, data_json_bahan):
         dialog = DialogDetailBahan(nama_makanan, data_json_bahan, parent=self)

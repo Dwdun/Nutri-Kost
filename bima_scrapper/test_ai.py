@@ -82,7 +82,7 @@ def get_or_fetch_resep(nama_makanan_input):
     bahan_dari_ai = bongkar_resep_dengan_gemini(nama_makanan_input)
 
     # Simpan hasil AI ke CacheResep
-    if bahan_dari_ai:
+    if bahan_dari_ai is not None:
         json_string = json.dumps(bahan_dari_ai)
         try:
             cursor.execute(

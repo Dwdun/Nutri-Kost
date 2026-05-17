@@ -8,7 +8,14 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtCore import Qt, QTimer, QDate, pyqtSignal, QPoint, QRect, QSize
 from PyQt5.QtGui import QFont, QCursor
 
-from models import DBHelper
+import sys
+import os
+
+try:
+    from bima_scrapper.models import DBHelper
+except ModuleNotFoundError:
+    sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+    from bima_scrapper.models import DBHelper
 
 # collor pallate matching template_halaman.py
 GREEN_PRIMARY = "#1A7A34"
