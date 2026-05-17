@@ -426,6 +426,7 @@ class MainWindow(QMainWindow):
                 btn.set_collapsed(self._collapsed)
 
     def setupRouting(self):
+        import sys
         from search_page import SearchPage
         self._add_page("search", SearchPage(on_pilih_makanan=self._on_pilih_makanan))
         
@@ -441,12 +442,14 @@ class MainWindow(QMainWindow):
         self.dashboard_page.navigate_to.connect(self.navigate)
         self.dashboard_page.tambah_makanan_clicked.connect(lambda: self.navigate("log"))
         self._add_page("dashboard", self.dashboard_page)
+
+        if os.path.join(BASE_DIR, "..", "irfan_calculator") not in sys.path:
+            sys.path.insert(0, os.path.join(BASE_DIR, "..", "irfan_calculator"))
         from log_page import LogPage
         self.log_page = LogPage(self.sistem_profil)
         self._add_page("log", self.log_page)
         
-        from riwayat_page import RiwayatPage
-        
+        from riwayat import RiwayatPage 
         self.riwayat_page = RiwayatPage()
         self._add_page("riwayat", self.riwayat_page)
         
@@ -455,10 +458,11 @@ class MainWindow(QMainWindow):
         # Hubungkan update log makanan ke refresh dashboard
         self.log_page.log_updated.connect(self.dashboard_page.refresh)
         
-        from rekomendasi_page import RekomendasiPage
+        if os.path.join(BASE_DIR, "..", "bima_scrapper") not in sys.path:
+            sys.path.insert(0, os.path.join(BASE_DIR, "..", "bima_scrapper"))
+        from test_resep import RekomendasiPage
         self._add_page("rekomendasi", RekomendasiPage())
         
-        import sys
         if os.path.join(BASE_DIR, "..", "fatih_GUI") not in sys.path:
             sys.path.insert(0, os.path.join(BASE_DIR, "..", "fatih_GUI"))
         from halaman_visualisasi import HalamanVisualisasi
@@ -475,7 +479,6 @@ class MainWindow(QMainWindow):
         self._add_page("komposisi_gizi", self.visualisasi_page)
         self._add_page("top_10_makanan", self.visualisasi_page)
         
-        import sys
         if os.path.join(BASE_DIR, "..", "anindya_profil") not in sys.path:
             sys.path.insert(0, os.path.join(BASE_DIR, "..", "anindya_profil"))
         import test as anindya_test

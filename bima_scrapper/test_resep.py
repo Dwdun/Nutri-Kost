@@ -1,5 +1,8 @@
 import sys
 import os
+import sqlite3
+import re
+from thefuzz import process
 
 _THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 _GUI_DIR = os.path.join(_THIS_DIR, '..', 'fatih_GUI')
@@ -27,6 +30,7 @@ import ssl
 from PyQt5.QtWidgets import (
     QWidget, QLabel, QGridLayout, QVBoxLayout,
     QPushButton, QSizePolicy, QApplication,
+    QDialog, QTableWidget, QTableWidgetItem, QHeaderView, QMessageBox, QHBoxLayout
 )
 from PyQt5.QtCore import Qt, QUrl, QObject, pyqtSignal
 from PyQt5.QtGui import (
@@ -57,6 +61,44 @@ CARD_GRADIENTS = [
 # ─────────────────────────────────────────────
 #  HELPER — parsing data JSON
 # ─────────────────────────────────────────────
+# ── Kamus konversi satuan → gram ──────────────────────────────────────────────
+KONVERSI_GRAM = {
+    'sdm': 15, 'sdt': 5, 'siung': 5, 'ekor': 80, 'genggam': 40,
+    'pcs': 50, 'buah': 100, 'gram': 1, 'gr': 1, 'liter': 1000, 'ml': 1,
+    'lembar': 3, 'ikat': 50, 'batang': 15
+}
+
+def hitung_nutrisi_bahan(teks_bahan, db_makanan_dict):
+    match = re.search(r'([\d\./]+)\s*([a-zA-Z]+)\s*(.*)', teks_bahan)
+    if not match:
+        return None
+    try:
+        kuantitas_str = match.group(1).replace('/', '.0/') if '/' in match.group(1) else match.group(1)
+        kuantitas = float(eval(kuantitas_str))
+    except Exception:
+        return None
+
+    satuan     = match.group(2).lower()
+    nama_bahan = match.group(3).strip()
+
+    list_nama_db = list(db_makanan_dict.keys())
+    kecocokan = process.extractOne(nama_bahan, list_nama_db)
+
+    if kecocokan and kecocokan[1] >= 70:
+        nama_db      = kecocokan[0]
+        data_nutrisi = db_makanan_dict[nama_db]
+        berat_total  = kuantitas * KONVERSI_GRAM.get(satuan, 50)
+        return {
+            'nama_asli': teks_bahan,
+            'nama_db':   nama_db,
+            'berat_g':   round(berat_total, 1),
+            'kalori':    round((berat_total / 100) * float(data_nutrisi[2]), 1),
+            'protein':   round((berat_total / 100) * float(data_nutrisi[3]), 1),
+            'karbo':     round((berat_total / 100) * float(data_nutrisi[4]), 1),
+            'lemak':     round((berat_total / 100) * float(data_nutrisi[5]), 1),
+        }
+    return None
+
 def _bahan_singkat(komposisi: str, maks: int = 4) -> str:
     """
     Ambil maksimal `maks` bahan dari komposisi_singkat (dipisah tanda bullet),
@@ -73,6 +115,69 @@ def _bahan_singkat(komposisi: str, maks: int = 4) -> str:
         result += f'  (+{len(items) - maks} lainnya)'
     return result
 
+class DetailResepDialog(QDialog):
+    def __init__(self, resep, db_makanan_dict):
+        super().__init__()
+        self.setWindowTitle(f"Nutrisi: {resep.get('judul', 'Resep')}")
+        self.resize(750, 550)
+        self.resep = resep
+        self.db_makanan_dict = db_makanan_dict
+        self._init_ui()
+
+    def _init_ui(self):
+        layout = QVBoxLayout()
+        layout.setContentsMargins(24, 24, 24, 24)
+        layout.setSpacing(16)
+
+        judul = QLabel(f"{self.resep.get('judul', 'Tanpa Judul')}")
+        judul.setFont(font_title(14))
+        judul.setStyleSheet(f"color: {C_TEXT_DARK}; margin-bottom: 5px;")
+        layout.addWidget(judul)
+
+        tabel = QTableWidget()
+        tabel.setFont(font_body(9))
+        tabel.setColumnCount(6)
+        tabel.setHorizontalHeaderLabels(
+            ["Bahan Mentah", "Dikenali Sbg (DB)", "Berat (g)", "Kalori", "Protein", "Karbo"]
+        )
+        tabel.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
+        layout.addWidget(tabel)
+
+        bahan_list = self.resep.get('bahan_detail', [])
+        tabel.setRowCount(len(bahan_list))
+
+        total_kal = total_pro = total_kar = total_lem = 0
+        for row, teks in enumerate(bahan_list):
+            tabel.setItem(row, 0, QTableWidgetItem(teks))
+            hasil = hitung_nutrisi_bahan(teks, self.db_makanan_dict)
+            if hasil:
+                tabel.setItem(row, 1, QTableWidgetItem(hasil['nama_db']))
+                tabel.setItem(row, 2, QTableWidgetItem(str(hasil['berat_g'])))
+                tabel.setItem(row, 3, QTableWidgetItem(f"{hasil['kalori']} kcal"))
+                tabel.setItem(row, 4, QTableWidgetItem(f"{hasil['protein']} g"))
+                tabel.setItem(row, 5, QTableWidgetItem(f"{hasil['karbo']} g"))
+                total_kal += hasil['kalori']
+                total_pro += hasil['protein']
+                total_kar += hasil['karbo']
+                total_lem += hasil['lemak']
+            else:
+                tabel.setItem(row, 1, QTableWidgetItem("Tidak Dikenali"))
+                for col in range(2, 6):
+                    tabel.setItem(row, col, QTableWidgetItem("-"))
+
+        ringkasan = QLabel(
+            f"<div style='line-height: 1.5;'>"
+            f"<b>Estimasi Total Nutrisi Resep:</b><br>"
+            f"Kalori: {round(total_kal, 1)} kcal &nbsp;|&nbsp; "
+            f"Protein: {round(total_pro, 1)} g &nbsp;|&nbsp; "
+            f"Karbohidrat: {round(total_kar, 1)} g &nbsp;|&nbsp; "
+            f"Lemak: {round(total_lem, 1)} g"
+            f"</div>"
+        )
+        ringkasan.setFont(font_body(10))
+        ringkasan.setStyleSheet("background-color: #E8F5E9; padding: 16px; border-radius: 8px; color: #1A7A34;")
+        layout.addWidget(ringkasan)
+        self.setLayout(layout)
 
 def _fix_url(url: str) -> str:
     """Lengkapi URL protokol-relatif (//) menjadi https://."""
@@ -92,15 +197,12 @@ def get_formatted_recipes() -> list:
     if not raw:
         return []
 
-    result = []
     for item in raw:
-        result.append({
-            'name'   : item.get('judul', '(Tanpa Judul)'),
-            'desc'   : _bahan_singkat(item.get('komposisi_singkat', '')),
-            'img_url': _fix_url(item.get('gambar', '')),
-            'link'   : item.get('link', ''),
-        })
-    return result
+        item['name'] = item.get('judul', '(Tanpa Judul)')
+        item['desc'] = _bahan_singkat(item.get('komposisi_singkat', ''))
+        item['img_url'] = _fix_url(item.get('gambar', ''))
+        item['link'] = item.get('link', '')
+    return raw
 
 
 # ─────────────────────────────────────────────
@@ -114,17 +216,17 @@ class RecipeCard(QWidget):
     """
 
     ASPECT_W = 4
-    ASPECT_H = 3
+    ASPECT_H = 4
     RADIUS   = 12
     MIN_W    = 140
+    clicked = pyqtSignal(dict)
 
-    def __init__(self, name: str, desc: str, link: str = '',
-                 grad_top: str = '#1A7A34', grad_bot: str = '#2E9E50',
-                 parent=None):
+    def __init__(self, recipe_data: dict, grad_top: str = '#1A7A34', grad_bot: str = '#2E9E50', parent=None):
         super().__init__(parent)
-        self._name     = name
-        self._desc     = desc
-        self._link     = link
+        self._recipe_data = recipe_data 
+        self._name     = recipe_data.get('name', '')
+        self._desc     = recipe_data.get('desc', '')
+        self._link     = recipe_data.get('link', '')
         self._grad_top = QColor(grad_top)
         self._grad_bot = QColor(grad_bot)
         self._hovered  = False
@@ -311,6 +413,8 @@ class RecipeCard(QWidget):
         painter.setBrush(QBrush(QColor(230, 80, 80, 160)))
         painter.drawEllipse(cx + 7, cy + 3, 7, 7)
 
+    def mousePressEvent(self, event):
+        self.clicked.emit(self._recipe_data)
 
 # ─────────────────────────────────────────────
 #  IMAGE DOWNLOADER — urllib + thread (SSL 3.x safe)
@@ -351,6 +455,7 @@ class RecipeGrid(QWidget):
 
     COLS = 3
     GAP  = 16
+    cardClicked = pyqtSignal(dict)
 
     def __init__(self, recipes: list, parent=None):
         super().__init__(parent)
@@ -374,14 +479,13 @@ class RecipeGrid(QWidget):
             grad_top, grad_bot = CARD_GRADIENTS[idx % len(CARD_GRADIENTS)]
 
             card = RecipeCard(
-                name     = recipe['name'],
-                desc     = recipe['desc'],
-                link     = recipe.get('link', ''),
+                recipe_data = recipe, 
                 grad_top = grad_top,
                 grad_bot = grad_bot,
             )
+            card.clicked.connect(self.cardClicked.emit) 
             layout.addWidget(card, row, col)
-
+            
             url = recipe.get('img_url', '')
             if url:
                 self._start_download(url, card)
@@ -402,13 +506,30 @@ class RecipeGrid(QWidget):
 # ─────────────────────────────────────────────
 #  HALAMAN RESEP MAKANAN
 # ─────────────────────────────────────────────
-class HalamanResepMakanan(PageTemplate):
-    PAGE_NAME = 'Resep Makanan'
-    PAGE_DESC = 'Temukan resep lezat untuk menemani harimu'
-    NAV_INDEX = 4
+class  RekomendasiPage(QWidget):
 
-    def build_content(self, container: QWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.db_makanan_dict = {}
+        self._muat_database()
+        self._init_ui()
+
+    def _muat_database(self):
+        try:
+            base_dir = os.path.dirname(os.path.abspath(__file__))
+            db_path  = os.path.normpath(os.path.join(base_dir, 'nutrikost.db'))
+            conn     = sqlite3.connect(db_path)
+            cursor   = conn.cursor()
+            cursor.execute("SELECT code, food_name, cal, protein, carb, fat FROM Makanan")
+            self.db_makanan_dict = {row[1]: row for row in cursor.fetchall()}
+            conn.close()
+        except Exception as e:
+            print(f"Gagal memuat database nutrikost.db: {e}")
+
+    def _init_ui(self):
         recipes = get_formatted_recipes()
+        root = QVBoxLayout(self)
+        root.setContentsMargins(32, 28, 32, 28)
 
         if not recipes:
             lbl = QLabel(
@@ -423,11 +544,20 @@ class HalamanResepMakanan(PageTemplate):
                 'padding: 24px 20px;'
             )
             lbl.setAlignment(Qt.AlignCenter)
-            container.layout().addWidget(lbl)
+            root.addWidget(lbl)
             return
 
         grid = RecipeGrid(recipes)
-        container.layout().addWidget(grid, 1)
+        grid.cardClicked.connect(self._buka_detail)
+        root.addWidget(grid, 1)
+    
+    def _buka_detail(self, resep):
+        if not self.db_makanan_dict:
+            QMessageBox.warning(self, "Database Hilang", "Database nutrikost.db tidak ditemukan. Fitur kalkulasi gizi dimatikan.")
+            return
+            
+        dialog = DetailResepDialog(resep, self.db_makanan_dict)
+        dialog.exec_()
 
 
 # ─────────────────────────────────────────────
@@ -436,6 +566,6 @@ class HalamanResepMakanan(PageTemplate):
 if __name__ == '__main__':
     app = QApplication(sys.argv)
     app.setStyle('Fusion')
-    window = HalamanResepMakanan()
+    window = RekomendasiPage()
     window.show()
     sys.exit(app.exec_())

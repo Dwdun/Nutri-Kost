@@ -11,7 +11,6 @@ from PyQt5.QtGui import QFont, QDoubleValidator
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from LogSystem import LogSystem
-from fatih_GUI.template_halaman import *
 
 # ─── Import AI module dari bima_scrapper ───────────────────────────────────────
 _bima_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "bima_scrapper"))
@@ -505,34 +504,40 @@ class TambahPopup(QWidget):
 
 
 # ==================  MAIN PAGE  ==================
-class DashboardPage(PageTemplate):
-    PAGE_NAME = "Log Makanan"
-    PAGE_DESC = "Catat semua yang kamu makan hari ini"
-    NAV_INDEX = 2
+class LogPage(QWidget):
+    log_updated = pyqtSignal()
 
-    def __init__(self):
-        self.db           = LogSystem()
-        self.popup        = None
-        self.current_page = 0
+    def __init__(self, sistem_profil=None, parent=None):
+        super().__init__(parent)
+        self.sistem_profil = sistem_profil
+        self.db            = LogSystem()
+        self.popup         = None
+        self.current_page  = 0
         self.items_per_page = 8
-        super().__init__()
+        self.setStyleSheet("background-color: transparent;")
+        self._build_content()
 
-    def build_content(self, container):
-        self.container = container
-        main_layout = self._scroll.widget().layout()
+    def _build_content(self):
+        root = QVBoxLayout(self)
+        root.setContentsMargins(32, 28, 32, 28)
+        root.setSpacing(20)
 
         # --- HEADER ---
         h_header_layout = QHBoxLayout()
         text_vbox = QVBoxLayout()
-        text_vbox.addWidget(self._page_title)
-        text_vbox.addWidget(self._page_desc)
+        lbl_title = QLabel("Log Makanan")
+        lbl_title.setStyleSheet("color: #1C1C1C; background: transparent; border: none; font-family: 'Montserrat Alternates'; font-size: 32px; font-weight: bold;")
+        lbl_sub = QLabel("Catat semua yang kamu makan hari ini")
+        lbl_sub.setStyleSheet("color: #6c757d; background: transparent; border: none; font-family: 'Montserrat'; font-size: 14px;")
+        text_vbox.addWidget(lbl_title)
+        text_vbox.addWidget(lbl_sub)
         h_header_layout.addLayout(text_vbox)
         h_header_layout.addStretch()
 
         self.action_btn = QPushButton("+ Tambah Makanan")
         self.action_btn.setFixedSize(210, 50)
         self.action_btn.setCursor(Qt.PointingHandCursor)
-        self.action_btn.setFont(self.font_label(bold=True))
+        self.action_btn.setFont(QFont("Poppins", 10, QFont.Bold))
         self.action_btn.setStyleSheet("""
             QPushButton {
                 background-color: #1A7A34;
@@ -547,7 +552,7 @@ class DashboardPage(PageTemplate):
         """)
         self.action_btn.clicked.connect(lambda: self.open_popup())
         h_header_layout.addWidget(self.action_btn)
-        main_layout.insertLayout(0, h_header_layout)
+        root.addLayout(h_header_layout)
 
         # --- MAIN CARD ---
         self.card = QWidget()
@@ -566,7 +571,7 @@ class DashboardPage(PageTemplate):
         card_header_layout.setSpacing(15)
 
         lbl_title = QLabel("Daftar Makanan Hari Ini")
-        lbl_title.setFont(self.font_title(20))
+        lbl_title.setFont(QFont("Poppins", 20, QFont.Bold))
         lbl_title.setStyleSheet("color: black; border: none;")
         card_header_layout.addWidget(lbl_title)
 
@@ -665,7 +670,7 @@ class DashboardPage(PageTemplate):
         footer_layout.setContentsMargins(10, 20, 10, 10)
 
         self.lbl_count = QLabel("Showing 0 out of 0")
-        self.lbl_count.setFont(self.font_body(10))
+        self.lbl_count.setFont(QFont("Poppins", 10))
         self.lbl_count.setStyleSheet("color: #666; border: none;")
 
         self.btn_prev = QPushButton("<")
@@ -682,7 +687,7 @@ class DashboardPage(PageTemplate):
         self.btn_next.clicked.connect(self.next_page)
 
         self.lbl_total_cal = QLabel("Total Kalori: 0 kcal")
-        self.lbl_total_cal.setFont(self.font_label(12, bold=True))
+        self.lbl_total_cal.setFont(QFont("Poppins", 12, QFont.Bold))
         self.lbl_total_cal.setStyleSheet("color: #1A7A34; border: none;")
 
         footer_layout.addWidget(self.lbl_count)
@@ -695,8 +700,22 @@ class DashboardPage(PageTemplate):
 
         self.card_layout.addLayout(footer_layout)
 
-        container.layout().addWidget(self.card)
-        self.container.installEventFilter(self)
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.NoFrame)
+        scroll.setStyleSheet("background: transparent;")
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+
+        container_scroll = QWidget()
+        container_scroll.setStyleSheet("background: transparent;")
+        main_layout = QVBoxLayout(container_scroll)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.addWidget(self.card)
+        main_layout.addStretch(1)
+
+        scroll.setWidget(container_scroll)
+        root.addWidget(scroll, stretch=1)
+        self.installEventFilter(self)
 
         self.load_data()
 
@@ -721,7 +740,7 @@ class DashboardPage(PageTemplate):
         headers = ["Nama Makanan", "Waktu", "Porsi", "Kalori", "Protein", "Karbohidrat", "Lemak", " ", " "]
         for col, text in enumerate(headers):
             lbl = QLabel(text)
-            lbl.setFont(self.font_title(12))
+            lbl.setFont(QFont("Poppins", 12, QFont.Bold))  
             lbl.setStyleSheet("color: black; border: none;")
             self.rows_layout.addWidget(lbl, 0, col)
 
@@ -780,10 +799,10 @@ class DashboardPage(PageTemplate):
             for col_idx, widget_text in enumerate(data):
                 lbl = QLabel(str(widget_text))
                 if col_idx == 0:
-                    lbl.setFont(self.font_label(12, bold=True))
+                    lbl.setFont(QFont("Poppins", 12, QFont.Bold))
                     lbl.setStyleSheet("border: none;")
                 else:
-                    lbl.setFont(self.font_body(12))
+                    lbl.setFont(QFont("Poppins", 12))  
                     lbl.setStyleSheet("border: none; color: #555555;")
                 self.rows_layout.addWidget(lbl, row_idx, col_idx)
 
@@ -846,23 +865,29 @@ class DashboardPage(PageTemplate):
 
     def save_popup_data(self, res):
         nutrisi = self.db.kalkulator_nutrisi(res['code'], res['porsi'])
+        id_user = 1
+        try:
+            if self.sistem_profil and self.sistem_profil.current_profil:
+                id_user = self.sistem_profil.current_profil.get('id_user', 1)
+        except Exception:
+            pass
 
         if nutrisi:
             if "id_log" in res:
-                self.db.UpdateLog(
-                    res['id_log'], 1, res['code'], res['waktu'], res['porsi'],
+                self.db.UpdateLog(res['id_log'], id_user, res['code'], res['waktu'], res['porsi'],
                     nutrisi['cal'], nutrisi['protein'], nutrisi['carb'], nutrisi['fat'],
                     res['waktu']
                 )
             else:
                 self.db.CreateLog(
-                    1, res['code'], res['waktu'], res['porsi'],
+                    id_user, res['code'], res['waktu'], res['porsi'],
                     nutrisi['cal'], nutrisi['protein'], nutrisi['carb'], nutrisi['fat'],
                     res['waktu']
                 )
 
         self.close_popup()
         self.load_data()
+        self.log_updated.emit()
 
     def close_popup(self):
         if self.popup:
@@ -871,16 +896,25 @@ class DashboardPage(PageTemplate):
     def delete_entry(self, id_log):
         self.db.DeleteLog(id_log)
         self.load_data()
+        self.log_updated.emit()
 
     def eventFilter(self, source, event):
         if source == self.window() and event.type() == QEvent.Resize:
             if self.popup and self.popup.isVisible():
                 self.popup.resize(event.size())
         return super().eventFilter(source, event)
+    
+    def show_tambah_makan(self, makanan: dict):
+        entry_data = {
+            'food_name': makanan.get('food_name'),
+            'portion': 100,
+            'category': "Sarapan"
+        }
+        self.open_popup(entry_data=entry_data)
 
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
-    window = DashboardPage()
+    window = LogPage()
     window.show()
     sys.exit(app.exec_())
