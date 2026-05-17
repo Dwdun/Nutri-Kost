@@ -349,6 +349,22 @@ class DBHelper:
         except Exception as e:
             conn.close()
             return False, "", f"Gagal menyimpan: {e}"
+            
+    def decline_cache(self, nama_makanan):
+        """Menolak request makanan (set status = 3)."""
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute(
+                "UPDATE CacheResep SET status = 3 WHERE LOWER(nama_makanan) = LOWER(?)",
+                (nama_makanan,)
+            )
+            conn.commit()
+            conn.close()
+            return True, f"'{nama_makanan.title()}' berhasil ditolak."
+        except Exception as e:
+            conn.close()
+            return False, f"Gagal menolak: {e}"
     
 
     def get_all_requests(self):

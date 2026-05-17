@@ -5,7 +5,7 @@ from contextlib import redirect_stdout
 from datetime import date
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import QEvent, Qt, QThread, pyqtSignal
-from PyQt5.QtGui import QFont, QDoubleValidator
+from PyQt5.QtGui import QFont, QDoubleValidator, QIcon
 
 # Ensure the system can find LogSystem and templates
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -748,11 +748,18 @@ class LogPage(QWidget):
 
         search_query  = self.search_bar.text().lower()
         selected_waktu = self.filter_waktu.currentText()
+        
+        from datetime import date
+        today_str = date.today().strftime("%Y-%m-%d")
 
         filtered_logs = []
         for entry in logs:
+            # Hanya ambil log hari ini
+            if not str(entry.get('meal_time', '')).startswith(today_str):
+                continue
+                
             match_search = search_query in entry['food_name'].lower()
-            match_waktu  = (selected_waktu == "Semua Waktu" or entry['meal_time'] == selected_waktu)
+            match_waktu  = (selected_waktu == "Semua Waktu" or entry.get('category', '') == selected_waktu)
             if match_search and match_waktu:
                 filtered_logs.append(entry)
 
@@ -788,7 +795,7 @@ class LogPage(QWidget):
 
             data = [
                 entry['food_name'],
-                entry['meal_time'],
+                entry.get('category', ''),
                 f"{entry['portion']}g",
                 f"{entry['cal']} kcal",
                 f"{entry['protein']}g",
@@ -873,14 +880,17 @@ class LogPage(QWidget):
             pass
 
         if nutrisi:
+            from datetime import datetime
+            current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            
             if "id_log" in res:
-                self.db.UpdateLog(res['id_log'], id_user, res['code'], res['waktu'], res['porsi'],
+                self.db.UpdateLog(res['id_log'], id_user, res['code'], current_time, res['porsi'],
                     nutrisi['cal'], nutrisi['protein'], nutrisi['carb'], nutrisi['fat'],
                     res['waktu']
                 )
             else:
                 self.db.CreateLog(
-                    id_user, res['code'], res['waktu'], res['porsi'],
+                    id_user, res['code'], current_time, res['porsi'],
                     nutrisi['cal'], nutrisi['protein'], nutrisi['carb'], nutrisi['fat'],
                     res['waktu']
                 )
