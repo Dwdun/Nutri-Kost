@@ -36,7 +36,7 @@ class ProfilSystem:
         if not user_exists:
              return False, "Akun tidak ditemukan. Silakan daftar terlebih dahulu."
              
-        return False, "Username atau Password salah!"
+        return False, "Email atau Password salah!"
 
     def __init__(self):
         self.data_helper = DBHelper()
@@ -79,6 +79,19 @@ class ProfilSystem:
             return False, "Password minimal 6 karakter."
 
         return True, "Semua input valid."
+
+    def cekEmailTerdaftar(self, email):
+        """Mengecek apakah email sudah ada di database atau mock memory."""
+        email_input = email.strip()
+        try:
+            semua_user = self.data_helper.get_all_users()
+        except Exception:
+            semua_user = self._mock_db
+            
+        for user in semua_user:
+            if user.get('email') == email_input:
+                return True
+        return False
     
     def createProfil(self, data):
         # validasi dulu sebelum simpan ke database
@@ -100,6 +113,7 @@ class ProfilSystem:
             'weight'    : data['weight'],
             'height'    : data['height'],
             'activity'  : aktivitas,
+            'diet_goal' : data.get('diet_goal', 'Maintain Berat Badan'),
             'calory'    : target_cal,
             'email'     : data['email'].strip(),
             'password'  : self._hash_password(data['password'])
@@ -167,7 +181,7 @@ class ProfilSystem:
         else:
             status = "Obesitas"
 
-        print(f"BMI kamu: {bmi} → {status}")
+        print(f"BMI kamu: {bmi} -> {status}")
 
         # Return string gabungan nilai BMI dan statusnya
         return f"{bmi} ({status})"

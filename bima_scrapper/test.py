@@ -7,6 +7,8 @@ from PyQt5.QtCore import Qt
 
 # Menggunakan DBHelper dan JsonHelper dari models.py
 from models import DBHelper, JsonHelper, kalkulasi_nutrisi_bahan
+from fatih_GUI.toast_notification import show_toast, TOAST_SUCCESS, TOAST_ERROR, TOAST_NORMAL
+from thefuzz import process
 
 # Impor fungsi scraper dari file scrape_resep.py
 try:
@@ -110,7 +112,7 @@ class NutrikostApp(QMainWindow):
             # Konversi menjadi format dictionary dengan key food_name
             self.db_makanan_dict = {row['food_name']: row for row in semua_makanan}
         except Exception as e:
-            QMessageBox.warning(self, "Error DB", f"Gagal memuat database: {e}")
+            show_toast(self, f"Gagal memuat database: {e}", TOAST_ERROR)
 
     def initUI(self):
         main_widget = QWidget()
@@ -155,12 +157,12 @@ class NutrikostApp(QMainWindow):
                     self.tabel_resep.setItem(row, 0, QTableWidgetItem(resep.get('judul', '')))
                     self.tabel_resep.setItem(row, 1, QTableWidgetItem("Tersedia"))
 
-                QMessageBox.information(self, "Selesai", f"Berhasil memuat {len(self.resep_data)} resep terbaru!")
+                show_toast(self, f"Berhasil men-scrape {len(self.resep_data)} resep terbaru!", TOAST_SUCCESS)
             else:
-                QMessageBox.warning(self, "Data Kosong", "Data Resep.json tidak ditemukan atau kosong.")
+                show_toast(self, f"Resep.json tidak ditemukan di:\n{json_path}", TOAST_ERROR)
 
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Terjadi kesalahan saat pemrosesan: {e}")
+            show_toast(self, f"Terjadi kesalahan saat pemrosesan: {e}", TOAST_ERROR)
         finally:
             # Kembalikan keadaan tombol dan kursor
             QApplication.restoreOverrideCursor()

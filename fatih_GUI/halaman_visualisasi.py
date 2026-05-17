@@ -10,6 +10,7 @@ from PyQt5.QtWidgets import (
     QStackedWidget, QFileDialog, QMessageBox, QApplication, QLabel
 )
 from PyQt5.QtCore import Qt, pyqtSignal
+from fatih_GUI.toast_notification import show_toast, TOAST_SUCCESS, TOAST_ERROR
 from PyQt5.QtPrintSupport import QPrinter
 from PyQt5.QtGui import QPainter, QPageLayout, QFont
 
@@ -28,8 +29,10 @@ class HalamanVisualisasi(QWidget):
 
     _id_user = 1
     
-    def __init__(self, parent=None):
+    def __init__(self, id_user: int = 1, db_path: str = None, parent=None):
         super().__init__(parent)
+        self._id_user = id_user
+        self._db_path = db_path
         self._active_tab = 0
         self._tab_buttons = []
         
@@ -46,12 +49,10 @@ class HalamanVisualisasi(QWidget):
         title_desc_layout.setSpacing(4)
         
         self._page_title = QLabel('Grafik & Visualisasi')
-        self._page_title.setFont(QFont('Montserrat Alternates', 20, QFont.Bold))
-        self._page_title.setStyleSheet("color: #1C1C1C; background: transparent;")
+        self._page_title.setStyleSheet("color: #1C1C1C; background: transparent; font-family: 'Montserrat Alternates'; font-size: 32px; font-weight: bold;")
         
         self._page_desc = QLabel('Analisis tren asupan nutrisimu')
-        self._page_desc.setFont(QFont('Poppins', 10))
-        self._page_desc.setStyleSheet("color: #555555; background: transparent;")
+        self._page_desc.setStyleSheet("color: #555555; background: transparent; font-family: 'Montserrat'; font-size: 14px;")
         
         title_desc_layout.addWidget(self._page_title)
         title_desc_layout.addWidget(self._page_desc)
@@ -93,7 +94,7 @@ class HalamanVisualisasi(QWidget):
         self._stack.setStyleSheet('background: transparent;')
 
         # Tab 0: Kalori Mingguan
-        self._w_kalori = KaloriMingguanWidget(id_user=self._id_user)
+        self._w_kalori = KaloriMingguanWidget(id_user=self._id_user, db_path=self._db_path)
         self._stack.addWidget(self._w_kalori)
 
         # Tab 1: Komposisi Gizi (2 kolom kiri-kanan)
@@ -101,7 +102,7 @@ class HalamanVisualisasi(QWidget):
         self._stack.addWidget(tab_komposisi)
 
         # Tab 2: Top 10
-        self._w_top10 = TopMakananWidget(id_user=self._id_user)
+        self._w_top10 = TopMakananWidget(id_user=self._id_user, db_path=self._db_path)
         self._stack.addWidget(self._w_top10)
         
         main_layout.addWidget(self._stack)
@@ -133,8 +134,8 @@ class HalamanVisualisasi(QWidget):
         row.setContentsMargins(0, 0, 0, 0)
         row.setSpacing(16)
 
-        self._w_komposisi = KomposisiGiziWidget(id_user=self._id_user)
-        self._w_detail    = DetailMakroWidget(id_user=self._id_user)
+        self._w_komposisi = KomposisiGiziWidget(id_user=self._id_user, db_path=self._db_path)
+        self._w_detail    = DetailMakroWidget(id_user=self._id_user, db_path=self._db_path)
 
         row.addWidget(self._w_komposisi, 55)
         row.addWidget(self._w_detail, 45)
@@ -218,15 +219,9 @@ class HalamanVisualisasi(QWidget):
             widget_to_export = self._stack.widget(self._active_tab)
             self._export_widget_to_pdf(widget_to_export, file_path)
             
-            QMessageBox.information(
-                self, 'Berhasil',
-                f'PDF berhasil disimpan:\n{file_path}'
-            )
+            show_toast(self, f'PDF berhasil disimpan:\n{file_path}', TOAST_SUCCESS)
         except Exception as e:
-            QMessageBox.critical(
-                self, 'Gagal Export',
-                f'Terjadi kesalahan:\n{str(e)}'
-            )
+            show_toast(self, f'Terjadi kesalahan:\n{str(e)}', TOAST_ERROR)
 
     def _export_widget_to_pdf(self, widget: QWidget, file_path: str):
         """Mengekspor isi dari widget secara persis (WYSIWYG) ke PDF A4 Landscape."""

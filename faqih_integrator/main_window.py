@@ -2,8 +2,10 @@ from PyQt5.QtWidgets import (
     QMainWindow, QWidget, QHBoxLayout, QVBoxLayout,
     QPushButton, QLabel, QStackedWidget, QFrame, QSizePolicy
 )
-from PyQt5.QtCore import Qt, QSize, QPropertyAnimation, QEasingCurve
+from PyQt5.QtCore import Qt, QSize, QPropertyAnimation, QEasingCurve, QTimer, QTime, QSettings
 from PyQt5.QtGui import QFont, QPixmap, QIcon, QCursor, QPainter, QColor
+from PyQt5.QtWidgets import QMessageBox
+from fatih_GUI.toast_notification import show_toast, TOAST_NORMAL, TOAST_ERROR
 import os
 
 # collor pallete
@@ -165,6 +167,38 @@ class MainWindow(QMainWindow):
         self._build_ui()
         self.setupRouting()
         self.navigate("dashboard")
+        self.setupNotificationTimer()
+
+    def setupNotificationTimer(self):
+        self._notif_timer = QTimer(self)
+        self._notif_timer.timeout.connect(self._check_notifications)
+        self._notif_timer.start(10000) # Cek setiap 10 detik agar responsif
+        
+        # Menyimpan notifikasi yang sudah muncul agar tidak spam di menit yang sama
+        self._shown_notifs = set()
+
+    def _check_notifications(self):
+        settings = QSettings("NutriKost", "Pengaturan")
+        if settings.value("notif_makan", False, type=bool):
+            now = QTime.currentTime()
+            current_hm = now.toString("HH:mm")
+            
+            times = {
+                "Sarapan": str(settings.value("waktu_sarapan", "07:00")),
+                "Makan Siang": str(settings.value("waktu_siang", "12:00")),
+                "Makan Malam": str(settings.value("waktu_malam", "19:00"))
+            }
+            
+            for meal, time_str in times.items():
+                if current_hm == time_str:
+                    notif_id = f"{meal}_{current_hm}"
+                    if notif_id not in self._shown_notifs:
+                        self._shown_notifs.add(notif_id)
+                        show_toast(self, f"Hai, sudah waktunya {meal}! Jangan lupa catat asupan makananmu ya.", TOAST_NORMAL)
+        
+        # Reset list shown_notifs ketika jam berganti
+        current_hm = QTime.currentTime().toString("HH:mm")
+        self._shown_notifs = {n for n in self._shown_notifs if n.split("_")[1] == current_hm}
 
     def _build_ui(self):
         root = QWidget()
@@ -395,12 +429,31 @@ class MainWindow(QMainWindow):
         from search_page import SearchPage
         self._add_page("search", SearchPage(on_pilih_makanan=self._on_pilih_makanan))
         
-        self._add_page("dashboard", self._placeholder("Dashboard", "Modul Fatih"))
+        from fatih_GUI.halaman_dashboard import HalamanDashboard
+        import os as _os
+        _db_path = _os.path.normpath(_os.path.join(BASE_DIR, '..', 'bima_scrapper', 'nutrikost.db'))
+        _id_user = (
+            self.sistem_profil.current_profil.get('id_user', 1)
+            if (hasattr(self, 'sistem_profil') and self.sistem_profil and self.sistem_profil.current_profil)
+            else 1
+        )
+        self.dashboard_page = HalamanDashboard(id_user=_id_user, db_path=_db_path)
+        self.dashboard_page.navigate_to.connect(self.navigate)
+        self.dashboard_page.tambah_makanan_clicked.connect(lambda: self.navigate("log"))
+        self._add_page("dashboard", self.dashboard_page)
         from log_page import LogPage
-        self.log_page = LogPage()
+        self.log_page = LogPage(self.sistem_profil)
         self._add_page("log", self.log_page)
         
-        self._add_page("riwayat", self._placeholder("Riwayat", "Modul Irfan"))
+        from riwayat_page import RiwayatPage
+        
+        self.riwayat_page = RiwayatPage()
+        self._add_page("riwayat", self.riwayat_page)
+        
+        # Hubungkan update log makanan ke refresh data di riwayat
+        self.log_page.log_updated.connect(self.riwayat_page.refresh_data)
+        # Hubungkan update log makanan ke refresh dashboard
+        self.log_page.log_updated.connect(self.dashboard_page.refresh)
         
         from rekomendasi_page import RekomendasiPage
         self._add_page("rekomendasi", RekomendasiPage())
@@ -410,11 +463,13 @@ class MainWindow(QMainWindow):
             sys.path.insert(0, os.path.join(BASE_DIR, "..", "fatih_GUI"))
         from halaman_visualisasi import HalamanVisualisasi
         
-        self.visualisasi_page = HalamanVisualisasi()
+        self.visualisasi_page = HalamanVisualisasi(id_user=_id_user, db_path=_db_path)
         self.visualisasi_page.tab_changed.connect(self._on_visualisasi_tab_changed)
         
         # Sambungkan sinyal log_updated ke visualisasi_page.refresh agar otomatis update
         self.log_page.log_updated.connect(self.visualisasi_page.refresh)
+        # Dan untuk mengecek batas kalori
+        self.log_page.log_updated.connect(self._check_calorie_limit)
         
         self._add_page("kalori_mingguan", self.visualisasi_page)
         self._add_page("komposisi_gizi", self.visualisasi_page)
@@ -427,10 +482,27 @@ class MainWindow(QMainWindow):
         
         self.profil_app = anindya_test.ProfilApp(self.sistem_profil)
         self.profil_app.logout_signal.connect(self.logout_signal.emit)
+        self.profil_app.go_back.connect(lambda: self.navigate("dashboard"))
         self._add_page("profil", self.profil_app)
         
         from setting_page import SettingPage
-        self._add_page("setting", SettingPage())
+        self._add_page("setting", SettingPage(self.sistem_profil))
+
+    def _check_calorie_limit(self):
+        settings = QSettings("NutriKost", "Pengaturan")
+        if settings.value("notif_kalori", False, type=bool):
+            try:
+                if self.sistem_profil and self.sistem_profil.current_profil:
+                    target_cal = self.sistem_profil.current_profil.get('calory', 2100)
+                    persentase = settings.value("batas_kalori", 100, type=int)
+                    maks_kalori = int(target_cal * (persentase / 100.0))
+                    
+                    realisasi = self.sistem_profil.getRealisasiKalori()
+                    
+                    if realisasi >= maks_kalori:
+                        show_toast(self, f"Kalori ({realisasi} kkal) melebihi batas {maks_kalori} kkal!\nKurangi porsi makan atau olahraga.", TOAST_ERROR)
+            except Exception as e:
+                print(f"Error checking calorie limit: {e}")
 
     def _add_page(self, key: str, widget: QWidget):
         self._page_widgets[key] = widget
@@ -464,6 +536,9 @@ class MainWindow(QMainWindow):
                     self.visualisasi_page.set_tab(1)
                 elif page_key == "top_10_makanan":
                     self.visualisasi_page.set_tab(2)
+
+        if page_key == "dashboard" and hasattr(self, 'dashboard_page'):
+            self.dashboard_page.refresh()
                     
         for key, btn in self._sidebar_buttons.items():
             if isinstance(btn, NavItem):

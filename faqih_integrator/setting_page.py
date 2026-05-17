@@ -4,10 +4,11 @@ import os
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel,
     QPushButton, QFrame, QMessageBox, QFileDialog,
-    QScrollArea, QSizePolicy
+    QScrollArea, QSizePolicy, QTimeEdit, QSpinBox
 )
-from PyQt5.QtCore import Qt, QSettings, QPropertyAnimation, pyqtProperty, QEasingCurve
+from PyQt5.QtCore import Qt, QSettings, QPropertyAnimation, pyqtProperty, QEasingCurve, QTime
 from PyQt5.QtGui import QFont, QPainter, QColor
+from fatih_GUI.toast_notification import show_toast, TOAST_SUCCESS, TOAST_ERROR, TOAST_NORMAL
 
 ACCENT_GREEN  = "#1A7A34"
 CONTENT_BG    = "#f5f7f5"
@@ -134,9 +135,9 @@ def _make_section_label(text: str) -> QLabel:
 # ── Halaman Pengaturan ────────────────────────────────────────────────────────
 class SettingPage(QWidget):
 
-    #inisialisasi page
-    def __init__(self, parent=None):
+    def __init__(self, sistem_profil=None, parent=None):
         super().__init__(parent)
+        self.sistem_profil = sistem_profil
         self.setStyleSheet(f"background-color: {CONTENT_BG};")
 
         # QSettings untuk menyimpan preferensi notifikasi
@@ -206,12 +207,85 @@ class SettingPage(QWidget):
             "Ingatkan saat waktunya Sarapan, Makan Siang, Makan Malam",
             self._toggle_makan
         ))
+        
+        # Detail Pengingat Makan
+        self._makan_details = QWidget()
+        makan_layout = QVBoxLayout(self._makan_details)
+        makan_layout.setContentsMargins(40, 0, 20, 10)
+        
+        def create_time_picker(label_text):
+            row = QHBoxLayout()
+            lbl = QLabel(label_text)
+            lbl.setFont(QFont("Montserrat", 10))
+            lbl.setStyleSheet(f"color: {TEXT_SUB};")
+            te = QTimeEdit()
+            te.setDisplayFormat("HH:mm")
+            te.setStyleSheet(f"QTimeEdit {{ border: 1px solid {BORDER_COLOR}; border-radius: 4px; padding: 4px; background: {CARD_BG}; color: {TEXT_MAIN}; }}")
+            row.addWidget(lbl)
+            row.addStretch()
+            row.addWidget(te)
+            return row, te
+
+        row_sarapan, self._time_sarapan = create_time_picker("Sarapan")
+        row_siang, self._time_siang = create_time_picker("Makan Siang")
+        row_malam, self._time_malam = create_time_picker("Makan Malam")
+        
+        makan_layout.addLayout(row_sarapan)
+        makan_layout.addLayout(row_siang)
+        makan_layout.addLayout(row_malam)
+        
+        self._time_sarapan.timeChanged.connect(lambda t: self._save_preference("waktu_sarapan", t.toString("HH:mm")))
+        self._time_siang.timeChanged.connect(lambda t: self._save_preference("waktu_siang", t.toString("HH:mm")))
+        self._time_malam.timeChanged.connect(lambda t: self._save_preference("waktu_malam", t.toString("HH:mm")))
+        
+        self._time_sarapan.editingFinished.connect(lambda: self._show_time_notification("Sarapan", self._time_sarapan))
+        self._time_siang.editingFinished.connect(lambda: self._show_time_notification("Makan Siang", self._time_siang))
+        self._time_malam.editingFinished.connect(lambda: self._show_time_notification("Makan Malam", self._time_malam))
+        
+        main_layout.addWidget(self._makan_details)
+        self._toggle_makan.toggled.connect(self._makan_details.setVisible)
+
         main_layout.addSpacing(8)
+        
         main_layout.addWidget(SettingItem(
             "Peringatan Kalori",
-            "Notifikasi jika kalori melebihi atau terlalu rendah",
+            "Notifikasi jika kalori mendekati atau melebihi batas",
             self._toggle_kalori
         ))
+        
+        # Detail Peringatan Kalori
+        self._kalori_details = QWidget()
+        kalori_layout = QVBoxLayout(self._kalori_details)
+        kalori_layout.setContentsMargins(40, 0, 20, 10)
+        
+        row_kalori = QHBoxLayout()
+        lbl_batas = QLabel("Batas Maksimal Kalori")
+        lbl_batas.setFont(QFont("Montserrat", 10))
+        lbl_batas.setStyleSheet(f"color: {TEXT_SUB};")
+        
+        self._spin_batas = QSpinBox()
+        self._spin_batas.setRange(50, 150)
+        self._spin_batas.setSingleStep(5)
+        self._spin_batas.setSuffix(" %")
+        self._spin_batas.setStyleSheet(f"QSpinBox {{ border: 1px solid {BORDER_COLOR}; border-radius: 4px; padding: 4px; background: {CARD_BG}; color: {TEXT_MAIN}; width: 60px; }}")
+        
+        row_kalori.addWidget(lbl_batas)
+        row_kalori.addStretch()
+        row_kalori.addWidget(self._spin_batas)
+        
+        kalori_layout.addLayout(row_kalori)
+        
+        self._lbl_keterangan_kalori = QLabel("Setara dengan: - kkal")
+        font_ket = QFont("Montserrat", 9)
+        font_ket.setItalic(True)
+        self._lbl_keterangan_kalori.setFont(font_ket)
+        self._lbl_keterangan_kalori.setStyleSheet("color: #059669;") # Greenish
+        kalori_layout.addWidget(self._lbl_keterangan_kalori)
+        
+        self._spin_batas.valueChanged.connect(self._on_batas_changed)
+        
+        main_layout.addWidget(self._kalori_details)
+        self._toggle_kalori.toggled.connect(self._kalori_details.setVisible)
 
         main_layout.addSpacing(20)
 
@@ -273,39 +347,85 @@ class SettingPage(QWidget):
 
         main_layout.addStretch()
 
+    def _show_time_notification(self, label: str, time_widget):
+        time_str = time_widget.time().toString("HH:mm")
+        show_toast(self, f"Pengingat {label} akan di set pada pukul {time_str}", TOAST_SUCCESS)
+
     # ── Preferensi ────────────────────────────────────────────────────────────
-    def _save_preference(self, key: str, value: bool):
+    def _save_preference(self, key: str, value):
         self._settings.setValue(key, value)
+
+    def _on_batas_changed(self, v):
+        self._save_preference("batas_kalori", v)
+        self._update_keterangan_kalori()
+
+    def _update_keterangan_kalori(self):
+        target = 2100 # default
+        try:
+            sp = getattr(self, 'sistem_profil', None)
+            if not sp:
+                sp = getattr(self.window(), 'sistem_profil', None)
+            if sp and sp.current_profil:
+                target = sp.current_profil.get('calory', 2100)
+        except Exception:
+            pass
+        
+        persen = self._spin_batas.value()
+        maks = int(target * (persen / 100.0))
+        self._lbl_keterangan_kalori.setText(f"Setara dengan: {maks} kkal (Berdasarkan target {target} kkal)")
 
     def _load_preferences(self):
         notif_makan  = self._settings.value("notif_makan",  False, type=bool)
         notif_kalori = self._settings.value("notif_kalori", False, type=bool)
 
+        waktu_sarapan = self._settings.value("waktu_sarapan", "07:00")
+        waktu_siang = self._settings.value("waktu_siang", "12:00")
+        waktu_malam = self._settings.value("waktu_malam", "19:00")
+        batas_kalori = self._settings.value("batas_kalori", 100, type=int)
+
         # blockSignals agar toggled tidak trigger save ulang saat load
         self._toggle_makan.blockSignals(True)
         self._toggle_kalori.blockSignals(True)
+        self._time_sarapan.blockSignals(True)
+        self._time_siang.blockSignals(True)
+        self._time_malam.blockSignals(True)
+        self._spin_batas.blockSignals(True)
 
         self._toggle_makan.setChecked(notif_makan)
         self._toggle_kalori.setChecked(notif_kalori)
+        
+        self._time_sarapan.setTime(QTime.fromString(str(waktu_sarapan), "HH:mm"))
+        self._time_siang.setTime(QTime.fromString(str(waktu_siang), "HH:mm"))
+        self._time_malam.setTime(QTime.fromString(str(waktu_malam), "HH:mm"))
+        self._spin_batas.setValue(batas_kalori)
+        
+        self._makan_details.setVisible(notif_makan)
+        self._kalori_details.setVisible(notif_kalori)
 
         self._toggle_makan.blockSignals(False)
         self._toggle_kalori.blockSignals(False)
+        self._time_sarapan.blockSignals(False)
+        self._time_siang.blockSignals(False)
+        self._time_malam.blockSignals(False)
+        self._spin_batas.blockSignals(False)
+        
+        self._update_keterangan_kalori()
 
     # ── Export CSV ────────────────────────────────────────────────────────────
     def exportToCSV(self):
         if self._db is None:
-            QMessageBox.warning(self, "Error", "Database tidak tersedia.")
+            show_toast(self, "Database tidak tersedia.", TOAST_ERROR)
             return
 
         # Ambil data log dari DB
         try:
             logs = self._db.get_all_logs(limit=10000)
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Gagal mengambil data:\n{e}")
+            show_toast(self, f"Gagal mengambil data:\n{e}", TOAST_ERROR)
             return
 
         if not logs:
-            QMessageBox.information(self, "Export Data", "Belum ada data log yang tersimpan.")
+            show_toast(self, "Belum ada data log yang tersimpan.", TOAST_NORMAL)
             return
 
         # Dialog pilih lokasi simpan
@@ -321,12 +441,9 @@ class SettingPage(QWidget):
                 writer.writeheader()
                 writer.writerows(logs)
 
-            QMessageBox.information(
-                self, "Export Berhasil",
-                f"Data berhasil disimpan ke:\n{filepath}"
-            )
+            show_toast(self, f"Data berhasil disimpan ke:\n{filepath}", TOAST_SUCCESS)
         except Exception as e:
-            QMessageBox.critical(self, "Export Gagal", f"Terjadi kesalahan:\n{e}")
+            show_toast(self, f"Terjadi kesalahan:\n{e}", TOAST_ERROR)
 
     # ── Hapus Semua Data ──────────────────────────────────────────────────────
     def deleteAllData(self):
@@ -343,7 +460,7 @@ class SettingPage(QWidget):
             return
 
         if self._db is None:
-            QMessageBox.warning(self, "Error", "Database tidak tersedia.")
+            show_toast(self, "Database tidak tersedia.", TOAST_ERROR)
             return
 
         try:
@@ -353,9 +470,6 @@ class SettingPage(QWidget):
             conn.commit()
             conn.close()
 
-            QMessageBox.information(
-                self, "Berhasil",
-                "Semua data telah dihapus."
-            )
+            show_toast(self, "Semua data telah dihapus.", TOAST_SUCCESS)
         except Exception as e:
-            QMessageBox.critical(self, "Gagal", f"Terjadi kesalahan saat menghapus data:\n{e}")
+            show_toast(self, f"Terjadi kesalahan saat menghapus data:\n{e}", TOAST_ERROR)

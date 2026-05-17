@@ -504,8 +504,9 @@ class TambahPopup(QWidget):
 class LogPage(QWidget):
     log_updated = pyqtSignal()
 
-    def __init__(self, parent=None):
+    def __init__(self, sistem_profil=None, parent=None):
         super().__init__(parent)
+        self.sistem_profil = sistem_profil
         self.db = LogSystem()
         self.popup = None
         self.current_page = 0
@@ -753,13 +754,15 @@ class LogPage(QWidget):
         
         search_query = self.search_bar.text().lower()
         selected_waktu = self.filter_waktu.currentText()
+        today_str = datetime.now().strftime('%Y-%m-%d')
         
         filtered_logs = []
         for entry in logs:
             match_search = search_query in entry['food_name'].lower()
             match_waktu = (selected_waktu == "Semua Waktu" or entry['category'] == selected_waktu)
+            match_today = str(entry['meal_time']).startswith(today_str) if entry.get('meal_time') else False
             
-            if match_search and match_waktu:
+            if match_search and match_waktu and match_today:
                 filtered_logs.append(entry)
 
         # Calculate total calories for the whole filtered list
@@ -883,12 +886,19 @@ class LogPage(QWidget):
 
     def save_popup_data(self, res):
         nutrisi = self.db.kalkulator_nutrisi(res['code'], res['porsi'])
+        
+        id_user = 1
+        try:
+            if self.sistem_profil and self.sistem_profil.current_profil:
+                id_user = self.sistem_profil.current_profil.get('id_user', 1)
+        except Exception:
+            pass
 
         if nutrisi:
             if "id_log" in res:
                 self.db.UpdateLog(
                     res['id_log'],
-                    1,
+                    id_user,
                     res['code'],
                     datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
                     res['porsi'],
@@ -900,7 +910,7 @@ class LogPage(QWidget):
                 )
             else:
                 self.db.CreateLog(
-                    1,
+                    id_user,
                     res['code'],
                     datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
                     res['porsi'],
