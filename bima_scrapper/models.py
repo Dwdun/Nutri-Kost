@@ -4,6 +4,9 @@ import os
 import re
 from thefuzz import process
 
+# ==========================================
+# KAMUS KONVERSI
+# ==========================================
 KONVERSI_GRAM = {
     'sdm': 15,     # 1 Sendok makan = ~15 gram
     'sdt': 5,      # 1 Sendok teh = ~5 gram
@@ -13,10 +16,56 @@ KONVERSI_GRAM = {
     'pcs': 50,
     'buah': 100,
     'gram': 1,
-    'gr': 1
+    'gr': 1,
+    'liter': 1000, 
+    'ml': 1,
+    'lembar': 3, 
+    'ikat': 50, 
+    'batang': 15
 }
 
+def kalkulasi_nutrisi_bahan(teks_bahan, db_makanan_dict):
+    """Mencocokkan bahan resep dengan database dan menghitung nutrisinya"""
+    match = re.search(r'([\d\./]+)\s*([a-zA-Z]+)\s*(.*)', teks_bahan)
+    
+    if not match:
+        return None 
 
+    try:
+        kuantitas_str = match.group(1).replace('/', '.0/') if '/' in match.group(1) else match.group(1)
+        kuantitas = float(eval(kuantitas_str))
+    except Exception:
+        return None
+
+    satuan = match.group(2).lower()
+    nama_bahan = match.group(3).strip()
+
+    list_nama_db = list(db_makanan_dict.keys())
+    kecocokan = process.extractOne(nama_bahan, list_nama_db)
+    
+    if kecocokan and kecocokan[1] >= 70: 
+        nama_db = kecocokan[0]
+        data_nutrisi = db_makanan_dict[nama_db]
+        
+        pengali_gram = KONVERSI_GRAM.get(satuan, 50) 
+        berat_total = kuantitas * pengali_gram
+        
+        # Mendukung dictionary dari DBHelper
+        kalori = float(data_nutrisi['cal'] if isinstance(data_nutrisi, dict) else data_nutrisi[2])
+        protein = float(data_nutrisi['protein'] if isinstance(data_nutrisi, dict) else data_nutrisi[3])
+        karbo = float(data_nutrisi['carb'] if isinstance(data_nutrisi, dict) else data_nutrisi[4])
+        lemak = float(data_nutrisi['fat'] if isinstance(data_nutrisi, dict) else data_nutrisi[5])
+
+        return {
+            'nama_asli': teks_bahan,
+            'nama_db': nama_db,
+            'berat_g': round(berat_total, 1),
+            'kalori': round((berat_total / 100) * kalori, 1),
+            'protein': round((berat_total / 100) * protein, 1),
+            'karbo': round((berat_total / 100) * karbo, 1),
+            'lemak': round((berat_total / 100) * lemak, 1)
+        }
+    return None
 
 class DBHelper:
     def __init__(self, db_name='nutrikost.db'):
@@ -200,6 +249,115 @@ class DBHelper:
         conn.close()
         return dict(row) if row else {'total_cal': 0, 'total_protein': 0, 'total_carb': 0, 'total_fat': 0}
 
+    # ==========================================
+    # OPERASI CACHE RESEP & INSERT MAKANAN
+    # ==========================================
+    def init_cache_table(self):
+        conn = self._get_connection()
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS CacheResep (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                nama_makanan TEXT UNIQUE,
+                data_json_bahan TEXT,
+                cal     REAL,
+                protein REAL,
+                carb    REAL,
+                fat     REAL
+            )
+        ''')
+        # Migrasi: tambah kolom nutrisi jika tabel lama belum punya
+        kolom_baru = {'cal': 'REAL', 'protein': 'REAL', 'carb': 'REAL', 'fat': 'REAL', 'status': 'INTEGER DEFAULT 1'}
+        kolom_ada = {row[1] for row in conn.execute("PRAGMA table_info(CacheResep)")}
+        for nama_kolom, tipe in kolom_baru.items():
+            if nama_kolom not in kolom_ada:
+                conn.execute(f"ALTER TABLE CacheResep ADD COLUMN {nama_kolom} {tipe}")
+        conn.commit()
+        conn.close()
+
+    def get_all_cache_names(self):
+        conn = self._get_connection()
+        cursor = conn.execute("SELECT nama_makanan FROM CacheResep")
+        rows = cursor.fetchall()
+        conn.close()
+        return [row['nama_makanan'] for row in rows]
+
+    def get_cache_by_name(self, nama_makanan):
+        conn = self._get_connection()
+        cursor = conn.execute("SELECT data_json_bahan FROM CacheResep WHERE nama_makanan = ?", (nama_makanan,))
+        row = cursor.fetchone()
+        conn.close()
+        return dict(row) if row else None
+
+    def insert_cache_resep(self, nama_makanan, data_json_bahan):
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute(
+                "INSERT INTO CacheResep (nama_makanan, data_json_bahan) VALUES (?, ?)", 
+                (nama_makanan, data_json_bahan)
+            )
+            conn.commit()
+            success = True
+        except sqlite3.IntegrityError:
+            success = False
+        conn.close()
+        return success
+
+    def insert_makanan(self, code, food_name, water, cal, protein, fat, carb, fiber):
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute('''
+                INSERT INTO Makanan (code, food_name, water, cal, protein, fat, carb, fiber)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (code, food_name, water, cal, protein, fat, carb, fiber))
+            conn.commit()
+            success = True
+        except sqlite3.IntegrityError:
+            success = False
+        conn.close()
+        return success
+
+    def accept_cache_to_makanan(self, nama_makanan, cal, protein, carb, fat):
+        """
+        Pindahkan satu entri CacheResep ke tabel Makanan dengan kode unik.
+        Mengembalikan (success: bool, code: str, pesan: str).
+        """
+        import uuid
+        # Format kode: CR-XXXXXXXX (8 hex acak, huruf besar)
+        unique_code = "CR-" + uuid.uuid4().hex[:8].upper()
+
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute(
+                '''INSERT INTO Makanan (code, food_name, water, cal, protein, fat, carb, fiber)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)''',
+                (unique_code, nama_makanan.title(), 0.0,
+                 round(cal, 2), round(protein, 2), round(fat, 2), round(carb, 2), 0.0)
+            )
+            cursor.execute(
+                "UPDATE CacheResep SET status = 2 WHERE LOWER(nama_makanan) = LOWER(?)",
+                (nama_makanan,)
+            )
+            conn.commit()
+            conn.close()
+            return True, unique_code, f"'{nama_makanan.title()}' berhasil ditambahkan dengan kode {unique_code}."
+        except sqlite3.IntegrityError:
+            conn.close()
+            return False, "", f"'{nama_makanan.title()}' sudah ada di tabel Makanan."
+        except Exception as e:
+            conn.close()
+            return False, "", f"Gagal menyimpan: {e}"
+    
+
+    def get_all_requests(self):
+        conn = self._get_connection()
+        cursor = conn.execute("SELECT * FROM request_makanan")
+        rows = cursor.fetchall()
+        conn.close()
+        return [dict(row) for row in rows]
+
 
 class JsonHelper:
     def __init__(self):
@@ -219,44 +377,4 @@ class JsonHelper:
         return self._read_json('FoodFact.json')
 
     def get_resep_harian(self):
-        return self._read_json('resep.json')
-    
-    def hitung_nutrisi_bahan(teks_bahan_resep, conn):
-        cursor = conn.cursor()
-    
-        cursor.execute("SELECT code, food_name, cal, protein, carb, fat FROM Makanan")
-        db_makanan = cursor.fetchall()
-    
-        nama_makanan_db = {row[1]: row for row in db_makanan} 
-
-        match = re.search(r'([\d\./]+)\s*([a-zA-Z]+)\s*(.*)', teks_bahan_resep)
-        
-        if match:
-            kuantitas = float(eval(match.group(1).replace('/', '.0/')))
-            satuan = match.group(2).lower()
-            nama_bahan_mentah = match.group(3).strip()
-        else:
-            return None 
-        
-        list_nama_db = list(nama_makanan_db.keys())
-        kecocokan_terbaik = process.extractOne(nama_bahan_mentah, list_nama_db)
-        
-        if kecocokan_terbaik and kecocokan_terbaik[1] >= 75:
-            nama_ditemukan = kecocokan_terbaik[0]
-            data_nutrisi = nama_makanan_db[nama_ditemukan] 
-            
-            pengali_gram = KONVERSI_GRAM.get(satuan, 100)
-            total_berat_gram = kuantitas * pengali_gram
-            
-            hasil_kalkulasi = {
-                'nama_asli_resep': teks_bahan_resep,
-                'dikenali_sebagai': nama_ditemukan,
-                'berat_estimasi_gram': total_berat_gram,
-                'kalori': round((total_berat_gram / 100) * float(data_nutrisi[2]), 2),
-                'protein': round((total_berat_gram / 100) * float(data_nutrisi[3]), 2),
-                'karbohidrat': round((total_berat_gram / 100) * float(data_nutrisi[4]), 2),
-                'lemak': round((total_berat_gram / 100) * float(data_nutrisi[5]), 2),
-            }
-            return hasil_kalkulasi
-        else:
-            return None
+        return self._read_json('Resep.json')

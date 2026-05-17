@@ -1,12 +1,12 @@
 import sys
-import json
-import sqlite3
-import re
 import os
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
                             QPushButton, QTableWidget, QTableWidgetItem, 
                             QDialog, QLabel, QHeaderView, QMessageBox)
 from PyQt5.QtCore import Qt
+
+# Menggunakan DBHelper dan JsonHelper dari models.py
+from models import DBHelper, JsonHelper, kalkulasi_nutrisi_bahan
 from fatih_GUI.toast_notification import show_toast, TOAST_SUCCESS, TOAST_ERROR, TOAST_NORMAL
 from thefuzz import process
 
@@ -18,51 +18,6 @@ except ImportError:
     def scrape_cookpad():
         print("Error: scrape_resep.py tidak ditemukan di folder yang sama.")
 
-# ==========================================
-# 1. KAMUS KONVERSI & FUNGSI NUTRISI
-# ==========================================
-KONVERSI_GRAM = {
-    'sdm': 15, 'sdt': 5, 'siung': 5, 'ekor': 80, 'genggam': 40,
-    'pcs': 50, 'buah': 100, 'gram': 1, 'gr': 1, 'liter': 1000, 'ml': 1,
-    'lembar': 3, 'ikat': 50, 'batang': 15
-}
-
-def hitung_nutrisi_bahan(teks_bahan, db_makanan_dict):
-    """Mencocokkan bahan resep dengan database dan menghitung nutrisinya"""
-    match = re.search(r'([\d\./]+)\s*([a-zA-Z]+)\s*(.*)', teks_bahan)
-    
-    if not match:
-        return None 
-
-    try:
-        kuantitas_str = match.group(1).replace('/', '.0/') if '/' in match.group(1) else match.group(1)
-        kuantitas = float(eval(kuantitas_str))
-    except Exception:
-        return None
-
-    satuan = match.group(2).lower()
-    nama_bahan = match.group(3).strip()
-
-    list_nama_db = list(db_makanan_dict.keys())
-    kecocokan = process.extractOne(nama_bahan, list_nama_db)
-    
-    if kecocokan and kecocokan[1] >= 70: 
-        nama_db = kecocokan[0]
-        data_nutrisi = db_makanan_dict[nama_db]
-        
-        pengali_gram = KONVERSI_GRAM.get(satuan, 50) 
-        berat_total = kuantitas * pengali_gram
-        
-        return {
-            'nama_asli': teks_bahan,
-            'nama_db': nama_db,
-            'berat_g': round(berat_total, 1),
-            'kalori': round((berat_total / 100) * float(data_nutrisi[2]), 1),
-            'protein': round((berat_total / 100) * float(data_nutrisi[3]), 1),
-            'karbo': round((berat_total / 100) * float(data_nutrisi[4]), 1),
-            'lemak': round((berat_total / 100) * float(data_nutrisi[5]), 1)
-        }
-    return None
 
 # ==========================================
 # 2. POP-UP DETAIL RESEP (DIALOG)
@@ -99,7 +54,9 @@ class DetailResepDialog(QDialog):
 
         for row, teks_bahan in enumerate(bahan_list):
             self.tabel_bahan.setItem(row, 0, QTableWidgetItem(teks_bahan))
-            hasil = hitung_nutrisi_bahan(teks_bahan, self.db_makanan_dict)
+            
+            # Kalkulasi menggunakan fungsi dari models.py
+            hasil = kalkulasi_nutrisi_bahan(teks_bahan, self.db_makanan_dict)
             
             if hasil:
                 self.tabel_bahan.setItem(row, 1, QTableWidgetItem(hasil['nama_db']))
@@ -130,6 +87,7 @@ class DetailResepDialog(QDialog):
 
         self.setLayout(layout)
 
+
 # ==========================================
 # 3. JENDELA UTAMA APLIKASI
 # ==========================================
@@ -147,16 +105,12 @@ class NutrikostApp(QMainWindow):
     def muat_database(self):
         """Memuat data dari nutrikost.db ke memori"""
         try:
-            # Cari path absolut untuk nutrikost.db
-            base_dir = os.path.dirname(os.path.abspath(__file__))
-            db_path = os.path.join(base_dir, 'nutrikost.db')
+            # Menggunakan method DBHelper dari models.py
+            db = DBHelper()
+            semua_makanan = db.get_all_makanan()
             
-            conn = sqlite3.connect(db_path)
-            cursor = conn.cursor()
-            cursor.execute("SELECT code, food_name, cal, protein, carb, fat FROM Makanan")
-            baris_db = cursor.fetchall()
-            self.db_makanan_dict = {row[1]: row for row in baris_db}
-            conn.close()
+            # Konversi menjadi format dictionary dengan key food_name
+            self.db_makanan_dict = {row['food_name']: row for row in semua_makanan}
         except Exception as e:
             show_toast(self, f"Gagal memuat database: {e}", TOAST_ERROR)
 
@@ -193,15 +147,11 @@ class NutrikostApp(QMainWindow):
             # Panggil fungsi dari scrape_resep.py
             scrape_cookpad() 
 
-            # Cari path absolut untuk Resep.json
-            base_dir = os.path.dirname(os.path.abspath(__file__))
-            json_path = os.path.join(base_dir, 'Resep.json')
-
-            # Muat ulang file JSON menggunakan path absolut
-            if os.path.exists(json_path):
-                with open(json_path, 'r', encoding='utf-8') as f:
-                    self.resep_data = json.load(f)
-                
+            # Muat ulang JSON menggunakan method dari models.py
+            json_helper = JsonHelper()
+            self.resep_data = json_helper.get_resep_harian()
+            
+            if self.resep_data:
                 self.tabel_resep.setRowCount(len(self.resep_data))
                 for row, resep in enumerate(self.resep_data):
                     self.tabel_resep.setItem(row, 0, QTableWidgetItem(resep.get('judul', '')))

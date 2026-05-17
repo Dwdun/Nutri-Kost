@@ -14,18 +14,43 @@ model = genai.GenerativeModel('gemini-flash-latest')
 
 #cache makanan di db
 def init_cache_table(db_name='nutrikost.db'):
-    #cek tabel CacheReseo
+    #cek tabel CacheResep
     base_dir = os.path.dirname(os.path.abspath(__file__))
     db_path = os.path.join(base_dir, db_name)
     
     conn = sqlite3.connect(db_path)
+
+    # Buat tabel dengan skema lengkap jika belum ada
     conn.execute('''
         CREATE TABLE IF NOT EXISTS CacheResep (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             nama_makanan TEXT UNIQUE,
-            data_json_bahan TEXT
+            data_json_bahan TEXT,
+            cal     REAL,
+            protein REAL,
+            carb    REAL,
+            fat     REAL,
+            water   REAL,
+            fiber   REAL
         )
     ''')
+
+    # Migrasi: tambah kolom baru jika tabel lama belum punya kolom nutrisi
+    kolom_baru = {
+        'cal':     'REAL',
+        'protein': 'REAL',
+        'carb':    'REAL',
+        'fat':     'REAL',
+        'water':   'REAL',
+        'fiber':   'REAL',
+        'status':  'INTEGER DEFAULT 1',
+    }
+    kolom_ada = {row[1] for row in conn.execute("PRAGMA table_info(CacheResep)")}
+    for nama_kolom, tipe in kolom_baru.items():
+        if nama_kolom not in kolom_ada:
+            conn.execute(f"ALTER TABLE CacheResep ADD COLUMN {nama_kolom} {tipe}")
+            print(f"[🔧 MIGRASI] Kolom '{nama_kolom}' berhasil ditambahkan ke CacheResep.")
+
     conn.commit()
     conn.close()
 
@@ -56,13 +81,13 @@ def get_or_fetch_resep(nama_makanan_input):
     print(f"\n[🤖 CACHE MISS] Meminta bantuan Gemini membongkar resep '{nama_makanan_input}'...")
     bahan_dari_ai = bongkar_resep_dengan_gemini(nama_makanan_input)
 
-    # Simpan hasil AI ke DB
+    # Simpan hasil AI ke CacheResep
     if bahan_dari_ai:
         json_string = json.dumps(bahan_dari_ai)
         try:
             cursor.execute(
-                "INSERT INTO CacheResep (nama_makanan, data_json_bahan) VALUES (?, ?)", 
-                (nama_makanan_input.lower(), json_string)
+                "INSERT INTO CacheResep (nama_makanan, data_json_bahan, status) VALUES (?, ?, ?)", 
+                (nama_makanan_input.lower(), json_string, 1)
             )
             conn.commit()
             print(f"[💾 SAVED] Resep '{nama_makanan_input}' berhasil disimpan ke memori lokal!")
@@ -71,33 +96,6 @@ def get_or_fetch_resep(nama_makanan_input):
             
     conn.close()
     return bahan_dari_ai
-
-def simpan_ke_makanan_master(nama_makanan, cal_100g, pro_100g, carb_100g, fat_100g):
-    """Menyimpan hasil kalkulasi nutrisi per 100g ke tabel Makanan"""
-    db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'nutrikost.db')
-    conn = sqlite3.connect(db_path)
-    cursor = conn.cursor()
-
-    # Membuat kode unik: AI + 3 Huruf Pertama + 4 Angka Random (Contoh: AI-AYA-1234)
-    huruf = re.sub(r'[^a-zA-Z]', '', nama_makanan).upper()
-    prefix = huruf[:3] if len(huruf) >= 3 else huruf.ljust(3, 'X')
-    kode_makanan = f"AI-{prefix}-{random.randint(1000, 9999)}"
-
-    try:
-        # Menyisipkan data sesuai dengan kolom tabel Makanan
-        # Kolom water dan fiber dikosongkan (0.0) karena AI belum bisa memprediksinya dengan akurat
-        cursor.execute('''
-            INSERT INTO Makanan (code, food_name, water, cal, protein, fat, carb, fiber)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        ''', (kode_makanan, nama_makanan.title(), 0.0, round(cal_100g, 2), round(pro_100g, 2), round(fat_100g, 2), round(carb_100g, 2), 0.0))
-        conn.commit()
-        print(f"\n[📥 INSERT MASTER] Berhasil mendaftarkan '{nama_makanan.title()}' ke tabel Makanan dengan kode: {kode_makanan}")
-    except sqlite3.IntegrityError:
-        print(f"\n[⚠️ INFO] Makanan '{nama_makanan}' sudah ada di tabel Makanan.")
-    except Exception as e:
-        print(f"\n[Error] Gagal menyimpan ke tabel Makanan: {e}")
-    finally:
-        conn.close()
 
 #Prompt Gemini
 def bongkar_resep_dengan_gemini(nama_makanan):
@@ -137,101 +135,7 @@ def proses_nutrisi_terminal(nama_makanan):
     conn = db._get_connection()
     cursor = conn.cursor()
 
-    cursor.execute("SELECT code, food_name, cal, protein, carb, fat FROM Makanan")
-    db_makanan = cursor.fetchall()
-    
-    nama_makanan_db = {row['food_name']: row for row in db_makanan}
-    list_nama_db = list(nama_makanan_db.keys())
-
-    # 1. Cek di db TKPI USDA
-    kecocokan_master, skor_master = process.extractOne(nama_makanan.lower(), list_nama_db)
-    
-    if kecocokan_master and skor_master >= 90:
-        print(f"\n[🌟 MASTER DB HIT] Makanan langsung ditemukan di database sebagai '{kecocokan_master}' (Akurasi: {skor_master}%)")
-        data_nutrisi = nama_makanan_db[kecocokan_master]
-        conn.close()
-        return 
-
-    # 2. Cek di tabel cache, jika tidak ada, panggil AI
-    print(f"\n[INFO] '{nama_makanan}' tidak ada di database utama. Memulai proses dekonstruksi bahan...")
-    
-    daftar_bahan_mentah = get_or_fetch_resep(nama_makanan)
-
-    # =======================================================
-    # VALIDASI BLOKIR NON-MAKANAN
-    # =======================================================
-    if not daftar_bahan_mentah:
-        conn.close()
-        # Munculkan pesan error ini, agar GUI test.py bisa menangkapnya di kotak pesan warning!
-        raise ValueError(f"Masukan '{nama_makanan}' tidak dikenali sebagai makanan/minuman yang valid.")
-    # =======================================================
-
-    print(f"\nBahan baku: {daftar_bahan_mentah}\n")
-    print("=" * 60)
-    print(" KALKULASI NUTRISI DARI BAHAN MENTAH ".center(60))
-    print("=" * 60)
-
-    total_kalori = 0
-    total_protein = 0
-    total_karbo = 0
-    total_lemak = 0
-    total_berat_semua = 0
-
-    for teks_bahan in daftar_bahan_mentah:
-        match = re.search(r'([\d\./]+)\s*([a-zA-Z]+)\s*(.*)', teks_bahan)
-        
-        if match:
-            kuantitas_str = match.group(1).replace('/', '.0/')
-            try:
-                kuantitas = float(eval(kuantitas_str))
-            except:
-                kuantitas = 1.0
-                
-            satuan = match.group(2).lower()
-            nama_bahan_mentah = match.group(3).strip()
-
-            kecocokan_terbaik, skor_bahan = process.extractOne(nama_bahan_mentah, list_nama_db)
-
-            if kecocokan_terbaik and skor_bahan >= 70:
-                data_nutrisi = nama_makanan_db[kecocokan_terbaik]
-
-                pengali_gram = KONVERSI_GRAM.get(satuan, 100) 
-                total_berat_gram = kuantitas * pengali_gram
-                
-                total_berat_semua += total_berat_gram
-
-                kalori_bahan = (total_berat_gram / 100) * float(data_nutrisi['cal'])
-                protein_bahan = (total_berat_gram / 100) * float(data_nutrisi['protein'])
-                karbo_bahan = (total_berat_gram / 100) * float(data_nutrisi['carb'])
-                lemak_bahan = (total_berat_gram / 100) * float(data_nutrisi['fat'])
-
-                total_kalori += kalori_bahan
-                total_protein += protein_bahan
-                total_karbo += karbo_bahan
-                total_lemak += lemak_bahan
-                
-                print(f"[ ✓ ] {teks_bahan} -> {kecocokan_terbaik}")
-
-    conn.close()
-
-    # 3. Proses Insert ke Master Database (Tabel Makanan)
-    if total_berat_semua > 0:
-        cal_100g = (total_kalori / total_berat_semua) * 100
-        pro_100g = (total_protein / total_berat_semua) * 100
-        carb_100g = (total_karbo / total_berat_semua) * 100
-        fat_100g = (total_lemak / total_berat_semua) * 100
-        
-        simpan_ke_makanan_master(nama_makanan, cal_100g, pro_100g, carb_100g, fat_100g)
-    else:
-        # Antisipasi jika AI membalas bahan dengan format salah semua
-        raise ValueError(f"Gagal mengkalkulasi nutrisi untuk '{nama_makanan}'. Format bahan tidak sesuai.")
-
-def proses_nutrisi_terminal(nama_makanan):
-    db = DBHelper('nutrikost.db')
-    conn = db._get_connection()
-    cursor = conn.cursor()
-
-    cursor.execute("SELECT code, food_name, cal, protein, carb, fat FROM Makanan")
+    cursor.execute("SELECT code, food_name, cal, protein, carb, fat, water, fiber FROM Makanan")
     db_makanan = cursor.fetchall()
     
     nama_makanan_db = {row['food_name']: row for row in db_makanan}
@@ -240,7 +144,7 @@ def proses_nutrisi_terminal(nama_makanan):
     #1. Cek di db TKPI USDA
     kecocokan_master, skor_master = process.extractOne(nama_makanan.lower(), list_nama_db)
     
-    if kecocokan_master and skor_master >= 90:
+    if kecocokan_master and skor_master >= 95:
         print(f"\n[🌟 MASTER DB HIT] Makanan langsung ditemukan di database sebagai '{kecocokan_master}' (Akurasi: {skor_master}%)")
         data_nutrisi = nama_makanan_db[kecocokan_master]
         
@@ -274,6 +178,8 @@ def proses_nutrisi_terminal(nama_makanan):
     total_protein = 0
     total_karbo = 0
     total_lemak = 0
+    total_air = 0
+    total_serat = 0
     total_berat_semua = 0
 
     for teks_bahan in daftar_bahan_mentah:
@@ -298,15 +204,19 @@ def proses_nutrisi_terminal(nama_makanan):
                 total_berat_gram = kuantitas * pengali_gram
                 total_berat_semua += total_berat_gram
 
-                kalori_bahan = (total_berat_gram / 100) * float(data_nutrisi['cal'])
+                kalori_bahan  = (total_berat_gram / 100) * float(data_nutrisi['cal'])
                 protein_bahan = (total_berat_gram / 100) * float(data_nutrisi['protein'])
-                karbo_bahan = (total_berat_gram / 100) * float(data_nutrisi['carb'])
-                lemak_bahan = (total_berat_gram / 100) * float(data_nutrisi['fat'])
+                karbo_bahan   = (total_berat_gram / 100) * float(data_nutrisi['carb'])
+                lemak_bahan   = (total_berat_gram / 100) * float(data_nutrisi['fat'])
+                air_bahan     = (total_berat_gram / 100) * float(data_nutrisi['water'] or 0)
+                serat_bahan   = (total_berat_gram / 100) * float(data_nutrisi['fiber'] or 0)
 
-                total_kalori += kalori_bahan
+                total_kalori  += kalori_bahan
                 total_protein += protein_bahan
-                total_karbo += karbo_bahan
-                total_lemak += lemak_bahan
+                total_karbo   += karbo_bahan
+                total_lemak   += lemak_bahan
+                total_air     += air_bahan
+                total_serat   += serat_bahan
 
                 print(f"[ ✓ ] {teks_bahan}")
                 print(f"      Terdeteksi sebagai : {kecocokan_terbaik} (Akurasi: {skor_bahan}%)")
@@ -319,6 +229,36 @@ def proses_nutrisi_terminal(nama_makanan):
             print(f"[ ! ] {teks_bahan}")
             print("      -> Format dari AI gagal diparsing oleh regex.\n")
 
+    # --- Simpan hasil nutrisi ke CacheResep ---
+    if total_berat_semua > 0 and total_kalori > 0:
+        # Normalisasi ke per-100-gram agar konsisten dengan kolom di tabel Makanan
+        faktor = 100 / total_berat_semua
+        cal_per100     = round(total_kalori  * faktor, 2)
+        protein_per100 = round(total_protein * faktor, 2)
+        carb_per100    = round(total_karbo   * faktor, 2)
+        fat_per100     = round(total_lemak   * faktor, 2)
+        water_per100   = round(total_air     * faktor, 2)
+        fiber_per100   = round(total_serat   * faktor, 2)
+
+        db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'nutrikost.db')
+        conn_cache = sqlite3.connect(db_path)
+        try:
+            conn_cache.execute(
+                """
+                UPDATE CacheResep
+                SET cal = ?, protein = ?, carb = ?, fat = ?, water = ?, fiber = ?
+                WHERE nama_makanan = ?
+                """,
+                (cal_per100, protein_per100, carb_per100, fat_per100,
+                 water_per100, fiber_per100, nama_makanan.lower())
+            )
+            conn_cache.commit()
+            print(f"\n[💾 NUTRISI TERSIMPAN] Hasil nutrisi '{nama_makanan}' (per 100g) disimpan ke CacheResep.")
+        except Exception as e:
+            print(f"\n[⚠️  GAGAL SIMPAN] Tidak bisa memperbarui CacheResep: {e}")
+        finally:
+            conn_cache.close()
+
     conn.close()
 
     print("=" * 60)
@@ -328,16 +268,18 @@ def proses_nutrisi_terminal(nama_makanan):
     print(f" Protein Keseluruhan: {round(total_protein, 1)} g")
     print(f" Karbo Keseluruhan  : {round(total_karbo, 1)} g")
     print(f" Lemak Keseluruhan  : {round(total_lemak, 1)} g")
-    print("=" * 60)
-    
+    print(f" Air Keseluruhan    : {round(total_air, 1)} g")
+    print(f" Serat Keseluruhan  : {round(total_serat, 1)} g")
     if total_berat_semua > 0:
-        cal_100g = (total_kalori / total_berat_semua) * 100
-        pro_100g = (total_protein / total_berat_semua) * 100
-        carb_100g = (total_karbo / total_berat_semua) * 100
-        fat_100g = (total_lemak / total_berat_semua) * 100
-        
-        # Panggil fungsi simpan
-        simpan_ke_makanan_master(nama_makanan, cal_100g, pro_100g, carb_100g, fat_100g)
+        print("-" * 60)
+        f = 100 / total_berat_semua
+        print(f" Nutrisi Per 100g   : {round(total_kalori * f, 1)} kcal | "
+              f"{round(total_protein * f, 1)}g Protein | "
+              f"{round(total_karbo * f, 1)}g Karbo | "
+              f"{round(total_lemak * f, 1)}g Lemak | "
+              f"{round(total_air * f, 1)}g Air | "
+              f"{round(total_serat * f, 1)}g Serat")
+    print("=" * 60)
 
 if __name__ == "__main__":
     init_cache_table()
