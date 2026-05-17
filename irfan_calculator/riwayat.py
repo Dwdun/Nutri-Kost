@@ -11,31 +11,44 @@ from PyQt5.QtGui import QFont, QFontMetrics
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 db_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "bima_scrapper", "nutrikost.db"))
 
-from LogSystem import LogSystem
-from fatih_GUI.template_halaman import *
 from fatih_GUI.toast_notification import show_toast, TOAST_SUCCESS, TOAST_ERROR
 
-class RiwayatPage(PageTemplate):
-    PAGE_NAME = 'Riwayat Nutrisi'
-    PAGE_DESC = 'Tinjau kembali pola makan harianmu'
-    NAV_INDEX = 3
+def font_body(size):
+    return QFont("Poppins", size)
 
-    def build_content(self, container: QWidget):
-        self.container = container
-        main_layout = self._scroll.widget().layout()
+def font_label(bold=False):
+    f = QFont("Poppins", 10)
+    f.setBold(bold)
+    return f
+
+class RiwayatPage(QWidget):
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setStyleSheet("background-color: transparent;")
+        self._build_content()
+
+    def _build_content(self):
+        root = QVBoxLayout(self)
+        root.setContentsMargins(32, 28, 32, 28)
+        root.setSpacing(20)
 
         # --- HEADER ---
         h_header_layout = QHBoxLayout()
         text_vbox = QVBoxLayout()
-        text_vbox.addWidget(self._page_title)
-        text_vbox.addWidget(self._page_desc)
+        lbl_title = QLabel("Riwayat Nutrisi")
+        lbl_title.setStyleSheet("color: #1C1C1C; background: transparent; border: none; font-family: 'Montserrat Alternates'; font-size: 32px; font-weight: bold;")
+        lbl_sub = QLabel("Tinjau kembali pola makan harianmu")
+        lbl_sub.setStyleSheet("color: #6c757d; background: transparent; border: none; font-family: 'Montserrat'; font-size: 14px;")
+        text_vbox.addWidget(lbl_title)
+        text_vbox.addWidget(lbl_sub)
         h_header_layout.addLayout(text_vbox)
         h_header_layout.addStretch()
 
         self.action_btn = QPushButton("Export CSV")
         self.action_btn.setFixedSize(145, 56)
         self.action_btn.setCursor(Qt.PointingHandCursor)
-        self.action_btn.setFont(self.font_label(bold=True))
+        self.action_btn.setFont(font_label(bold=True))
         self.action_btn.setStyleSheet("""
             QPushButton {
                 background-color: transparent;
@@ -50,7 +63,7 @@ class RiwayatPage(PageTemplate):
         """)
         self.action_btn.clicked.connect(self.export_to_csv)
         h_header_layout.addWidget(self.action_btn)
-        main_layout.insertLayout(0, h_header_layout)
+        root.addLayout(h_header_layout)
 
         # --- Filter Bar Container ---
         filter_container = QFrame()
@@ -62,7 +75,7 @@ class RiwayatPage(PageTemplate):
         filter_layout.setContentsMargins(2, 2, 2, 2)
         filter_layout.setSpacing(0)
 
-        self.filter_group = QButtonGroup(container)
+        self.filter_group = QButtonGroup(self)
         self.filter_group.setExclusive(False) 
 
         filters = ["7 Hari", "14 Hari", "30 Hari", "Bulan ini"]
@@ -89,13 +102,27 @@ class RiwayatPage(PageTemplate):
             self.filter_group.addButton(btn, i)
             filter_layout.addWidget(btn, 1) 
 
-        self.filter_group.button(0).setChecked(False)
-        container.layout().addWidget(filter_container)
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.NoFrame)
+        scroll.setStyleSheet("background: transparent;")
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+
+        container_scroll = QWidget()
+        container_scroll.setStyleSheet("background: transparent;")
+        main_layout = QVBoxLayout(container_scroll)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setSpacing(20)
+
+        main_layout.addWidget(filter_container)
 
         # --- DYNAMIC CONTENT AREA ---
         self.cards_layout = QVBoxLayout()
-        container.layout().addLayout(self.cards_layout)
-        container.layout().addStretch()
+        main_layout.addLayout(self.cards_layout)
+        main_layout.addStretch()
+
+        scroll.setWidget(container_scroll)
+        root.addWidget(scroll)
         self.refresh_data()
 
     def handle_filter_click(self, clicked_btn):

@@ -13,7 +13,6 @@ from PyQt5.QtWidgets import (
     QScrollArea, QGridLayout, QFrame
 )
 from PyQt5.QtCore import Qt, QUrl, QObject, pyqtSignal
-from fatih_GUI.toast_notification import show_toast, TOAST_SUCCESS, TOAST_ERROR
 from PyQt5.QtGui import (
     QFont, QColor, QPainter, QLinearGradient, QPixmap, QCursor, QBrush, QPainterPath, QDesktopServices
 )
@@ -424,7 +423,7 @@ class RekomendasiPage(QWidget):
         title_layout.addStretch()
 
         # Tombol Perbarui
-        self.btn_scrape = QPushButton("Perbarui & Muat Resep")
+        self.btn_scrape = QPushButton("Muat Resep")
         self.btn_scrape.setCursor(Qt.PointingHandCursor)
         self.btn_scrape.setStyleSheet("""
             QPushButton {
@@ -492,12 +491,14 @@ class RekomendasiPage(QWidget):
             self._baca_json_lokal()
             self._render_grid()
 
-            show_toast(self, f"Berhasil memuat {len(self.resep_data)} resep terbaru!", TOAST_SUCCESS)
+            QMessageBox.information(
+                self, "Selesai", f"Berhasil memuat {len(self.resep_data)} resep terbaru!"
+            )
         except Exception as e:
-            show_toast(self, f"Terjadi kesalahan saat memuat resep: {e}", TOAST_ERROR)
+            QMessageBox.critical(self, "Error", f"Terjadi kesalahan saat memuat resep: {e}")
         finally:
             QApplication.restoreOverrideCursor()
-            self.btn_scrape.setText("Perbarui & Muat Resep")
+            self.btn_scrape.setText("Muat Resep")
             self.btn_scrape.setEnabled(True)
 
     def _buka_detail(self, resep):

@@ -1,2 +1,6 @@
 id_log,id_user,kode_makanan,meal_time,portion,cal,protein,carb,fat,category,full_name,food_name
-2,1,AI-RIS-2305,2026-05-04 07:32:52,200.0,522.26,16.04,55.78,27.1,Sarapan,Coba,Risol Mayo
+28,13,AI-ROT-9193,2026-05-11 10:49:17,100.0,339.94,6.22,42.43,17.24,Sarapan,fatih,Roti Maryam
+27,13,AP002,2026-05-11 10:48:28,100.0,120.0,2.4,26.0,0.4,Sarapan,fatih,Nasi tim
+26,12,AI-DIM-5288,2026-05-11 10:39:34,100.0,238.44,5.38,16.99,14.19,Sarapan,fatih,Dimsum Mentai
+21,3,AP089,2026-05-10 00:32:40,444.0,852.48,16.87,108.34,39.07,Sarapan,Muhammad Faqih Shiam,Nasi gemuk
+20,3,AP001,2026-05-10 00:30:48,300.0,540.0,9.0,119.4,0.9,Sarapan,Muhammad Faqih Shiam,Nasi
