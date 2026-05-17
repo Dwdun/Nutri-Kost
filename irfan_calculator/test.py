@@ -185,8 +185,8 @@ class AITambahPopup(QWidget):
 
         if sukses:
             self._set_status(
-                f"✅  '{nama_makanan}' berhasil dianalisis & ditambahkan!\n"
-                "Klik Kembali untuk memilihnya.",
+                f"✅  '{nama_makanan}' berhasil dianalisis & di-request!\n"
+                "Klik Kembali.",
                 "#1A7A34"
             )
             self.success_callback(nama_makanan)
@@ -253,7 +253,7 @@ class TambahPopup(QWidget):
         card_layout.addWidget(self.nama)
 
         # ── [BARU] Tombol "Makanan tidak terdaftar? Tambahkan" ──────────────
-        self.btn_ai_tambah = QPushButton("🔍  Makanan tidak terdaftar? Tambahkan")
+        self.btn_ai_tambah = QPushButton("🔍  Makanan tidak terdaftar? Tambahkan request pada kami")
         self.btn_ai_tambah.setFixedHeight(28)
         self.btn_ai_tambah.setCursor(Qt.PointingHandCursor)
         self.btn_ai_tambah.setStyleSheet("""

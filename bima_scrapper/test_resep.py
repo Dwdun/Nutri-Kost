@@ -1,6 +1,5 @@
 import sys
 import os
-import json
 
 _THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 _GUI_DIR = os.path.join(_THIS_DIR, '..', 'fatih_GUI')
@@ -36,12 +35,8 @@ from PyQt5.QtGui import (
     QDesktopServices,
 )
 
-
-# ─────────────────────────────────────────────
-#  PATH JSON — sesuaikan jika perlu
-# ─────────────────────────────────────────────
-JSON_PATH = os.path.join(_THIS_DIR, 'Resep.json')
-
+# Impor JsonHelper dari models.py
+from models import JsonHelper
 
 # ─────────────────────────────────────────────
 #  WARNA GRADIEN (dirotasi per kartu)
@@ -86,19 +81,15 @@ def _fix_url(url: str) -> str:
     return url
 
 
-def load_recipes_from_json(path: str) -> list:
+def get_formatted_recipes() -> list:
     """
-    Baca file JSON dan kembalikan list dict dengan key:
+    Ambil data resep via JsonHelper dan kembalikan list dict dengan key:
       name, desc, img_url, link
     """
-    try:
-        with open(path, 'r', encoding='utf-8') as f:
-            raw = json.load(f)
-    except FileNotFoundError:
-        print(f'[WARN] File JSON tidak ditemukan: {path}')
-        return []
-    except json.JSONDecodeError as e:
-        print(f'[WARN] Gagal parse JSON: {e}')
+    json_helper = JsonHelper()
+    raw = json_helper.get_resep_harian()
+    
+    if not raw:
         return []
 
     result = []
@@ -417,13 +408,12 @@ class HalamanResepMakanan(PageTemplate):
     NAV_INDEX = 4
 
     def build_content(self, container: QWidget):
-        recipes = load_recipes_from_json(JSON_PATH)
+        recipes = get_formatted_recipes()
 
         if not recipes:
             lbl = QLabel(
-                f'\u26a0  Data resep tidak ditemukan.\n'
-                f'   Pastikan file Resep.json ada di folder yang sama:\n'
-                f'   {JSON_PATH}'
+                f'\u26a0  Data resep tidak ditemukan atau kosong.\n'
+                f'   Pastikan file Resep.json sudah dibuat atau berhasil di-scrape.'
             )
             lbl.setFont(font_body(10))
             lbl.setStyleSheet(
