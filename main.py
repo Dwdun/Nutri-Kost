@@ -4,6 +4,7 @@ import os
 #tempat main.py berada = root proyek
 BASE = os.path.dirname(__file__)   
 
+#add sub folder to py
 sys.path.insert(0, os.path.join(BASE, "faqih_integrator"))  # main_window, search_page
 sys.path.insert(0, os.path.join(BASE, "bima_scrapper"))     # models.py (DBHelper, JsonHelper)
 sys.path.insert(0, os.path.join(BASE, "irfan_calculator"))  # log_page 
@@ -13,15 +14,18 @@ sys.path.insert(0, os.path.join(BASE, "fatih_GUI"))         # dashboard, chart
 from PyQt5.QtWidgets import QApplication, QMainWindow, QStackedWidget
 from PyQt5.QtGui import QFontDatabase, QIcon
 
+#import awal
 from faqih_integrator.main_window import MainWindow
 from anindya_profil.profil_system import ProfilSystem
 from anindya_profil.test import HalamanLogin, HalamanRegister, HalamanDataDiri, AuthBaseWidget
 
+#mengatur perpindahan
 class AppLauncher(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("NutriKost")
         self.resize(1200, 720)
+        #sumber data
         self._sistem = ProfilSystem()
         
         #inisiasi admin
@@ -43,17 +47,21 @@ class AppLauncher(QMainWindow):
         self.setCentralWidget(self.stack)
 
         self.init_auth_flow()
+        #halaman pertama dibuka
         self.show_login()
 
     def init_auth_flow(self):
+        #halaman auth
         self.login_p = HalamanLogin(self._sistem)
         self.register_p = HalamanRegister()
         self.datadiri_p = HalamanDataDiri(self._sistem)
 
+        #wrapper
         self.login_wrapper = AuthBaseWidget(self.login_p)
         self.register_wrapper = AuthBaseWidget(self.register_p)
         self.datadiri_wrapper = AuthBaseWidget(self.datadiri_p)
 
+        #koneksi sinyal
         self.login_p.go_register.connect(self.show_register)
         self.login_p.login_success.connect(self.show_dashboard)
         
@@ -77,16 +85,24 @@ class AppLauncher(QMainWindow):
         self.datadiri_p.register_data = data
         self.stack.setCurrentWidget(self.datadiri_wrapper)
 
+    #main window baru dibuat
     def show_dashboard(self):
+        # Bersihkan dashboard lama jika masih ada (misal register akun baru tanpa logout)
+        if hasattr(self, 'dashboard') and self.dashboard is not None:
+            self.stack.removeWidget(self.dashboard)
+            self.dashboard.deleteLater()
+            self.dashboard = None
+
         self.dashboard = MainWindow(self._sistem)
         self.dashboard.logout_signal.connect(self.handle_logout)
             
         self.stack.addWidget(self.dashboard)
         self.stack.setCurrentWidget(self.dashboard)
-        
+    
+    #handling logout
     def handle_logout(self):
-        self.stack.removeWidget(self.dashboard)
-        self.dashboard.deleteLater()
+        self.stack.removeWidget(self.dashboard) #keluar dari tampila
+        self.dashboard.deleteLater() 
         self.dashboard = None
         self.show_login()
 
@@ -108,6 +124,7 @@ def main():
         
     app.setApplicationName("NutriKost")
 
+    #font dan icon
     QFontDatabase.addApplicationFont(os.path.join(BASE, "assets/fonts/MontserratAlternates-Regular.ttf"))
     QFontDatabase.addApplicationFont(os.path.join(BASE, "assets/fonts/MontserratAlternates-Bold.ttf"))
     QFontDatabase.addApplicationFont(os.path.join(BASE, "assets/fonts/Poppins-Regular.ttf"))
@@ -115,7 +132,7 @@ def main():
     QFontDatabase.addApplicationFont(os.path.join(BASE, "assets/fonts/Poppins-SemiBold.ttf"))
     QFontDatabase.addApplicationFont(os.path.join(BASE, "assets/fonts/Poppins-Bold.ttf"))
 
-    #tampilan lintas OS yang konsisten (Windows, Linux, Mac sama ratanya)
+    #tampilan lintas OS 
     app.setStyle("Fusion")
     
     app.setStyleSheet("""
@@ -138,8 +155,7 @@ def main():
         }
     """)
 
-    # Stylesheet global — berlaku untuk SEMUA widget di seluruh aplikasi.
-    # Tiap anggota tidak perlu set font/scrollbar sendiri-sendiri.
+    # Stylesheet global 
     app.setStyleSheet("""
         QWidget {
             font-family: 'Poppins', 'Segoe UI', Arial, sans-serif;
@@ -184,6 +200,7 @@ def main():
         }
     """)
 
+    #menjalankan aplikasi
     window = AppLauncher()
     window.showMaximized()
 

@@ -28,25 +28,46 @@ class LogSystem:
         self.conn.commit()
 
     # --- READ ---
-    def ReadLog(self):
-        query = """
-            SELECT 
-                l.id_log,
-                l.id_user,
-                l.kode_makanan,
-                m.food_name,
-                l.portion,
-                l.meal_time,
-                l.cal,
-                l.protein,
-                l.carb,
-                l.fat,
-                l.category
-            FROM LogHarian l
-            JOIN Makanan m ON l.kode_makanan = m.code
-        """
-        cursor = self.conn.cursor()
-        cursor.execute(query)
+    def ReadLog(self, id_user=None):
+        if id_user is not None:
+            query = """
+                SELECT 
+                    l.id_log,
+                    l.id_user,
+                    l.kode_makanan,
+                    m.food_name,
+                    l.portion,
+                    l.meal_time,
+                    l.cal,
+                    l.protein,
+                    l.carb,
+                    l.fat,
+                    l.category
+                FROM LogHarian l
+                JOIN Makanan m ON l.kode_makanan = m.code
+                WHERE l.id_user = ?
+            """
+            cursor = self.conn.cursor()
+            cursor.execute(query, (id_user,))
+        else:
+            query = """
+                SELECT 
+                    l.id_log,
+                    l.id_user,
+                    l.kode_makanan,
+                    m.food_name,
+                    l.portion,
+                    l.meal_time,
+                    l.cal,
+                    l.protein,
+                    l.carb,
+                    l.fat,
+                    l.category
+                FROM LogHarian l
+                JOIN Makanan m ON l.kode_makanan = m.code
+            """
+            cursor = self.conn.cursor()
+            cursor.execute(query)
         return [dict(row) for row in cursor.fetchall()]
 
     # --- UPDATE ---

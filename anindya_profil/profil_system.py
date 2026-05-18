@@ -34,8 +34,8 @@ class ProfilSystem:
                     return False, "Password yang Anda masukkan salah."
 
         if not user_exists:
-             return False, "Akun tidak ditemukan. Silakan daftar terlebih dahulu."
-             
+            return False, "Akun tidak ditemukan. Silakan daftar terlebih dahulu."
+            
         return False, "Email atau Password salah!"
 
     def __init__(self):
