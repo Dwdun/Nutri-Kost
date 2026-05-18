@@ -92,6 +92,49 @@ class ProfilSystem:
             if user.get('email') == email_input:
                 return True
         return False
+
+    def resetPasswordByEmail(self, email, plain_temp_password):
+        """
+        Mereset password user berdasarkan email dengan plain_temp_password baru.
+        Password akan di-hash menggunakan SHA-256 terlebih dahulu sebelum disimpan.
+        Mengembalikan True jika berhasil, False jika gagal.
+        """
+        email_input = email.strip()
+        password_hash = self._hash_password(plain_temp_password)
+        
+        # Cari user dengan email tersebut
+        try:
+            semua_user = self.data_helper.get_all_users()
+        except Exception:
+            semua_user = self._mock_db
+            
+        target_user = None
+        for user in semua_user:
+            if user.get('email') == email_input:
+                target_user = user
+                break
+                
+        if not target_user:
+            print("Gagal Reset: Email tidak ditemukan.")
+            return False
+            
+        # Update di SQLite atau mock database
+        id_user = target_user.get('id_user')
+        try:
+            # Panggil DBHelper untuk update kolom password saja
+            success = self.data_helper.update_user(id_user, {'password': password_hash})
+            if success:
+                print(f"Password reset berhasil di database untuk user ID: {id_user}")
+                return True
+        except Exception as e:
+            # Jika database bermasalah, update di mock memory
+            for user in self._mock_db:
+                if user.get('email') == email_input:
+                    user['password'] = password_hash
+                    print("Password reset berhasil di Mock Database!")
+                    return True
+                    
+        return False
     
     def createProfil(self, data):
         # validasi dulu sebelum simpan ke database
