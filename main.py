@@ -108,7 +108,7 @@ class AppLauncher(QMainWindow):
 
 def main():
     import ctypes
-    # Agar taskbar icon di Windows berubah, set AppUserModelID
+    # HARUS dipanggil SEBELUM QApplication agar taskbar icon di Windows berubah
     try:
         myappid = 'nutrikost.app.1.0'
         ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
@@ -117,10 +117,12 @@ def main():
 
     app = QApplication(sys.argv)
     
-    # Set window icon untuk taskbar dan pojok kiri atas
-    icon_path = os.path.join(BASE, "assets", "icons", "Logo.png")
-    if os.path.exists(icon_path):
-        app.setWindowIcon(QIcon(icon_path))
+    # Gunakan .ico untuk taskbar Windows (lebih reliable dari .png)
+    ico_path = os.path.join(BASE, "assets", "icons", "Logo.ico")
+    png_path = os.path.join(BASE, "assets", "icons", "Logo.png")
+    icon_path = ico_path if os.path.exists(ico_path) else png_path
+    app_icon = QIcon(icon_path) if os.path.exists(icon_path) else QIcon()
+    app.setWindowIcon(app_icon)
         
     app.setApplicationName("NutriKost")
 
@@ -202,6 +204,7 @@ def main():
 
     #menjalankan aplikasi
     window = AppLauncher()
+    window.setWindowIcon(app_icon)   # set langsung di window agar taskbar Windows ter-update
     window.showMaximized()
 
     # app.exec_() memulai event loop — aplikasi "hidup" di sini sampai window ditutup.

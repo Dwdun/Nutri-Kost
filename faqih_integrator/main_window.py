@@ -191,6 +191,19 @@ class MainWindow(QMainWindow):
 
         #buat kerangka, daftarin halaman, tampilin halaman pertama, jalanin timer notif
         self._build_ui()
+
+        # Admin: sidebar mulai collapsed (hanya ikon, teks NutriKost muncul saat di-expand)
+        if self.is_admin:
+            self._collapsed = True
+            self.sidebar.setMinimumWidth(SIDEBAR_COL)
+            self.sidebar.setMaximumWidth(SIDEBAR_COL)
+            self._logo_text.setVisible(False)
+            self._prof_info.setVisible(False)
+            self._logout_icon.setVisible(False)
+            for key, btn in self._sidebar_buttons.items():
+                if isinstance(btn, NavItem):
+                    btn.set_collapsed(True)
+
         self.setupRouting()
         self.navigate("dashboard")
         self.setupNotificationTimer()
@@ -361,9 +374,8 @@ class MainWindow(QMainWindow):
             self._sidebar_buttons["setting"] = btn_setting
             sb_layout.addWidget(btn_setting)
         else:
-            # Hide logo for admin
-            logo_icon.setVisible(False)
-            self._logo_text.setVisible(False)
+            # Admin tetap tampilkan logo NutriKost di sidebar
+            # (logo_icon dan _logo_text sudah di-add ke layout, tidak perlu di-hide)
             
             # Hanya Dashboard untuk admin
             btn_admin_dash = NavItem("material-symbols_home-rounded.png", "Dashboard Admin")
@@ -380,8 +392,16 @@ class MainWindow(QMainWindow):
         div_prof.setStyleSheet("background: rgba(255,255,255,0.25); border: none;")
         sb_layout.addWidget(div_prof)
 
-        # Profile area
+        # Profile area — dibagi 2 zona: profil info (→ halaman profil) + logout button (→ keluar)
+        profile_area = QWidget()
+        profile_area.setFixedHeight(64)
+        profile_area_lay = QHBoxLayout(profile_area)
+        profile_area_lay.setContentsMargins(0, 0, 0, 0)
+        profile_area_lay.setSpacing(0)
+
+        # ── Tombol profil (kiri) ──
         self._prof_btn = QPushButton()
+        self._prof_btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         self._prof_btn.setFixedHeight(64)
         self._prof_btn.setCursor(Qt.PointingHandCursor)
         self._prof_btn.setStyleSheet(f"""
@@ -389,10 +409,10 @@ class MainWindow(QMainWindow):
             QPushButton:hover {{ background: {SIDEBAR_HOVER}; }}
         """)
         self._prof_btn.clicked.connect(lambda: self.navigate("profil"))
-        self._sidebar_buttons["profil"] = self._prof_btn  
+        self._sidebar_buttons["profil"] = self._prof_btn
 
         prof_lay = QHBoxLayout(self._prof_btn)
-        prof_lay.setContentsMargins(0, 0, 8, 0)
+        prof_lay.setContentsMargins(0, 0, 4, 0)
         prof_lay.setSpacing(0)
 
         prof_icon = QLabel()
@@ -401,7 +421,7 @@ class MainWindow(QMainWindow):
         prof_path = os.path.join(ICONS_DIR, 'gg_profile.png')
         if os.path.exists(prof_path):
             prof_icon.setPixmap(QPixmap(prof_path).scaled(26, 26, Qt.KeepAspectRatio, Qt.SmoothTransformation))
-        
+
         self._prof_info = QWidget()
         info_lay = QVBoxLayout(self._prof_info)
         info_lay.setContentsMargins(0, 0, 0, 0)
@@ -411,7 +431,7 @@ class MainWindow(QMainWindow):
         profil_data = {}
         if hasattr(self, 'sistem_profil') and self.sistem_profil and self.sistem_profil.current_profil:
             profil_data = self.sistem_profil.current_profil
-            
+
         u_lbl = QLabel(profil_data.get("full_name", "User Profile"))
         u_lbl.setFont(QFont("Poppins", 10, QFont.Bold))
         u_lbl.setStyleSheet("color: white;")
@@ -422,18 +442,43 @@ class MainWindow(QMainWindow):
         info_lay.addWidget(u_lbl)
         info_lay.addWidget(e_lbl)
 
-        self._logout_icon = QLabel()
-        self._logout_icon.setFixedSize(36, 36)
-        self._logout_icon.setAlignment(Qt.AlignCenter)
-        logout_path = os.path.join(ICONS_DIR, 'material-symbols_logout-rounded.png')
-        if os.path.exists(logout_path):
-            self._logout_icon.setPixmap(QPixmap(logout_path).scaled(20, 20, Qt.KeepAspectRatio, Qt.SmoothTransformation))
-
         prof_lay.addWidget(prof_icon)
         prof_lay.addWidget(self._prof_info, 1)
-        prof_lay.addWidget(self._logout_icon)
 
-        sb_layout.addWidget(self._prof_btn)
+        # ── Tombol logout (kanan) — terpisah dari _prof_btn ──
+        self._logout_btn = QPushButton()
+        self._logout_btn.setFixedSize(44, 64)
+        self._logout_btn.setCursor(Qt.PointingHandCursor)
+        self._logout_btn.setToolTip("Keluar")
+        self._logout_btn.setStyleSheet(f"""
+            QPushButton {{
+                background: transparent;
+                border: none;
+            }}
+            QPushButton:hover {{
+                background: rgba(220, 50, 50, 0.25);
+            }}
+            QPushButton:pressed {{
+                background: rgba(220, 50, 50, 0.45);
+            }}
+        """)
+        logout_path = os.path.join(ICONS_DIR, 'material-symbols_logout-rounded.png')
+        if os.path.exists(logout_path):
+            self._logout_btn.setIcon(QIcon(logout_path))
+            self._logout_btn.setIconSize(QSize(20, 20))
+
+        self._logout_btn.clicked.connect(self._confirm_logout)
+
+        # Sembunyikan logout button juga saat sidebar collapsed (sama seperti _prof_info)
+        self._logout_btn_ref = self._logout_btn  # simpan referensi untuk _toggle_sidebar
+
+        profile_area_lay.addWidget(self._prof_btn, 1)
+        profile_area_lay.addWidget(self._logout_btn)
+
+        # Simpan referensi ke widget yang disembunyikan saat collapse
+        self._logout_icon = self._logout_btn  # compat dengan _toggle_sidebar
+
+        sb_layout.addWidget(profile_area)
         body_layout.addWidget(self.sidebar)
 
         # Content Area
@@ -463,8 +508,7 @@ class MainWindow(QMainWindow):
         self._anim.start()
         self._anim_max.start()
 
-        if not self.is_admin:
-            self._logo_text.setVisible(not self._collapsed)
+        self._logo_text.setVisible(not self._collapsed)
         for lbl in self._section_labels:
             lbl.set_collapsed(self._collapsed)
         self._prof_info.setVisible(not self._collapsed)
@@ -552,6 +596,15 @@ class MainWindow(QMainWindow):
         #settings
         from faqih_integrator.setting_page import SettingPage
         self._add_page("setting", SettingPage(self.sistem_profil))
+
+    #konfirmasi sebelum logout — pakai LogoutConfirmDialog yang sama dengan halaman profil
+    def _confirm_logout(self):
+        from anindya_profil.test import LogoutConfirmDialog
+        from PyQt5.QtWidgets import QDialog
+        dlg = LogoutConfirmDialog(self)
+        dlg.setGeometry(0, 0, self.width(), self.height())
+        if dlg.exec_() == QDialog.Accepted:
+            self.logout_signal.emit()
 
     #cek batas kalori
     def _check_calorie_limit(self):
