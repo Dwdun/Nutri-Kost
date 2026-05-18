@@ -9,10 +9,11 @@ from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QPushButton, 
     QStackedWidget, QFileDialog, QMessageBox, QApplication, QLabel
 )
-from PyQt5.QtCore import Qt, pyqtSignal
+from PyQt5.QtCore import Qt, pyqtSignal, QTimer
 from fatih_GUI.toast_notification import show_toast, TOAST_SUCCESS, TOAST_ERROR
 from PyQt5.QtPrintSupport import QPrinter
-from PyQt5.QtGui import QPainter, QPageLayout, QFont
+from PyQt5.QtGui import QPainter, QPageLayout, QFont, QIcon, QPixmap
+from PyQt5.QtCore import QSize
 
 # Import semua widget
 from fatih_GUI.widgets import (
@@ -60,11 +61,8 @@ class HalamanVisualisasi(QWidget):
         header_row.addLayout(title_desc_layout)
         header_row.addStretch()
 
-        # ── Tombol Export PDF ──
-        self._btn_export = QPushButton('↓  Export PDF')
-        self._btn_export.setFont(QFont('Poppins', 10, QFont.Bold))
-        self._btn_export.setCursor(Qt.PointingHandCursor)
-        self._btn_export.setStyleSheet("""
+        # ── Style bersama untuk tombol export ──
+        _EXPORT_STYLE = """
             QPushButton {
                 background: transparent;
                 color: #1A7A34;
@@ -78,9 +76,37 @@ class HalamanVisualisasi(QWidget):
             QPushButton:hover {
                 background: rgba(26, 122, 52, 0.08);
             }
-        """)
+            QPushButton:disabled {
+                color: #9E9E9E;
+                border-color: #9E9E9E;
+            }
+        """
+
+        # ── Path ikon download ──
+        _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        _ICON_PATH = os.path.join(_ROOT, 'assets', 'icons', 'material-symbols_download-rounded.png')
+        self._download_icon = QIcon(_ICON_PATH)
+        _ICON_SIZE = QSize(20, 20)
+
+        # ── Tombol Export PDF (tab aktif) ──
+        self._btn_export = QPushButton('  Export PDF')
+        self._btn_export.setFont(QFont('Poppins', 10, QFont.Bold))
+        self._btn_export.setCursor(Qt.PointingHandCursor)
+        self._btn_export.setIcon(self._download_icon)
+        self._btn_export.setIconSize(_ICON_SIZE)
+        self._btn_export.setStyleSheet(_EXPORT_STYLE)
         self._btn_export.clicked.connect(self._on_export_pdf)
         header_row.addWidget(self._btn_export)
+
+        # ── Tombol Export All PDF ──
+        self._btn_export_all = QPushButton('  Export All PDF')
+        self._btn_export_all.setFont(QFont('Poppins', 10, QFont.Bold))
+        self._btn_export_all.setCursor(Qt.PointingHandCursor)
+        self._btn_export_all.setIcon(self._download_icon)
+        self._btn_export_all.setIconSize(_ICON_SIZE)
+        self._btn_export_all.setStyleSheet(_EXPORT_STYLE)
+        self._btn_export_all.clicked.connect(self._on_export_all_pdf)
+        header_row.addWidget(self._btn_export_all)
 
         main_layout.addLayout(header_row)
         main_layout.addSpacing(16)
@@ -222,6 +248,54 @@ class HalamanVisualisasi(QWidget):
             show_toast(self, f'PDF berhasil disimpan:\n{file_path}', TOAST_SUCCESS)
         except Exception as e:
             show_toast(self, f'Terjadi kesalahan:\n{str(e)}', TOAST_ERROR)
+
+    def _on_export_all_pdf(self):
+        """Ekspor semua tab visualisasi sebagai PDF terpisah ke folder yang dipilih."""
+        folder_path = QFileDialog.getExistingDirectory(
+            self,
+            'Pilih Folder Penyimpanan PDF',
+            os.path.expanduser('~'),
+        )
+        
+        if not folder_path:
+            return  # user cancel
+
+        # Nonaktifkan tombol sementara agar tidak klik ganda
+        self._btn_export_all.setEnabled(False)
+        self._btn_export_all.setText('⏳  Mengekspor...')
+
+        tab_info = [
+            (0, 'NutriKost_Kalori_Mingguan.pdf'),
+            (1, 'NutriKost_Komposisi_Gizi.pdf'),
+            (2, 'NutriKost_Top10_Makanan.pdf'),
+        ]
+
+        errors = []
+        saved_files = []
+
+        for tab_index, filename in tab_info:
+            file_path = os.path.join(folder_path, filename)
+            try:
+                widget = self._stack.widget(tab_index)
+                self._export_widget_to_pdf(widget, file_path)
+                saved_files.append(filename)
+            except Exception as e:
+                errors.append(f'{filename}: {str(e)}')
+
+        # Pulihkan tombol
+        self._btn_export_all.setEnabled(True)
+        self._btn_export_all.setIcon(self._download_icon)
+        self._btn_export_all.setText('  Export All PDF')
+
+        if errors:
+            error_msg = '\n'.join(errors)
+            show_toast(self, f'Sebagian gagal diekspor:\n{error_msg}', TOAST_ERROR)
+        else:
+            show_toast(
+                self,
+                f'{len(saved_files)} PDF berhasil disimpan ke:\n{folder_path}',
+                TOAST_SUCCESS,
+            )
 
     def _export_widget_to_pdf(self, widget: QWidget, file_path: str):
         """Mengekspor isi dari widget secara persis (WYSIWYG) ke PDF A4 Landscape."""
