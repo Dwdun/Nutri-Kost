@@ -6,6 +6,7 @@ from PyQt5.QtCore import Qt, QSize, QPropertyAnimation, QEasingCurve, QTimer, QT
 from PyQt5.QtGui import QFont, QPixmap, QIcon, QCursor, QPainter, QColor
 from fatih_GUI.toast_notification import show_toast, TOAST_NORMAL, TOAST_ERROR
 import os
+import sqlite3 as _sqlite3
 
 # collor pallete
 SIDEBAR_BG     = "#1A7A34"   
@@ -382,6 +383,18 @@ class MainWindow(QMainWindow):
             btn_admin_dash.clicked.connect(lambda checked, k="dashboard": self.navigate(k))
             self._sidebar_buttons["dashboard"] = btn_admin_dash
             sb_layout.addWidget(btn_admin_dash)
+
+            # --- Tombol Ekspor Schema ---
+            btn_export = NavItem("material-symbols_list-alt-rounded.png", "Ekspor Schema")
+            btn_export.clicked.connect(self._export_schema)
+            self._sidebar_buttons["export_schema"] = btn_export
+            sb_layout.addWidget(btn_export)
+
+            # --- Tombol Impor Schema ---
+            btn_import = NavItem("iconamoon_history-bold.png", "Impor Schema")
+            btn_import.clicked.connect(self._import_schema)
+            self._sidebar_buttons["import_schema"] = btn_import
+            sb_layout.addWidget(btn_import)
             
             sb_layout.addStretch()
 
@@ -644,6 +657,59 @@ class MainWindow(QMainWindow):
         sub.setStyleSheet("color: #aaa; font-size: 13px;")
         layout.addWidget(sub)
         return w
+
+    # ── Admin: path DB dan schema ─────────────────────────────────────────────
+    @property
+    def _db_path(self) -> str:
+        return os.path.normpath(os.path.join(BASE_DIR, '..', 'bima_scrapper', 'nutrikost.db'))
+
+    @property
+    def _schema_path(self) -> str:
+        return os.path.normpath(os.path.join(BASE_DIR, '..', 'bima_scrapper', 'db_schema.sql'))
+
+    # ── Admin: Ekspor schema (sqlite3 nutrikost.db .dump > db_schema.sql) ────
+    def _export_schema(self):
+        reply = QMessageBox.question(
+            self, "Konfirmasi Ekspor",
+            f"Ekspor seluruh isi database ke:\n{self._schema_path}\n\nLanjutkan?",
+            QMessageBox.Yes | QMessageBox.No
+        )
+        if reply != QMessageBox.Yes:
+            return
+        try:
+            conn = _sqlite3.connect(self._db_path)
+            with open(self._schema_path, 'w', encoding='utf-8') as f:
+                for line in conn.iterdump():
+                    f.write(line + '\n')
+            conn.close()
+            show_toast(self, "✅ Schema berhasil diekspor ke db_schema.sql", TOAST_NORMAL)
+        except Exception as e:
+            show_toast(self, f"❌ Gagal ekspor schema: {e}", TOAST_ERROR)
+
+    # ── Admin: Impor schema (sqlite3 nutrikost.db < db_schema.sql) ───────────
+    def _import_schema(self):
+        if not os.path.exists(self._schema_path):
+            show_toast(self, f"❌ File db_schema.sql tidak ditemukan!", TOAST_ERROR)
+            return
+        reply = QMessageBox.warning(
+            self, "Konfirmasi Impor",
+            f"⚠️ PERINGATAN: Impor akan menimpa data database saat ini!\n\n"
+            f"Sumber: {self._schema_path}\n"
+            f"Target: {self._db_path}\n\n"
+            f"Lanjutkan?",
+            QMessageBox.Yes | QMessageBox.No
+        )
+        if reply != QMessageBox.Yes:
+            return
+        try:
+            with open(self._schema_path, 'r', encoding='utf-8') as f:
+                sql_script = f.read()
+            conn = _sqlite3.connect(self._db_path)
+            conn.executescript(sql_script)
+            conn.close()
+            show_toast(self, "✅ Schema berhasil diimpor dari db_schema.sql", TOAST_NORMAL)
+        except Exception as e:
+            show_toast(self, f"❌ Gagal impor schema: {e}", TOAST_ERROR)
 
     #navigasi halaman
     def navigate(self, page_key: str):
