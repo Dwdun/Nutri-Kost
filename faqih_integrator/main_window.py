@@ -1,10 +1,9 @@
 from PyQt5.QtWidgets import (
     QMainWindow, QWidget, QHBoxLayout, QVBoxLayout,
-    QPushButton, QLabel, QStackedWidget, QFrame, QSizePolicy
+    QPushButton, QLabel, QStackedWidget, QFrame, QSizePolicy,QMessageBox
 )
 from PyQt5.QtCore import Qt, QSize, QPropertyAnimation, QEasingCurve, QTimer, QTime, QSettings
 from PyQt5.QtGui import QFont, QPixmap, QIcon, QCursor, QPainter, QColor
-from PyQt5.QtWidgets import QMessageBox
 from fatih_GUI.toast_notification import show_toast, TOAST_NORMAL, TOAST_ERROR
 import os
 
@@ -13,8 +12,8 @@ SIDEBAR_BG     = "#1A7A34"
 SIDEBAR_HOVER  = "#3C8E52"   
 SIDEBAR_ACTIVE = "#5EA271"   
 SIDEBAR_TEXT   = "#ffffff"
-SIDEBAR_EXP    = 280            
-SIDEBAR_COL    = 76
+SIDEBAR_EXP    = 280      #lebar sidebar dibuka       
+SIDEBAR_COL    = 76       #lebar sidebar ditutup
 CONTENT_BG     = "#F2F4F0"   
 HEADER_BG      = "#ffffff"
 ACCENT_GREEN   = "#1A7A34"
@@ -23,7 +22,9 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 ICONS_DIR = os.path.join(BASE_DIR, '..', 'assets', 'icons')
 PATTERN_PATH = os.path.join(BASE_DIR, '..', 'assets', 'pattern.png')
 
+#pattern background
 class PatternWidget(QWidget):
+    #constructor
     def __init__(self, parent=None):
         super().__init__(parent)
         raw = QPixmap(PATTERN_PATH)
@@ -31,39 +32,45 @@ class PatternWidget(QWidget):
             self._tile = raw.scaled(150, 150, Qt.KeepAspectRatio, Qt.SmoothTransformation)
         else:
             self._tile = QPixmap()
-
+    #cat bg
     def paintEvent(self, event):
         painter = QPainter(self)
         painter.fillRect(self.rect(), QColor(CONTENT_BG))
         if not self._tile.isNull():
             painter.setOpacity(0.1)
-            tw = self._tile.width()
-            th = self._tile.height()
+            tw = self._tile.width() #lebar tile
+            th = self._tile.height() #tinggi tile
+            
             x = 0
-            while x < self.width():
+            while x < self.width(): #loop kiri ke kanan
                 y = 0
-                while y < self.height():
+                while y < self.height(): #loop atas ke bawah
                     painter.drawPixmap(x, y, self._tile)
                     y += th
                 x += tw
         painter.end()
 
+#sidebar
 class NavItem(QPushButton):
+    #constructor
     def __init__(self, icon_filename: str, label: str, parent=None):
         super().__init__(parent)
         self.setCursor(Qt.PointingHandCursor)
         self.setFixedHeight(48)
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        self._collapsed = False
+        self._collapsed = False #terbuka atau enga
         
+        #layout
         self._layout = QHBoxLayout(self)
-        self._layout.setContentsMargins(0, 0, 16, 0)
+        self._layout.setContentsMargins(0, 0, 16, 0) #margin kiri, atas, kanan, bawah
         self._layout.setSpacing(0)
 
+        #icon
         self.icon_lbl = QLabel()
         self.icon_lbl.setFixedWidth(SIDEBAR_COL)
         self.icon_lbl.setAlignment(Qt.AlignCenter)
         self.icon_lbl.setStyleSheet("background: transparent;")
+
         if icon_filename:
             path = os.path.join(ICONS_DIR, icon_filename)
             if os.path.exists(path):
@@ -73,20 +80,23 @@ class NavItem(QPushButton):
                 self.icon_lbl.setText("•")
                 self.icon_lbl.setStyleSheet("color: white; background: transparent; font-size: 16px;")
 
+        #text
         self.text_lbl = QLabel(label)
         self.text_lbl.setFont(QFont("Poppins", 10))
         self.text_lbl.setStyleSheet("color: white; background: transparent;")
 
+        #integrasi text dan icon ke layout
         self._layout.addWidget(self.icon_lbl)
         self._layout.addWidget(self.text_lbl, 1)
-
         self._apply_style(active=False)
 
+    #pas halaman aktif
     def set_active(self, active: bool):
         self._apply_style(active)
         font = QFont("Poppins", 10, QFont.Bold if active else QFont.Normal)
         self.text_lbl.setFont(font)
 
+    #animasi kalo biasa dan di hover
     def _apply_style(self, active: bool):
         bg     = SIDEBAR_ACTIVE if active else "transparent"
         border = "border-left: 3px solid #ffffff;" if active else "border-left: 3px solid transparent;"
@@ -100,13 +110,15 @@ class NavItem(QPushButton):
                 background-color: {SIDEBAR_HOVER};
             }}
         """)
-
+    
+    #animasi kalo di hide dan show
     def set_collapsed(self, collapsed: bool):
         self._collapsed = collapsed
         self.text_lbl.setVisible(not collapsed)
 
-
+#judul section sidebar
 class SectionLabel(QLabel):
+    #constructor
     def __init__(self, text: str, parent=None):
         super().__init__(text, parent)
         self.setFont(QFont("Poppins", 8, QFont.Medium))
@@ -116,12 +128,13 @@ class SectionLabel(QLabel):
         self.setStyleSheet("color: rgba(255,255,255,0.55); background: transparent;")
         self._full_text = text
 
+    #kalo dihide bakal dikosongin
     def set_collapsed(self, collapsed: bool):
         self.setText("" if collapsed else self._full_text)
 
 
 class MainWindow(QMainWindow):
-    # Struktur menu
+    # Struktur menu (tuple, ordered)
     MENU_UTAMA = [
         ("material-symbols_home-rounded.png", "Home Dashboard", "dashboard"),
         ("fe_search.png", "Cari Makanan", "search"),
@@ -136,6 +149,7 @@ class MainWindow(QMainWindow):
         ("mingcute_list-ordered-fill.png", "Top 10 Makanan", "top_10_makanan"),
     ]
 
+    #judul dengan dict
     PAGE_TITLES = {
         "dashboard":       "Home Dashboard",
         "search":          "Cari Makanan",
@@ -149,30 +163,39 @@ class MainWindow(QMainWindow):
         "setting":         "Pengaturan",
     }
 
+    #sinyal logout
     from PyQt5.QtCore import pyqtSignal
     logout_signal = pyqtSignal()
 
+    #constructor
     def __init__(self, sistem_profil=None):
         super().__init__()
         self.sistem_profil = sistem_profil
         self.is_admin = False
         if self.sistem_profil and self.sistem_profil.current_profil and self.sistem_profil.current_profil.get('email') == 'admin123@gmail.com':
             self.is_admin = True
-            
+        
+        #judul atas
         self.setWindowTitle("NutriKost — Pemantau Gizi Mahasiswa Kos")
         self.setMinimumSize(1000, 640)
         self.resize(1200, 720)
 
+        #wadah tombol
         self._sidebar_buttons: dict[str, NavItem] = {}
+        #wadah halaman
         self._page_widgets: dict[str, QWidget] = {}
+        #wadah label page
         self._section_labels: list[SectionLabel] = []
+        #status sidebar
         self._collapsed = False
 
+        #buat kerangka, daftarin halaman, tampilin halaman pertama, jalanin timer notif
         self._build_ui()
         self.setupRouting()
         self.navigate("dashboard")
         self.setupNotificationTimer()
 
+    #timer notif
     def setupNotificationTimer(self):
         self._notif_timer = QTimer(self)
         self._notif_timer.timeout.connect(self._check_notifications)
@@ -181,18 +204,21 @@ class MainWindow(QMainWindow):
         # Menyimpan notifikasi yang sudah muncul agar tidak spam di menit yang sama
         self._shown_notifs = set()
 
+    #cek apakah tombol notif on/off
     def _check_notifications(self):
         settings = QSettings("NutriKost", "Pengaturan")
         if settings.value("notif_makan", False, type=bool):
             now = QTime.currentTime()
             current_hm = now.toString("HH:mm")
             
+            #default
             times = {
                 "Sarapan": str(settings.value("waktu_sarapan", "07:00")),
                 "Makan Siang": str(settings.value("waktu_siang", "12:00")),
                 "Makan Malam": str(settings.value("waktu_malam", "19:00"))
             }
             
+            #looping jadwal makanan
             for meal, time_str in times.items():
                 if current_hm == time_str:
                     notif_id = f"{meal}_{current_hm}"
@@ -215,10 +241,12 @@ class MainWindow(QMainWindow):
         header = QFrame()
         header.setFixedHeight(76)
         header.setStyleSheet(f"background-color: {SIDEBAR_BG}; border: none;")
+
         h_layout = QHBoxLayout(header)
         h_layout.setContentsMargins(16, 0, 24, 0)
         h_layout.setSpacing(16)
 
+        #hamburger button
         toggle_btn = QPushButton("☰")
         toggle_btn.setFixedSize(36, 36)
         toggle_btn.setFont(QFont("Segoe UI Symbol", 16))
@@ -250,6 +278,7 @@ class MainWindow(QMainWindow):
         self.sidebar.setFixedWidth(SIDEBAR_EXP)
         self.sidebar.setStyleSheet(f"background-color: {SIDEBAR_BG};")
         
+        #aimasi sidebar
         self._anim = QPropertyAnimation(self.sidebar, b"minimumWidth")
         self._anim.setDuration(280)
         self._anim.setEasingCurve(QEasingCurve.InOutCubic)
@@ -289,7 +318,7 @@ class MainWindow(QMainWindow):
         logo_layout.addWidget(self._logo_text, 1)
         sb_layout.addWidget(logo_widget)
 
-        # Divider
+        # Pemisah antar halaman sidebar
         divider = QFrame()
         divider.setFrameShape(QFrame.HLine)
         divider.setFixedHeight(1)
@@ -297,6 +326,7 @@ class MainWindow(QMainWindow):
         sb_layout.addWidget(divider)
         sb_layout.addSpacing(16)
 
+        #selain admin
         if not self.is_admin:
             # Menu Utama
             lbl_menu = SectionLabel("Menu Utama")
@@ -322,6 +352,7 @@ class MainWindow(QMainWindow):
                 self._sidebar_buttons[key] = btn
                 sb_layout.addWidget(btn)
 
+            #ruang kosong
             sb_layout.addStretch()
 
             # Pengaturan
@@ -342,7 +373,7 @@ class MainWindow(QMainWindow):
             
             sb_layout.addStretch()
 
-        # Divider before profile
+        # Divider sebelum profile
         div_prof = QFrame()
         div_prof.setFrameShape(QFrame.HLine)
         div_prof.setFixedHeight(1)
@@ -358,7 +389,7 @@ class MainWindow(QMainWindow):
             QPushButton:hover {{ background: {SIDEBAR_HOVER}; }}
         """)
         self._prof_btn.clicked.connect(lambda: self.navigate("profil"))
-        self._sidebar_buttons["profil"] = self._prof_btn  # just to keep track
+        self._sidebar_buttons["profil"] = self._prof_btn  
 
         prof_lay = QHBoxLayout(self._prof_btn)
         prof_lay.setContentsMargins(0, 0, 8, 0)
@@ -406,8 +437,8 @@ class MainWindow(QMainWindow):
         body_layout.addWidget(self.sidebar)
 
         # Content Area
-        content_area = PatternWidget()
-        content_layout = QVBoxLayout(content_area)
+        content_area = PatternWidget() #pattern 
+        content_layout = QVBoxLayout(content_area) #wadah all page
         content_layout.setContentsMargins(0, 0, 0, 0)
         content_layout.setSpacing(0)
 
@@ -419,11 +450,11 @@ class MainWindow(QMainWindow):
         root_layout.addWidget(body_container, stretch=1)
 
     def _toggle_sidebar(self):
-        self._collapsed = not self._collapsed
+        self._collapsed = not self._collapsed #balik state
         target_w = SIDEBAR_COL if self._collapsed else SIDEBAR_EXP
         current_w = self.sidebar.width()
 
-        self._anim.stop()
+        self._anim.stop() #berhentiin animasi
         self._anim_max.stop()
         self._anim.setStartValue(current_w)
         self._anim.setEndValue(target_w)
@@ -443,7 +474,9 @@ class MainWindow(QMainWindow):
             if isinstance(btn, NavItem):
                 btn.set_collapsed(self._collapsed)
 
+    #routing halaman
     def setupRouting(self):
+        #admin gaperlu didaftarin halamannya
         if self.is_admin:
             from bima_scrapper.halaman_request import RequestPage
             self.dashboard_page = RequestPage()
@@ -456,10 +489,12 @@ class MainWindow(QMainWindow):
             self.profil_app.go_back.connect(lambda: self.navigate("dashboard"))
             self._add_page("profil", self.profil_app)
             return
-
+        
+        #search page
         from faqih_integrator.search_page import SearchPage
         self._add_page("search", SearchPage(on_pilih_makanan=self._on_pilih_makanan))
         
+        #dashboard
         from fatih_GUI.halaman_dashboard import HalamanDashboard
         import os as _os
         _db_path = _os.path.normpath(_os.path.join(BASE_DIR, '..', 'bima_scrapper', 'nutrikost.db'))
@@ -476,6 +511,7 @@ class MainWindow(QMainWindow):
         self.log_page = LogPage(self.sistem_profil)
         self._add_page("log", self.log_page)
         
+        #riwayat
         from irfan_calculator.riwayat import RiwayatPage
         
         self.riwayat_page = RiwayatPage()
@@ -486,9 +522,11 @@ class MainWindow(QMainWindow):
         # Hubungkan update log makanan ke refresh dashboard
         self.log_page.log_updated.connect(self.dashboard_page.refresh)
         
+        #rekomendasi resep
         from bima_scrapper.test_resep import RekomendasiPage
         self._add_page("rekomendasi", RekomendasiPage())
         
+        #visualisasi
         from fatih_GUI.halaman_visualisasi import HalamanVisualisasi
         
         self.visualisasi_page = HalamanVisualisasi(id_user=_id_user, db_path=_db_path)
@@ -503,6 +541,7 @@ class MainWindow(QMainWindow):
         self._add_page("komposisi_gizi", self.visualisasi_page)
         self._add_page("top_10_makanan", self.visualisasi_page)
         
+        #profil
         from anindya_profil import test as anindya_test
         
         self.profil_app = anindya_test.ProfilApp(self.sistem_profil)
@@ -510,9 +549,11 @@ class MainWindow(QMainWindow):
         self.profil_app.go_back.connect(lambda: self.navigate("dashboard"))
         self._add_page("profil", self.profil_app)
         
+        #settings
         from faqih_integrator.setting_page import SettingPage
         self._add_page("setting", SettingPage(self.sistem_profil))
 
+    #cek batas kalori
     def _check_calorie_limit(self):
         settings = QSettings("NutriKost", "Pengaturan")
         if settings.value("notif_kalori", False, type=bool):
@@ -529,10 +570,12 @@ class MainWindow(QMainWindow):
             except Exception as e:
                 print(f"Error checking calorie limit: {e}")
 
+    #mendaftarkan halaman
     def _add_page(self, key: str, widget: QWidget):
-        self._page_widgets[key] = widget
-        self._stack.addWidget(widget)
+        self._page_widgets[key] = widget #simpan di dict
+        self._stack.addWidget(widget) #tambah ke qstackwidget
 
+    #saat belum terintegrasi
     @staticmethod
     def _placeholder(title: str, owner: str) -> QWidget:
         w = QWidget()
@@ -549,6 +592,7 @@ class MainWindow(QMainWindow):
         layout.addWidget(sub)
         return w
 
+    #navigasi halaman
     def navigate(self, page_key: str):
         if page_key not in self._page_widgets:
             return
@@ -572,6 +616,7 @@ class MainWindow(QMainWindow):
         title_text = self.PAGE_TITLES.get(page_key, page_key.title())
         self._page_title.setText(f"NutriKos — {title_text}")
 
+    #navigasi halaman visualisasi
     def _on_visualisasi_tab_changed(self, index: int):
         if index == 0:
             self.navigate("kalori_mingguan")
@@ -580,6 +625,7 @@ class MainWindow(QMainWindow):
         elif index == 2:
             self.navigate("top_10_makanan")
 
+    #kalo pilih makanan di search langsung ke log harian
     def _on_pilih_makanan(self, makanan: dict):
         print(f"[MainWindow] Makanan dipilih → {makanan.get('food_name')} ({makanan.get('cal')} kkal)")
         self.navigate("log")

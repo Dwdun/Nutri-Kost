@@ -744,7 +744,14 @@ class LogPage(QWidget):
             lbl.setStyleSheet("color: black; border: none;")
             self.rows_layout.addWidget(lbl, 0, col)
 
-        logs = self.db.ReadLog() or []
+        # Ambil id_user dari session aktif agar log hanya milik user yang login
+        _id_user = None
+        try:
+            if self.sistem_profil and self.sistem_profil.current_profil:
+                _id_user = self.sistem_profil.current_profil.get('id_user')
+        except Exception:
+            pass
+        logs = self.db.ReadLog(id_user=_id_user) or []
 
         search_query  = self.search_bar.text().lower()
         selected_waktu = self.filter_waktu.currentText()
