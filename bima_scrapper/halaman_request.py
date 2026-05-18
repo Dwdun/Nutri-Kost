@@ -221,22 +221,23 @@ class DialogDetailBahan(QDialog):
 
         # --- Tombol Tutup ---
         btn_tutup = QPushButton("Tutup")
-        btn_tutup.setFixedHeight(36)
+        btn_tutup.setFixedHeight(48)
         btn_tutup.setCursor(Qt.PointingHandCursor)
         btn_tutup.setStyleSheet("""
             QPushButton {
                 background-color: #1A7A34;
                 color: white;
-                border-radius: 8px;
-                font-size: 12px;
+                border-radius: 24px;
+                font-size: 14px;
                 font-weight: bold;
+                padding: 0 24px;
             }
             QPushButton:hover {
-                background-color: #155f28;
+                background-color: #145925;
             }
         """)
         btn_tutup.clicked.connect(self.accept)
-        layout.addWidget(btn_tutup, alignment=Qt.AlignRight)
+        layout.addWidget(btn_tutup)
 
 
 class RequestPage(PageTemplate):

@@ -87,26 +87,27 @@ class RiwayatPage(QWidget):
             btn = QPushButton(text)
             btn.setCheckable(True) 
             btn.setFixedWidth(90)
-            btn.setFont(font_body(12))
+            btn.setFixedHeight(44)
+            btn.setFont(font_body(11))
             btn.setStyleSheet('''
                 QPushButton {
                     background-color: transparent;
                     color: white;
                     font-weight: bold;
-                    border: none;
+                    border: 1px solid transparent;
                     border-radius: 22px;
                     outline: none;
                 }
                 QPushButton:hover {
-                    background-color: rgba(255, 255, 255, 0.2);
+                    background-color: rgba(255, 255, 255, 0.15);
                     color: white;
-                    border: none;
+                    border: 1px solid transparent;
                     border-radius: 22px;
                 }
                 QPushButton:checked {
                     background-color: white;
                     color: #1A7A34;
-                    border: none;
+                    border: 1px solid transparent;
                     border-radius: 22px;
                 }
             ''')
