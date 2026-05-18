@@ -9,10 +9,11 @@ from PyQt5.QtWidgets import (
     QPushButton, QLabel, QLineEdit, QComboBox, QMessageBox,
     QFrame, QStackedWidget, QCheckBox, QSpacerItem, QSizePolicy, QGraphicsDropShadowEffect, QScrollArea, QDialog, QListView
 )
-from PyQt5.QtCore import Qt, QSize, pyqtSignal
+from PyQt5.QtCore import Qt, QSize, pyqtSignal, QThread
 from fatih_GUI.toast_notification import show_toast, TOAST_SUCCESS, TOAST_ERROR, TOAST_NORMAL
 from PyQt5.QtGui import QFont, QPixmap, QIcon, QColor, QPainter, QCursor
 
+import email_sender
 from profil_system import ProfilSystem
 from fatih_GUI.template_halaman import (
     PageTemplate, PatternWidget, ICONS_DIR, 
@@ -283,7 +284,46 @@ class HalamanLogin(QWidget):
             email = dlg.email_value
             if email:
                 if self._sistem.cekEmailTerdaftar(email):
-                    show_toast(self, f"Instruksi reset telah dikirim ke {email}", TOAST_NORMAL)
+                    # 1. Cek apakah email config sudah diisi atau masih dummy
+                    cfg = email_sender.load_config()
+                    if email_sender.is_config_dummy(cfg):
+                        # Tampilkan panduan konfigurasi email
+                        guide = EmailConfigGuideDialog(self.window())
+                        guide.setGeometry(0, 0, self.window().width(), self.window().height())
+                        guide.exec_()
+                        return
+                    
+                    # 2. Buat password sementara acak
+                    temp_pwd = email_sender.generate_temp_password()
+                    
+                    # 3. Tampilkan loading overlay
+                    self.loading_dlg = EmailSendingDialog(self.window())
+                    self.loading_dlg.setGeometry(0, 0, self.window().width(), self.window().height())
+                    
+                    # 4. Buat background thread worker
+                    self.worker = EmailSenderWorker(self._sistem, email, temp_pwd)
+                    
+                    # Hubungkan signal dari worker
+                    def on_finished(success, message):
+                        self.loading_dlg.accept() # Tutup loading dialog
+                        if success:
+                            show_toast(self, f"Reset sukses! Silakan cek email Anda: {email}", TOAST_SUCCESS)
+                        else:
+                            # Jika terjadi error pengiriman, tampilkan box detail
+                            QMessageBox.critical(
+                                self, 
+                                "Gagal Mengirim Email", 
+                                f"Terjadi kesalahan saat mengirim email reset:\n\n{message}\n\n"
+                                "Pastikan koneksi internet aktif dan kredensial di email_config.json sudah benar."
+                            )
+                    
+                    self.worker.finished.connect(on_finished)
+                    
+                    # Jalankan worker di background thread
+                    self.worker.start()
+                    
+                    # Tampilkan dialog secara modal (akan memblokir interaksi user sampai thread selesai)
+                    self.loading_dlg.exec_()
                 else:
                     show_toast(self, "Email tidak terdaftar!", TOAST_ERROR)
 
@@ -722,7 +762,7 @@ class EditProfileDialog(QDialog):
         main_layout.setAlignment(Qt.AlignCenter)
         
         self.card = QFrame()
-        self.card.setFixedSize(400, 600)
+        self.card.setFixedSize(400, 680)
         self.card.setStyleSheet("""
             QFrame { background: white; border-radius: 25px; border: none; }
             QLabel { border: none; background: transparent; color: #555555; font-family: 'Poppins'; }
@@ -832,6 +872,14 @@ class EditProfileDialog(QDialog):
         self.inp_diet.setStyleSheet(combo_style)
         card_layout.addWidget(self.inp_diet)
 
+        # Password Baru (Optional)
+        card_layout.addWidget(lbl_blk("Password Baru (Kosongkan jika tidak diubah)"))
+        self.inp_pwd = QLineEdit()
+        self.inp_pwd.setFixedHeight(45)
+        self.inp_pwd.setEchoMode(QLineEdit.Password)
+        self.inp_pwd.setPlaceholderText("Masukkan password baru")
+        card_layout.addWidget(self.inp_pwd)
+
         card_layout.addStretch()
 
         btns = QHBoxLayout()
@@ -890,6 +938,13 @@ class EditProfileDialog(QDialog):
                 'diet_goal': self.inp_diet.currentText(),
                 'calory': calc
             }
+
+            pwd = self.inp_pwd.text().strip()
+            if pwd:
+                if len(pwd) < 6:
+                    show_toast(self, "Password baru minimal 6 karakter!", TOAST_ERROR)
+                    return
+                data['password'] = self.sistem._hash_password(pwd)
 
             if self.sistem.updateProfil(data):
                 show_toast(self, "Update data berhasil!", TOAST_SUCCESS)
@@ -973,6 +1028,225 @@ class LogoutConfirmDialog(QDialog):
         
         card_layout.addLayout(btns)
         main_layout.addWidget(self.card)
+
+    def resizeEvent(self, event):
+        if self.parent():
+            self.resize(self.parent().size())
+        super().resizeEvent(event)
+
+class EmailSenderWorker(QThread):
+    finished = pyqtSignal(bool, str) # Emits (success, error_message)
+
+    def __init__(self, sistem, email, temp_password):
+        super().__init__()
+        self.sistem = sistem
+        self.email = email
+        self.temp_password = temp_password
+
+    def run(self):
+        try:
+            # 1. Update password di SQLite/Mock DB terlebih dahulu
+            db_success = self.sistem.resetPasswordByEmail(self.email, self.temp_password)
+            if not db_success:
+                self.finished.emit(False, "Gagal meriset password di database. Silakan coba lagi.")
+                return
+
+            # 2. Kirim email secara real-time via SMTP
+            email_sender.send_reset_email(self.email, self.temp_password)
+            self.finished.emit(True, "Email berhasil dikirim!")
+        except Exception as e:
+            self.finished.emit(False, str(e))
+
+class EmailSendingDialog(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowFlags(Qt.FramelessWindowHint | Qt.Dialog)
+        self.setAttribute(Qt.WA_TranslucentBackground)
+        self.setObjectName("SendingOverlay")
+        self.setStyleSheet("#SendingOverlay { background-color: rgba(0, 0, 0, 150); }")
+        
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setAlignment(Qt.AlignCenter)
+        
+        card = QFrame()
+        card.setFixedSize(300, 200)
+        card.setStyleSheet("""
+            QFrame {
+                background: white;
+                border-radius: 20px;
+                border: none;
+            }
+            QLabel {
+                color: #333333;
+                font-family: 'Poppins';
+                background: transparent;
+            }
+        """)
+        
+        shadow = QGraphicsDropShadowEffect()
+        shadow.setBlurRadius(20)
+        shadow.setColor(QColor(0, 0, 0, 80))
+        shadow.setOffset(0, 5)
+        card.setGraphicsEffect(shadow)
+        
+        layout = QVBoxLayout(card)
+        layout.setContentsMargins(25, 25, 25, 25)
+        layout.setAlignment(Qt.AlignCenter)
+        layout.setSpacing(15)
+        
+        # Loading indicator (pulse text or dot animations)
+        self.spinner_lbl = QLabel("⏳")
+        self.spinner_lbl.setFont(QFont('Poppins', 28))
+        self.spinner_lbl.setAlignment(Qt.AlignCenter)
+        
+        self.msg_lbl = QLabel("Mengirim email...")
+        self.msg_lbl.setFont(QFont('Poppins', 12, QFont.Bold))
+        self.msg_lbl.setStyleSheet("color: #1A7A34;")
+        self.msg_lbl.setAlignment(Qt.AlignCenter)
+        
+        self.sub_lbl = QLabel("Mohon tunggu sebentar...")
+        self.sub_lbl.setFont(font_body(9))
+        self.sub_lbl.setStyleSheet("color: #777777;")
+        self.sub_lbl.setAlignment(Qt.AlignCenter)
+        
+        layout.addWidget(self.spinner_lbl)
+        layout.addWidget(self.msg_lbl)
+        layout.addWidget(self.sub_lbl)
+        
+        main_layout.addWidget(card)
+
+    def resizeEvent(self, event):
+        if self.parent():
+            self.resize(self.parent().size())
+        super().resizeEvent(event)
+
+class EmailConfigGuideDialog(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowFlags(Qt.FramelessWindowHint | Qt.Dialog)
+        self.setAttribute(Qt.WA_TranslucentBackground)
+        self.setObjectName("GuideOverlay")
+        self.setStyleSheet("#GuideOverlay { background-color: rgba(0, 0, 0, 150); }")
+        
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setAlignment(Qt.AlignCenter)
+        
+        self.card = QFrame()
+        self.card.setFixedSize(520, 480)
+        self.card.setStyleSheet("""
+            QFrame {
+                background: white;
+                border-radius: 25px;
+                border: none;
+            }
+            QLabel {
+                border: none;
+                background: transparent;
+                color: #444444;
+                font-family: 'Poppins';
+            }
+        """)
+        
+        shadow = QGraphicsDropShadowEffect()
+        shadow.setBlurRadius(30)
+        shadow.setColor(QColor(0, 0, 0, 70))
+        shadow.setOffset(0, 8)
+        self.card.setGraphicsEffect(shadow)
+        
+        card_layout = QVBoxLayout(self.card)
+        card_layout.setContentsMargins(35, 30, 35, 30)
+        card_layout.setSpacing(12)
+        
+        # Header
+        title = QLabel("Konfigurasi Email Pengirim")
+        title.setFont(QFont('Poppins', 16, QFont.Bold))
+        title.setStyleSheet("color: #1A7A34;")
+        card_layout.addWidget(title)
+        
+        sub = QLabel("Untuk mengirim email reset password secara nyata, Anda perlu menyetting email pengirim (SMTP) terlebih dahulu.")
+        sub.setFont(font_body(9))
+        sub.setStyleSheet("color: #666666;")
+        sub.setWordWrap(True)
+        card_layout.addWidget(sub)
+        
+        # Line divider
+        line = QFrame()
+        line.setFrameShape(QFrame.HLine)
+        line.setStyleSheet("background-color: #f0f0f0;")
+        card_layout.addWidget(line)
+        
+        # Steps
+        steps = QLabel(
+            "<b>Langkah Setup Gmail SMTP:</b><br>"
+            "1. Buka <b>Google Account</b> Anda.<br>"
+            "2. Aktifkan <b>2-Step Verification (Verifikasi 2 Langkah)</b> di tab Keamanan.<br>"
+            "3. Cari menu <b>App Passwords (Sandi Aplikasi)</b>.<br>"
+            "4. Buat sandi aplikasi baru (pilih Kategori 'Lainnya' dan beri nama 'Nutri-Kost').<br>"
+            "5. Salin 16-karakter sandi yang muncul.<br>"
+            "6. Klik tombol di bawah untuk membuka file konfigurasi, lalu ganti email & password dengan email dan sandi aplikasi Anda."
+        )
+        steps.setFont(font_body(10))
+        steps.setWordWrap(True)
+        steps.setStyleSheet("line-height: 150%; color: #333333;")
+        card_layout.addWidget(steps)
+        
+        card_layout.addStretch()
+        
+        # Buttons
+        btns = QVBoxLayout()
+        btns.setSpacing(10)
+        
+        btn_open = QPushButton("📂  Buka File Konfigurasi (email_config.json)")
+        btn_open.setFixedHeight(48)
+        btn_open.setCursor(Qt.PointingHandCursor)
+        btn_open.setStyleSheet("""
+            QPushButton {
+                background-color: #1A7A34;
+                color: white;
+                border-radius: 12px;
+                font-weight: bold;
+                font-size: 14px;
+            }
+            QPushButton:hover {
+                background-color: #145925;
+            }
+        """)
+        btn_open.clicked.connect(self._open_config_file)
+        
+        btn_tutup = QPushButton("Tutup")
+        btn_tutup.setFixedHeight(44)
+        btn_tutup.setCursor(Qt.PointingHandCursor)
+        btn_tutup.setStyleSheet("""
+            QPushButton {
+                background-color: transparent;
+                color: #888888;
+                border: 1px solid #cccccc;
+                border-radius: 12px;
+                font-size: 14px;
+            }
+            QPushButton:hover {
+                background-color: #f9f9f9;
+                color: #555555;
+            }
+        """)
+        btn_tutup.clicked.connect(self.reject)
+        
+        btns.addWidget(btn_open)
+        btns.addWidget(btn_tutup)
+        card_layout.addLayout(btns)
+        
+        main_layout.addWidget(self.card)
+
+    def _open_config_file(self):
+        # Membuat file config jika belum ada
+        email_sender.load_config()
+        # Membuka file menggunakan program default (Notepad/VS Code/dll)
+        try:
+            os.startfile(email_sender.CONFIG_PATH)
+        except Exception as e:
+            QMessageBox.warning(self, "Error", f"Gagal membuka file: {e}")
 
     def resizeEvent(self, event):
         if self.parent():
