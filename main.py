@@ -25,6 +25,14 @@ class AppLauncher(QMainWindow):
         super().__init__()
         self.setWindowTitle("NutriKost")
         self.resize(1200, 720)
+        
+        # Set high-quality taskbar icon for Windows
+        ico_path = os.path.join(BASE, "assets", "icons", "Logo.ico")
+        png_path = os.path.join(BASE, "assets", "icons", "Logo.png")
+        icon_path = ico_path if os.path.exists(ico_path) else png_path
+        if os.path.exists(icon_path):
+            self.setWindowIcon(QIcon(icon_path))
+
         #sumber data
         self._sistem = ProfilSystem()
         
