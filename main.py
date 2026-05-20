@@ -1,5 +1,6 @@
 import sys
 import os
+import sqlite3 # Tambahkan import sqlite3
 
 #tempat main.py berada = root proyek
 BASE = os.path.dirname(__file__)   
@@ -18,6 +19,33 @@ from PyQt5.QtGui import QFontDatabase, QIcon
 from faqih_integrator.main_window import MainWindow
 from anindya_profil.profil_system import ProfilSystem
 from anindya_profil.test import HalamanLogin, HalamanRegister, HalamanDataDiri, AuthBaseWidget
+
+# Fungsi untuk inisialisasi database
+def init_database():
+    db_dir = os.path.join(BASE, "bima_scrapper")
+    db_path = os.path.join(db_dir, "nutrikost.db")
+    sql_path = os.path.join(db_dir, "db_schema.sql")
+
+    if not os.path.exists(sql_path):
+        print(f"Peringatan: File schema tidak ditemukan di {sql_path}")
+        return
+
+    try:
+        # Membaca isi dari db_schema.sql
+        with open(sql_path, 'r', encoding='utf-8') as sql_file:
+            sql_script = sql_file.read()
+
+        # Connect ke database (akan otomatis membuat nutrikost.db jika belum ada)
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        
+        # Mengeksekusi seluruh script SQL sekaligus
+        cursor.executescript(sql_script)
+        conn.commit()
+        conn.close()
+        print("Database berhasil diinisialisasi berdasarkan db_schema.sql")
+    except Exception as e:
+        print(f"Terjadi kesalahan saat inisialisasi database: {e}")
 
 #mengatur perpindahan
 class AppLauncher(QMainWindow):
@@ -122,6 +150,9 @@ def main():
         ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
     except Exception:
         pass
+    
+    # Memanggil fungsi inisiasi DB sebelum masuk GUI
+    init_database()
 
     app = QApplication(sys.argv)
     
