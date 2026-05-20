@@ -146,7 +146,11 @@ class ProfilSystem:
         aktivitas = data.get('activity', 'Sedentary (Jarang Olahraga)')
         target_cal = self.calculatorHarrisBenedict(data['gender'], data['weight'], data['height'], data['age'], aktivitas)
         if target_cal is None:
-             target_cal = 2100
+            target_cal = 2100
+        
+        target_protein = round((target_cal * 0.15) / 4, 1)  
+        target_carb    = round((target_cal * 0.55) / 4, 1) 
+        target_fat     = round((target_cal * 0.30) / 9, 1)
 
         # siapkan data sesuai format database 
         user_data = {
@@ -158,6 +162,9 @@ class ProfilSystem:
             'activity'  : aktivitas,
             'diet_goal' : data.get('diet_goal', 'Maintain Berat Badan'),
             'calory'    : target_cal,
+            'protein'   : target_protein,   
+            'carb'      : target_carb,      
+            'fat'       : target_fat, 
             'email'     : data['email'].strip(),
             'password'  : self._hash_password(data['password'])
         }

@@ -61,7 +61,7 @@ class AppLauncher(QMainWindow):
     def init_auth_flow(self):
         #halaman auth
         self.login_p = HalamanLogin(self._sistem)
-        self.register_p = HalamanRegister()
+        self.register_p = HalamanRegister(self._sistem)
         self.datadiri_p = HalamanDataDiri(self._sistem)
 
         #wrapper

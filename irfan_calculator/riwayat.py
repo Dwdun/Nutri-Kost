@@ -23,8 +23,9 @@ def font_label(bold=False):
 
 class RiwayatPage(QWidget):
 
-    def __init__(self, parent=None):
+    def __init__(self, id_user=1, parent=None):
         super().__init__(parent)
+        self.id_user = id_user
         self.setStyleSheet("background-color: transparent;")
         self._build_content()
 
@@ -152,18 +153,20 @@ class RiwayatPage(QWidget):
             if widget is not None:
                 widget.setParent(None)
 
-        condition = ""
+        condition = "WHERE l.id_user = ?"
+        params = [self.id_user]
+        
         checked_btn = self.filter_group.checkedButton()
         if checked_btn:
             text = checked_btn.text()
             if text == "7 Hari":
-                condition = "WHERE DATE(l.meal_time) >= DATE('now', '-7 days')"
+                condition += " AND DATE(l.meal_time) >= DATE('now', '-7 days')"
             elif text == "14 Hari":
-                condition = "WHERE DATE(l.meal_time) >= DATE('now', '-14 days')"
+                condition += " AND DATE(l.meal_time) >= DATE('now', '-14 days')"
             elif text == "30 Hari":
-                condition = "WHERE DATE(l.meal_time) >= DATE('now', '-30 days')"
+                condition += " AND DATE(l.meal_time) >= DATE('now', '-30 days')"
             elif text == "Bulan ini":
-                condition = "WHERE strftime('%Y-%m', l.meal_time) = strftime('%Y-%m', 'now')"
+                condition += " AND strftime('%Y-%m', l.meal_time) = strftime('%Y-%m', 'now')"
 
         try:
             conn = sqlite3.connect(db_path)
@@ -185,7 +188,7 @@ class RiwayatPage(QWidget):
                 GROUP BY date_val
                 ORDER BY date_val DESC
             """
-            cursor.execute(query)
+            cursor.execute(query, params)
             rows = cursor.fetchall()
             
             for row in rows:
@@ -340,8 +343,9 @@ class RiwayatPage(QWidget):
                 SELECT DATE(l.meal_time), l.category, m.food_name, l.portion, l.cal, l.protein, l.carb, l.fat
                 FROM LogHarian l 
                 JOIN Makanan m ON l.kode_makanan = m.code
+                WHERE l.id_user = ?
                 ORDER BY l.meal_time DESC
-            """)
+            """, (self.id_user,))
             rows = cursor.fetchall()
             with open(file_path, "w", newline="", encoding="utf-8-sig") as file:
                 writer = csv.writer(file, delimiter=';', quoting=csv.QUOTE_MINIMAL)
