@@ -572,7 +572,7 @@ class MainWindow(QMainWindow):
         #riwayat
         from irfan_calculator.riwayat import RiwayatPage
         
-        self.riwayat_page = RiwayatPage()
+        self.riwayat_page = RiwayatPage(id_user=_id_user)
         self._add_page("riwayat", self.riwayat_page)
         
         # Hubungkan update log makanan ke refresh data di riwayat
