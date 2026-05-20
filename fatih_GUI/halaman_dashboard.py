@@ -187,13 +187,13 @@ class HalamanDashboard(QWidget):
         left.setSpacing(4)
 
         nama = _ambil_nama_user(self._db_path, self._id_user)
-        title = QLabel(f'Halo, {nama}')
-        title.setStyleSheet(f"color: {C_TEXT_DARK}; background: transparent; font-family: 'Montserrat Alternates'; font-size: 32px; font-weight: bold;")
+        self.title_lbl = QLabel(f'Halo, {nama}')
+        self.title_lbl.setStyleSheet(f"color: {C_TEXT_DARK}; background: transparent; font-family: 'Montserrat Alternates'; font-size: 32px; font-weight: bold;")
 
         desc = QLabel('Pantau asupan nutrisimu hari ini')
         desc.setStyleSheet(f"color: {C_TEXT_SUB}; background: transparent; font-family: 'Montserrat'; font-size: 14px;")
 
-        left.addWidget(title)
+        left.addWidget(self.title_lbl)
         left.addWidget(desc)
         header.addLayout(left)
         header.addStretch()
@@ -325,6 +325,9 @@ class HalamanDashboard(QWidget):
     # ─────────────────────────────────────────
     def refresh(self):
         """Reload semua widget dari database."""
+        if hasattr(self, 'title_lbl') and self.title_lbl:
+            nama = _ambil_nama_user(self._db_path, self._id_user)
+            self.title_lbl.setText(f'Halo, {nama}')
         if hasattr(self, '_w_kalori_hari_ini'):
             self._w_kalori_hari_ini.refresh()
         if hasattr(self, '_w_detail_makro'):

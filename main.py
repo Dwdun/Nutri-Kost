@@ -61,7 +61,7 @@ class AppLauncher(QMainWindow):
     def init_auth_flow(self):
         #halaman auth
         self.login_p = HalamanLogin(self._sistem)
-        self.register_p = HalamanRegister()
+        self.register_p = HalamanRegister(self._sistem)
         self.datadiri_p = HalamanDataDiri(self._sistem)
 
         #wrapper
@@ -145,26 +145,6 @@ def main():
     #tampilan lintas OS 
     app.setStyle("Fusion")
     
-    app.setStyleSheet("""
-        QMessageBox {
-            background-color: white;
-        }
-        QMessageBox QLabel {
-            color: #333333;
-            background-color: transparent;
-        }
-        QMessageBox QPushButton {
-            background-color: #1A7A34;
-            color: white;
-            border-radius: 4px;
-            padding: 5px 15px;
-            min-width: 60px;
-        }
-        QMessageBox QPushButton:hover {
-            background-color: #145925;
-        }
-    """)
-
     # Stylesheet global 
     app.setStyleSheet("""
         QWidget {
