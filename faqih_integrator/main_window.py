@@ -445,15 +445,15 @@ class MainWindow(QMainWindow):
         if hasattr(self, 'sistem_profil') and self.sistem_profil and self.sistem_profil.current_profil:
             profil_data = self.sistem_profil.current_profil
 
-        u_lbl = QLabel(profil_data.get("full_name", "User Profile"))
-        u_lbl.setFont(QFont("Poppins", 10, QFont.Bold))
-        u_lbl.setStyleSheet("color: white;")
-        e_lbl = QLabel(profil_data.get("email", "username@email.com"))
-        e_lbl.setFont(QFont("Poppins", 8))
-        e_lbl.setStyleSheet("color: rgba(255,255,255,0.55);")
+        self.u_lbl = QLabel(profil_data.get("full_name", "User Profile"))
+        self.u_lbl.setFont(QFont("Poppins", 10, QFont.Bold))
+        self.u_lbl.setStyleSheet("color: white;")
+        self.e_lbl = QLabel(profil_data.get("email", "username@email.com"))
+        self.e_lbl.setFont(QFont("Poppins", 8))
+        self.e_lbl.setStyleSheet("color: rgba(255,255,255,0.55);")
 
-        info_lay.addWidget(u_lbl)
-        info_lay.addWidget(e_lbl)
+        info_lay.addWidget(self.u_lbl)
+        info_lay.addWidget(self.e_lbl)
 
         prof_lay.addWidget(prof_icon)
         prof_lay.addWidget(self._prof_info, 1)
@@ -544,6 +544,7 @@ class MainWindow(QMainWindow):
             self.profil_app = anindya_test.ProfilApp(self.sistem_profil)
             self.profil_app.logout_signal.connect(self.logout_signal.emit)
             self.profil_app.go_back.connect(lambda: self.navigate("dashboard"))
+            self.profil_app.refresh_me.connect(self._rebuild_profil)
             self._add_page("profil", self.profil_app)
             return
         
@@ -604,11 +605,58 @@ class MainWindow(QMainWindow):
         self.profil_app = anindya_test.ProfilApp(self.sistem_profil)
         self.profil_app.logout_signal.connect(self.logout_signal.emit)
         self.profil_app.go_back.connect(lambda: self.navigate("dashboard"))
+        self.profil_app.refresh_me.connect(self._rebuild_profil)
         self._add_page("profil", self.profil_app)
         
         #settings
         from faqih_integrator.setting_page import SettingPage
         self._add_page("setting", SettingPage(self.sistem_profil))
+
+    def _rebuild_profil(self):
+        # 1. Update data profil di sidebar
+        profil_data = {}
+        if hasattr(self, 'sistem_profil') and self.sistem_profil and self.sistem_profil.current_profil:
+            profil_data = self.sistem_profil.current_profil
+        
+        if hasattr(self, 'u_lbl') and self.u_lbl:
+            self.u_lbl.setText(profil_data.get("full_name", "User Profile"))
+        if hasattr(self, 'e_lbl') and self.e_lbl:
+            self.e_lbl.setText(profil_data.get("email", "username@email.com"))
+
+        # 2. Re-create dan replace widget profil_app di QStackedWidget
+        from anindya_profil import test as anindya_test
+        
+        # Simpan state index/halaman saat ini
+        is_profil_active = (self._stack.currentWidget() == self.profil_app)
+        idx = self._stack.indexOf(self.profil_app)
+        
+        # Remove old page
+        self._stack.removeWidget(self.profil_app)
+        self.profil_app.deleteLater()
+        
+        # Create new page
+        self.profil_app = anindya_test.ProfilApp(self.sistem_profil)
+        self.profil_app.logout_signal.connect(self.logout_signal.emit)
+        self.profil_app.go_back.connect(lambda: self.navigate("dashboard"))
+        self.profil_app.refresh_me.connect(self._rebuild_profil)
+        
+        # Add back to stack and update dict reference
+        self._page_widgets["profil"] = self.profil_app
+        self._stack.insertWidget(idx, self.profil_app)
+        
+        # If we were on the profile page, ensure it stays active
+        if is_profil_active:
+            self._stack.setCurrentWidget(self.profil_app)
+            
+        # 3. Refresh dashboard page jika ada
+        if hasattr(self, 'dashboard_page') and self.dashboard_page:
+            if hasattr(self.dashboard_page, 'refresh'):
+                self.dashboard_page.refresh()
+                
+        # 4. Refresh visualisasi page jika ada
+        if hasattr(self, 'visualisasi_page') and self.visualisasi_page:
+            if hasattr(self.visualisasi_page, 'refresh'):
+                self.visualisasi_page.refresh()
 
     #konfirmasi sebelum logout — pakai LogoutConfirmDialog yang sama dengan halaman profil
     def _confirm_logout(self):
