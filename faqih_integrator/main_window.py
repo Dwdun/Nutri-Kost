@@ -562,7 +562,7 @@ class MainWindow(QMainWindow):
         )
         self.dashboard_page = HalamanDashboard(id_user=_id_user, db_path=_db_path)
         self.dashboard_page.navigate_to.connect(self.navigate)
-        self.dashboard_page.tambah_makanan_clicked.connect(lambda: self.navigate("log"))
+        self.dashboard_page.tambah_makanan_clicked.connect(self._on_dashboard_tambah_makanan)
         self._add_page("dashboard", self.dashboard_page)
         from irfan_calculator.test import LogPage
         self.log_page = LogPage(self.sistem_profil)
@@ -743,6 +743,11 @@ class MainWindow(QMainWindow):
             self.navigate("komposisi_gizi")
         elif index == 2:
             self.navigate("top_10_makanan")
+
+    def _on_dashboard_tambah_makanan(self):
+        self.navigate("log")
+        if hasattr(self, 'log_page'):
+            self.log_page.open_popup()
 
     #kalo pilih makanan di search langsung ke log harian
     def _on_pilih_makanan(self, makanan: dict):
