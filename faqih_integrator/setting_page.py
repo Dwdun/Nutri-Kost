@@ -1,10 +1,11 @@
 import csv
 import os
+from datetime import datetime
 
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel,
     QPushButton, QFrame, QMessageBox, QFileDialog,
-    QScrollArea, QSizePolicy, QTimeEdit, QSpinBox
+    QScrollArea, QSizePolicy, QTimeEdit, QSpinBox, QDialog
 )
 from PyQt5.QtCore import Qt, QSettings, QPropertyAnimation, pyqtProperty, QEasingCurve, QTime
 from PyQt5.QtGui import QFont, QPainter, QColor
@@ -428,9 +429,11 @@ class SettingPage(QWidget):
             show_toast(self, "Belum ada data log yang tersimpan.", TOAST_NORMAL)
             return
 
-        # Dialog pilih lokasi simpan
+        # Dialog pilih lokasi simpan — nama file otomatis menyertakan timestamp
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        default_name = f"nutrikost_log_{ts}.csv"
         filepath, _ = QFileDialog.getSaveFileName(
-            self, "Simpan CSV", "nutrikost_log.csv", "CSV Files (*.csv)"
+            self, "Simpan CSV", default_name, "CSV Files (*.csv)"
         )
         if not filepath:
             return  # user cancel
@@ -447,16 +450,82 @@ class SettingPage(QWidget):
 
     # ── Hapus Semua Data ──────────────────────────────────────────────────────
     def deleteAllData(self):
-        reply = QMessageBox.warning(
-            self,
-            "Hapus Semua Data",
-            "Tindakan ini akan menghapus SEMUA log harian dan profil secara permanen.\n\n"
-            "Apakah kamu yakin?",
-            QMessageBox.Yes | QMessageBox.Cancel,
-            QMessageBox.Cancel
-        )
+        # ── Custom styled confirmation dialog (sesuai gaya TambahPopup) ──────
+        win = self.window()
+        dlg = QDialog(win)
+        dlg.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
+        dlg.setAttribute(Qt.WA_TranslucentBackground)
+        dlg.setModal(True)
+        dlg.setFixedSize(win.width(), win.height())
 
-        if reply != QMessageBox.Yes:
+        # Overlay menutupi seluruh dialog
+        overlay = QWidget(dlg)
+        overlay.setFixedSize(win.width(), win.height())
+        overlay.setStyleSheet("background-color: rgba(0, 0, 0, 120);")
+        overlay.setAttribute(Qt.WA_StyledBackground, True)
+
+        # Card di tengah overlay
+        card = QFrame(overlay)
+        card.setFixedSize(400, 270)
+        card.move((win.width() - 400) // 2, (win.height() - 270) // 2)
+        card.setStyleSheet("""
+            QFrame  { background: white; border-radius: 25px; border: none; }
+            QLabel  { border: none; background: transparent; color: #555555; font-family: 'Poppins'; }
+        """)
+
+        card_layout = QVBoxLayout(card)
+        card_layout.setContentsMargins(28, 28, 28, 28)
+        card_layout.setSpacing(12)
+
+        # Judul
+        lbl_title = QLabel("🗑️  Hapus Semua Data")
+        lbl_title.setFont(QFont('Poppins', 14, QFont.Bold))
+        lbl_title.setStyleSheet("color: #dc2626;")
+        card_layout.addWidget(lbl_title)
+
+        # Pesan
+        lbl_msg = QLabel(
+            "Tindakan ini akan menghapus <b>SEMUA</b> log harian &amp; profil "
+            "secara permanen dan tidak dapat dibatalkan.<br><br>Apakah kamu yakin?"
+        )
+        lbl_msg.setFont(QFont('Poppins', 10))
+        lbl_msg.setWordWrap(True)
+        lbl_msg.setStyleSheet("color: #555555;")
+        card_layout.addWidget(lbl_msg)
+
+        card_layout.addStretch()
+
+        # Tombol
+        btn_row = QHBoxLayout()
+        btn_row.setSpacing(12)
+
+        btn_cancel = QPushButton("Batal")
+        btn_cancel.setFixedHeight(50)
+        btn_cancel.setCursor(Qt.PointingHandCursor)
+        btn_cancel.setFont(QFont('Poppins', 12))
+        btn_cancel.setStyleSheet(
+            "QPushButton { background-color: white; color: rgba(26,122,52,0.7); "
+            "border: 1.5px solid #1A7A34; border-radius: 25px; font-size: 16px; } "
+            "QPushButton:hover { color: #1A7A34; }"
+        )
+        btn_cancel.clicked.connect(dlg.reject)
+
+        btn_yes = QPushButton("Ya, Hapus")
+        btn_yes.setFixedHeight(50)
+        btn_yes.setCursor(Qt.PointingHandCursor)
+        btn_yes.setFont(QFont('Poppins', 12, QFont.Bold))
+        btn_yes.setStyleSheet(
+            "QPushButton { background-color: #dc2626; color: white; "
+            "border-radius: 25px; font-size: 16px; border: none; } "
+            "QPushButton:hover { background-color: #b91c1c; }"
+        )
+        btn_yes.clicked.connect(dlg.accept)
+
+        btn_row.addWidget(btn_cancel)
+        btn_row.addWidget(btn_yes)
+        card_layout.addLayout(btn_row)
+
+        if dlg.exec_() != QDialog.Accepted:
             return
 
         if self._db is None:

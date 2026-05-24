@@ -474,6 +474,106 @@ class TambahPopup(QWidget):
             for lbl in [self.val_cal, self.val_pro, self.val_kar, self.val_lem]:
                 lbl.setText("--")
 
+    # ── Validasi kategori ─────────────────────────────────────────────────
+    _KATEGORI_KEYWORDS = {
+        "Minuman": ["minuman", "teh", "kopi", "susu", "jus", "air", "soda",
+                    "sirup", "drink", "juice", "milk", "tea", "coffee", "squash"],
+        "Snack"  : ["snack", "keripik", "kue", "biskuit", "coklat", "permen",
+                    "wafer", "chip", "cracker", "cookie", "candy", "jajanan"],
+    }
+
+    def _validate_kategori(self, food_name: str, kategori: str) -> bool:
+        """Return True jika food_name cocok dengan kategori, atau kategori tidak perlu validasi."""
+        keywords = self._KATEGORI_KEYWORDS.get(kategori)
+        if not keywords:
+            return True   # Sarapan/Makan Siang/Makan Malam tidak divalidasi
+        name_lower = food_name.lower()
+        return any(kw in name_lower for kw in keywords)
+
+    def _konfirmasi_kategori_popup(self, food_name: str, kategori: str) -> bool:
+        """Tampilkan styled overlay popup untuk konfirmasi kategori tidak sesuai.
+        Return True jika user memilih Lanjutkan, False jika Batal."""
+        from PyQt5.QtWidgets import QDialog
+        main_window = self.window()
+
+        dlg = QDialog(main_window)
+        dlg.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
+        dlg.setAttribute(Qt.WA_TranslucentBackground)
+        dlg.setModal(True)
+        dlg.setFixedSize(main_window.width(), main_window.height())
+
+        outer = QVBoxLayout(dlg)
+        outer.setContentsMargins(0, 0, 0, 0)
+        outer.setAlignment(Qt.AlignCenter)
+
+        overlay = QWidget(dlg)
+        overlay.setStyleSheet("background-color: rgba(0, 0, 0, 120);")
+        overlay.setAttribute(Qt.WA_StyledBackground, True)
+        inner = QVBoxLayout(overlay)
+        inner.setContentsMargins(0, 0, 0, 0)
+        inner.setAlignment(Qt.AlignCenter)
+
+        card = QFrame()
+        card.setFixedSize(400, 280)
+        card.setStyleSheet("""
+            QFrame  { background: white; border-radius: 25px; border: none; }
+            QLabel  { border: none; background: transparent; color: #555555; font-family: 'Poppins'; }
+        """)
+
+        card_layout = QVBoxLayout(card)
+        card_layout.setContentsMargins(28, 28, 28, 28)
+        card_layout.setSpacing(12)
+
+        lbl_title = QLabel("⚠️  Kategori Tidak Sesuai")
+        lbl_title.setFont(QFont('Poppins', 14, QFont.Bold))
+        lbl_title.setStyleSheet("color: #E29E21;")
+        card_layout.addWidget(lbl_title)
+
+        lbl_msg = QLabel(
+            f"<b>'{food_name}'</b> tampaknya bukan termasuk kategori "
+            f"<b>{kategori}</b>.<br><br>"
+            "Apakah kamu yakin ingin menyimpannya di kategori ini?"
+        )
+        lbl_msg.setFont(QFont('Poppins', 10))
+        lbl_msg.setWordWrap(True)
+        lbl_msg.setStyleSheet("color: #555555;")
+        card_layout.addWidget(lbl_msg)
+
+        card_layout.addStretch()
+
+        btn_row = QHBoxLayout()
+        btn_row.setSpacing(12)
+
+        btn_batal = QPushButton("Batal")
+        btn_batal.setFixedHeight(50)
+        btn_batal.setCursor(Qt.PointingHandCursor)
+        btn_batal.setStyleSheet(
+            "QPushButton { background-color: white; color: rgba(26,122,52,0.7); "
+            "border: 1.5px solid #1A7A34; border-radius: 25px; font-size: 16px; } "
+            "QPushButton:hover { color: #1A7A34; }"
+        )
+        btn_batal.clicked.connect(dlg.reject)
+
+        btn_lanjut = QPushButton("Ya, Lanjutkan")
+        btn_lanjut.setFixedHeight(50)
+        btn_lanjut.setCursor(Qt.PointingHandCursor)
+        btn_lanjut.setFont(QFont('Poppins', 10, QFont.Bold))
+        btn_lanjut.setStyleSheet(
+            "QPushButton { background-color: #E29E21; color: white; "
+            "border-radius: 25px; font-size: 15px; border: none; } "
+            "QPushButton:hover { background-color: #c47f10; }"
+        )
+        btn_lanjut.clicked.connect(dlg.accept)
+
+        btn_row.addWidget(btn_batal)
+        btn_row.addWidget(btn_lanjut)
+        card_layout.addLayout(btn_row)
+
+        inner.addWidget(card)
+        outer.addWidget(overlay)
+
+        return dlg.exec_() == QDialog.Accepted
+
     # ── Simpan log ────────────────────────────────────────────────────────
     def on_save(self):
         idx  = self.nama.findText(self.nama.currentText(), Qt.MatchExactly)
@@ -490,10 +590,19 @@ class TambahPopup(QWidget):
         if porsi_val <= 0:
             return
 
+        food_name = self.nama.currentText()
+        kategori  = self.waktu.currentText()
+
+        # ── Validasi kategori Snack / Minuman — styled overlay popup ────
+        if not self._validate_kategori(food_name, kategori):
+            if not self._konfirmasi_kategori_popup(food_name, kategori):
+                return
+        # ────────────────────────────────────────────────────────────────
+
         res = {
             "code" : code,
             "porsi": porsi_val,
-            "waktu": self.waktu.currentText()
+            "waktu": kategori
         }
 
         if self.edit_data:
@@ -922,12 +1031,22 @@ class LogPage(QWidget):
         return super().eventFilter(source, event)
     
     def show_tambah_makan(self, makanan: dict):
-        entry_data = {
-            'food_name': makanan.get('food_name'),
-            'portion': 100,
-            'category': "Sarapan"
-        }
-        self.open_popup(entry_data=entry_data)
+        """Buka popup tambah makanan (mode baru, bukan edit) dengan nama makanan pre-filled."""
+        # Buka popup kosong dulu (mode tambah, bukan edit)
+        self.open_popup(entry_data=None)
+        # Setelah popup terbuka, cari nama makanan di dropdown dan pilih otomatis
+        if self.popup and isinstance(self.popup, TambahPopup):
+            food_name = makanan.get('food_name', '')
+            idx = self.popup.nama.findText(food_name, Qt.MatchExactly)
+            if idx < 0:
+                # coba partial match
+                idx = self.popup.nama.findText(food_name, Qt.MatchContains)
+            if idx >= 0:
+                self.popup.nama.setCurrentIndex(idx)
+            else:
+                # Isi teks di QLineEdit dropdown meskipun tidak ada exact match
+                self.popup.nama.setEditText(food_name)
+            self.popup.update_preview()
 
 
 if __name__ == '__main__':
