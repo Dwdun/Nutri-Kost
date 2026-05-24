@@ -1,6 +1,7 @@
 import sys
 import os
 import hashlib
+import re
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'bima_scrapper'))
 from models import DBHelper, JsonHelper
@@ -44,6 +45,65 @@ class ProfilSystem:
         self._mock_db = []
         self._mock_id_counter = 1
 
+    def is_email_allowed(self, email):
+        if not isinstance(email, str):
+            return False, "Email tidak valid."
+
+        email = email.strip()
+        if not email or " " in email or email.count('@') != 1:
+            return False, "Email tidak valid."
+
+        local, domain = email.split('@')
+        if not local or not domain:
+            return False, "Email tidak valid."
+
+        if local.startswith('.') or local.endswith('.') or '..' in local:
+            return False, "Email tidak valid."
+
+        if not re.fullmatch(r"[A-Za-z0-9._%+-]+", local):
+            return False, "Email tidak valid."
+
+        if domain.startswith('.') or domain.endswith('.') or '..' in domain:
+            return False, "Email tidak valid."
+
+        domain_parts = domain.lower().split('.')
+        if len(domain_parts) < 2:
+            return False, "Email tidak valid."
+
+        if any(not part or len(part) < 2 for part in domain_parts):
+            return False, "Email tidak valid."
+
+        if any(not re.fullmatch(r"[A-Za-z0-9-]+", part) for part in domain_parts):
+            return False, "Email tidak valid."
+
+        if any(part.startswith('-') or part.endswith('-') for part in domain_parts):
+            return False, "Email tidak valid."
+
+        if not re.fullmatch(r"[A-Za-z]{2,}", domain_parts[-1]):
+            return False, "Email tidak valid."
+
+        allowed_domains = {
+            'gmail.com',
+            'yahoo.com',
+            'yahoo.co.id',
+            'ymail.com',
+            'outlook.com',
+            'hotmail.com',
+            'live.com',
+            'icloud.com',
+            'proton.me',
+            'protonmail.com',
+            'zoho.com',
+            'mail.com',
+            'polban.ac.id',
+        }
+
+        domain_lower = domain.lower()
+        if domain_lower not in allowed_domains and not domain_lower.endswith('.polban.ac.id'):
+            return False, "Email tidak valid."
+
+        return True, "Email valid."
+
     def validasiInput(self, data):
         # Cek nama tidak boleh kosong
         if not data.get('full_name') or not data['full_name'].strip():
@@ -68,10 +128,11 @@ class ProfilSystem:
         if not isinstance(tb, (int, float)) or tb <= 0 or tb > 300:
             return False, "Tinggi badan tidak valid (harus > 0 cm, maks 300 cm)."
 
-        # Cek email: harus ada '@' dan '.'
+        # Cek email: validasi format email dan whitelist domain
         email = data.get('email', '')
-        if not email or '@' not in email or '.' not in email:
-            return False, "Format email tidak valid."
+        valid, msg = self.is_email_allowed(email)
+        if not valid:
+            return False, msg
 
         # Cek password: minimal 6 karakter
         password = data.get('password', '')
