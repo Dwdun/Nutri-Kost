@@ -1,6 +1,7 @@
 import sys
 import os
 import re
+import traceback
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'fatih_GUI')))
@@ -492,7 +493,10 @@ class HalamanDataDiri(QWidget):
 
     def __init__(self, sistem: ProfilSystem, parent=None):
         super().__init__(parent)
-        self._sistem = sistem
+        # Pastikan sistem selalu tersedia agar halaman tidak crash jika data tidak terpasang
+        self._sistem = sistem or ProfilSystem()
+        # Salin data pendaftaran agar tidak memodifikasi referensi yang tidak aman
+        self.register_data = dict(getattr(self, 'register_data', {}) or {})
         layout = QVBoxLayout(self)
         layout.setAlignment(Qt.AlignCenter)
         layout.setSpacing(40)
@@ -691,7 +695,43 @@ class HalamanDataDiri(QWidget):
         cl.addWidget(btn_daftar)
 
         layout.addWidget(card)
-        
+
+    def _show_error(self, message):
+        # Tangani pesan error secara aman agar UI tidak crash jika toast gagal
+        try:
+            show_toast(self, str(message), TOAST_ERROR)
+        except Exception:
+            print(f"[HalamanDataDiri] Failed to show toast: {message}")
+
+    def _parse_input_angka(self):
+        # Validasi input angka sebelum lanjut ke proses pendaftaran
+        try:
+            bb = float(self.inp_bb.text() or 0)
+            tb = float(self.inp_tb.text() or 0)
+            usia = int(float(self.inp_usia.text() or 0))
+            if bb <= 0 or tb <= 0 or usia <= 0:
+                return None, "Usia, berat, dan tinggi harus lebih besar dari 0."
+            return (bb, tb, usia), None
+        except (TypeError, ValueError):
+            return None, "Input tidak valid! Pastikan Usia, BB, dan TB berisi nilai angka."
+
+    def _build_register_payload(self):
+        # Pastikan data awal pendaftaran lengkap sebelum membuat profil
+        try:
+            payload = dict(getattr(self, 'register_data', {}) or {})
+        except Exception:
+            payload = {}
+
+        if not isinstance(payload, dict):
+            payload = {}
+
+        required = ['full_name', 'email', 'password']
+        missing = [key for key in required if not payload.get(key)]
+        if missing:
+            return None, "Data pendaftaran belum lengkap. Silakan kembali dan isi ulang."
+
+        return payload, None
+
     def _update_estimasi(self):
         try:
             bb = float(self.inp_bb.text() or 0)
@@ -709,44 +749,67 @@ class HalamanDataDiri(QWidget):
 
     def _create(self, bb, tb, usia, jk, aktivitas):
         try:
-            data = self.register_data.copy()
+            # Ambil data awal dari register dulu, lalu tambahkan data data diri
+            payload, error = self._build_register_payload()
+            if error:
+                self._show_error(error)
+                return False
+
+            data = dict(payload)
             data['weight'] = bb
             data['height'] = tb
             data['age'] = usia
             data['gender'] = jk
             data['activity'] = aktivitas
-            data['diet_goal'] = self.inp_diet.currentText()
-            
+            data['diet_goal'] = self.inp_diet.currentText() if hasattr(self, 'inp_diet') and self.inp_diet else 'Maintain Berat Badan'
+
             res = self._sistem.createProfil(data)
             if isinstance(res, tuple):
                 success, msg = res
             else:
-                success = res
+                success = bool(res)
                 msg = "Gagal mendaftar. Periksa input anda."
-                
+
             if success:
+                # Beri tahu launcher bahwa proses pendaftaran selesai
                 self.register_success.emit()
-            else:
-                show_toast(self, f"{msg}", TOAST_ERROR)
-        except ValueError:
-            show_toast(self, "Usia, berat, dan tinggi harus berupa angka!", TOAST_ERROR)
+                return True
+
+            self._show_error(str(msg))
+            return False
+        except Exception:
+            # Simpan traceback untuk debugging, tapi jangan biarkan aplikasi crash
+            traceback.print_exc()
+            self._show_error("Terjadi kesalahan saat menyimpan profil. Silakan coba lagi.")
+            return False
 
     def _lewati(self):
-        # Set dummy parameters so 'ValidasiInput' doesn't block the onboarding flow.
-        self._create(50, 150, 20, "Perempuan", "Sedentary (Jarang Olahraga)")
+        try:
+            # Gunakan nilai default agar alur tetap bisa lanjut tanpa data lengkap
+            self._create(50, 150, 20, "Perempuan", "Sedentary (Jarang Olahraga)")
+        except Exception:
+            traceback.print_exc()
+            self._show_error("Terjadi kesalahan saat melewati langkah. Silakan coba lagi.")
 
     def _daftar(self):
         try:
-            self._create(
-                float(self.inp_bb.text() or 0),
-                float(self.inp_tb.text() or 0),
-                int(self.inp_usia.text() or 0),
-                self.inp_jk.currentText(),
-                self.inp_akt.currentText()
-            )
-        except:
-            show_toast(self, "Input tidak valid! Pastikan Usia, BB, dan TB berisi nilai angka.", TOAST_ERROR)
+            # Parse input dahulu untuk mencegah exception dari float/int conversion
+            parsed, error = self._parse_input_angka()
+            if error:
+                self._show_error(error)
+                return
 
+            bb, tb, usia = parsed
+            self._create(
+                bb,
+                tb,
+                usia,
+                self.inp_jk.currentText() or "Perempuan",
+                self.inp_akt.currentText() or "Sedentary (Jarang Olahraga)",
+            )
+        except Exception:
+            traceback.print_exc()
+            self._show_error("Terjadi kesalahan saat mendaftar. Silakan coba lagi.")
 
 
 class EditProfileDialog(QDialog):
