@@ -717,12 +717,19 @@ class MainWindow(QMainWindow):
 
     # ── Admin: Ekspor schema (sqlite3 nutrikost.db .dump > db_schema.sql) ────
     def _export_schema(self):
-        reply = QMessageBox.question(
-            self, "Konfirmasi Ekspor",
-            f"Ekspor seluruh isi database ke:\n{self._schema_path}\n\nLanjutkan?",
-            QMessageBox.Yes | QMessageBox.No
-        )
-        if reply != QMessageBox.Yes:
+        if not self._styled_confirm(
+            icon="📤",
+            title="Konfirmasi Ekspor",
+            title_color=ACCENT_GREEN,
+            message=(
+                f"Ekspor seluruh isi database ke:<br>"
+                f"<b>{self._schema_path}</b><br><br>"
+                "Lanjutkan?"
+            ),
+            btn_ok_text="Ekspor",
+            btn_ok_color=ACCENT_GREEN,
+            btn_ok_hover="#155f28",
+        ):
             return
         try:
             conn = _sqlite3.connect(self._db_path)
@@ -739,15 +746,20 @@ class MainWindow(QMainWindow):
         if not os.path.exists(self._schema_path):
             show_toast(self, f"❌ File db_schema.sql tidak ditemukan!", TOAST_ERROR)
             return
-        reply = QMessageBox.warning(
-            self, "Konfirmasi Impor",
-            f"⚠️ PERINGATAN: Impor akan menimpa data database saat ini!\n\n"
-            f"Sumber: {self._schema_path}\n"
-            f"Target: {self._db_path}\n\n"
-            f"Lanjutkan?",
-            QMessageBox.Yes | QMessageBox.No
-        )
-        if reply != QMessageBox.Yes:
+        if not self._styled_confirm(
+            icon="⚠️",
+            title="Konfirmasi Impor — PERINGATAN",
+            title_color="#dc2626",
+            message=(
+                "<b>Impor akan menimpa seluruh data database saat ini!</b><br><br>"
+                f"Sumber: <b>{self._schema_path}</b><br>"
+                f"Target: <b>{self._db_path}</b><br><br>"
+                "Lanjutkan?"
+            ),
+            btn_ok_text="Ya, Impor",
+            btn_ok_color="#dc2626",
+            btn_ok_hover="#b91c1c",
+        ):
             return
         try:
             with open(self._schema_path, 'r', encoding='utf-8') as f:
@@ -758,6 +770,85 @@ class MainWindow(QMainWindow):
             show_toast(self, "✅ Schema berhasil diimpor dari db_schema.sql", TOAST_NORMAL)
         except Exception as e:
             show_toast(self, f"❌ Gagal impor schema: {e}", TOAST_ERROR)
+
+    def _styled_confirm(
+        self, icon: str, title: str, title_color: str,
+        message: str, btn_ok_text: str, btn_ok_color: str, btn_ok_hover: str
+    ) -> bool:
+        """Generic styled overlay confirmation dialog.
+        Returns True if user clicked the OK button."""
+        from PyQt5.QtWidgets import QDialog, QFrame as _QFrame
+        from PyQt5.QtGui import QFont as _QFont
+
+        dlg = QDialog(self)
+        dlg.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
+        dlg.setAttribute(Qt.WA_TranslucentBackground)
+        dlg.setModal(True)
+        dlg.setFixedSize(self.width(), self.height())
+
+        # Overlay dark background fills entire dialog
+        overlay = QWidget(dlg)
+        overlay.setFixedSize(self.width(), self.height())
+        overlay.setStyleSheet("background-color: rgba(0, 0, 0, 120);")
+        overlay.setAttribute(Qt.WA_TranslucentBackground, False)
+        overlay.setAttribute(Qt.WA_StyledBackground, True)
+
+        card_w, card_h = 440, 300
+        card = _QFrame(overlay)
+        card.setFixedSize(card_w, card_h)
+        card.move((self.width() - card_w) // 2, (self.height() - card_h) // 2)
+        card.setStyleSheet("""
+            QFrame { background: white; border-radius: 25px; border: none; }
+            QLabel { border: none; background: transparent; color: #555555; font-family: 'Poppins'; }
+        """)
+
+        lay = QVBoxLayout(card)
+        lay.setContentsMargins(28, 28, 28, 28)
+        lay.setSpacing(12)
+
+        lbl_title = QLabel(f"{icon}  {title}")
+        lbl_title.setFont(_QFont('Poppins', 13, _QFont.Bold))
+        lbl_title.setStyleSheet(f"color: {title_color};")
+        lay.addWidget(lbl_title)
+
+        lbl_msg = QLabel(message)
+        lbl_msg.setFont(_QFont('Poppins', 10))
+        lbl_msg.setWordWrap(True)
+        lbl_msg.setStyleSheet("color: #555555;")
+        lay.addWidget(lbl_msg)
+
+        lay.addStretch()
+
+        btn_row = QHBoxLayout()
+        btn_row.setSpacing(12)
+
+        btn_cancel = QPushButton("Batal")
+        btn_cancel.setFixedHeight(50)
+        btn_cancel.setCursor(Qt.PointingHandCursor)
+        btn_cancel.setFont(_QFont('Poppins', 11))
+        btn_cancel.setStyleSheet(
+            "QPushButton { background: white; color: rgba(26,122,52,0.7); "
+            "border: 1.5px solid #1A7A34; border-radius: 25px; font-size: 15px; } "
+            "QPushButton:hover { color: #1A7A34; }"
+        )
+        btn_cancel.clicked.connect(dlg.reject)
+
+        btn_ok = QPushButton(btn_ok_text)
+        btn_ok.setFixedHeight(50)
+        btn_ok.setCursor(Qt.PointingHandCursor)
+        btn_ok.setFont(_QFont('Poppins', 11, _QFont.Bold))
+        btn_ok.setStyleSheet(
+            f"QPushButton {{ background: {btn_ok_color}; color: white; "
+            f"border-radius: 25px; font-size: 15px; border: none; }} "
+            f"QPushButton:hover {{ background: {btn_ok_hover}; }}"
+        )
+        btn_ok.clicked.connect(dlg.accept)
+
+        btn_row.addWidget(btn_cancel)
+        btn_row.addWidget(btn_ok)
+        lay.addLayout(btn_row)
+
+        return dlg.exec_() == QDialog.Accepted
 
     #navigasi halaman
     def navigate(self, page_key: str):

@@ -1,5 +1,6 @@
 import sys
 import os
+from datetime import datetime
 
 # Tambahkan root proyek ke sys.path agar import fatih_GUI dikenali saat run mandiri
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -226,7 +227,8 @@ class HalamanVisualisasi(QWidget):
     # ── Logika Export PDF ──
     def _on_export_pdf(self):
         tab_names = ['Kalori_Mingguan', 'Komposisi_Gizi', 'Top10_Makanan']
-        default_name = f'NutriKos_{tab_names[self._active_tab]}.pdf'
+        ts = datetime.now().strftime('%Y%m%d_%H%M%S')
+        default_name = f'NutriKost_{tab_names[self._active_tab]}_{ts}.pdf'
         
         file_path, _ = QFileDialog.getSaveFileName(
             self,
@@ -264,10 +266,11 @@ class HalamanVisualisasi(QWidget):
         self._btn_export_all.setEnabled(False)
         self._btn_export_all.setText('⏳  Mengekspor...')
 
+        ts = datetime.now().strftime('%Y%m%d_%H%M%S')
         tab_info = [
-            (0, 'NutriKost_Kalori_Mingguan.pdf'),
-            (1, 'NutriKost_Komposisi_Gizi.pdf'),
-            (2, 'NutriKost_Top10_Makanan.pdf'),
+            (0, f'NutriKost_Kalori_Mingguan_{ts}.pdf'),
+            (1, f'NutriKost_Komposisi_Gizi_{ts}.pdf'),
+            (2, f'NutriKost_Top10_Makanan_{ts}.pdf'),
         ]
 
         errors = []
