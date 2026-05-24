@@ -1,5 +1,6 @@
 import sys
 import os
+import re
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'fatih_GUI')))
@@ -444,38 +445,39 @@ class HalamanRegister(QWidget):
 
     def _lanjut(self):
         full_name = self.inp_nama.text().strip()
-        email = self.inp_email.text()
-        
+        email = self.inp_email.text().strip()
+        sistem = self._sistem or ProfilSystem()
+
         if not full_name:
             show_toast(self, "Nama tidak boleh kosong!", TOAST_ERROR)
             return
-            
-        if '@' not in email or '.' not in email:
-            show_toast(self, "Format email tidak valid! Harus mengandung '@' dan '.'.", TOAST_ERROR)
+
+        valid, msg = sistem.is_email_allowed(email)
+        if not valid:
+            show_toast(self, msg, TOAST_ERROR)
             return
 
         if not self.chk_terms.isChecked():
             show_toast(self, "Anda harus setuju dengan S&K", TOAST_ERROR)
             return
-            
+
         p1 = self.inp_pass.text()
         p2 = self.inp_konf.text()
-        
+
         if len(p1) < 6:
             show_toast(self, "Password minimal 6 karakter!", TOAST_ERROR)
             return
-            
+
         if p1 != p2:
             show_toast(self, "Password tidak cocok!", TOAST_ERROR)
             return
-        
+
         # Validasi Email Duplikat
         # Dilakukan sebelum pindah ke halaman Data Diri
-        sistem_val = self._sistem or ProfilSystem()
-        if sistem_val.cekEmailTerdaftar(email):
+        if sistem.cekEmailTerdaftar(email):
             show_toast(self, "Email sudah terdaftar. Silakan gunakan email lain.", TOAST_ERROR)
             return
-        
+
         data = {
             'full_name': full_name,
             'email': email,
