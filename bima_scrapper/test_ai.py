@@ -10,7 +10,8 @@ from thefuzz import process
 from models import DBHelper, KONVERSI_GRAM 
 
 #Gemini
-genai.configure(api_key="AIzaSyBu5Ce7b1inSfAUJQFEblWqUMRu9uUIhzs")
+api_key = os.environ.get("GEMINI_API_KEY") or "AIzaSyBu5Ce7b1inSfAUJQFEblWqUMRu9uUIhzs"
+genai.configure(api_key=api_key)
 model = genai.GenerativeModel('gemini-flash-latest')
 
 #cache makanan di db
@@ -130,7 +131,7 @@ def bongkar_resep_dengan_gemini(nama_makanan):
         return json.loads(response.text)
     except Exception as e:
         print(f"\n[Error] Gagal menghubungi Gemini: {e}")
-        return []
+        raise e
 
 def proses_nutrisi_terminal(nama_makanan):
     db = DBHelper('nutrikost.db')
@@ -159,7 +160,7 @@ def proses_nutrisi_terminal(nama_makanan):
         print("=" * 60)
         
         conn.close()
-        return 
+        return "EXISTS", kecocokan_master
 
     #2. Cek di tabel cache, jika tidak ada, panggil AI
     print(f"\n[INFO] '{nama_makanan}' tidak ada di database utama. Memulai proses dekonstruksi bahan...")
@@ -169,7 +170,7 @@ def proses_nutrisi_terminal(nama_makanan):
     if not daftar_bahan_mentah:
         print("Tidak ada bahan yang berhasil diuraikan.")
         conn.close()
-        return
+        return "EMPTY", None
 
     print(f"\nBahan baku: {daftar_bahan_mentah}\n")
     print("=" * 60)
@@ -283,6 +284,7 @@ def proses_nutrisi_terminal(nama_makanan):
               f"{round(total_air * f, 1)}g Air | "
               f"{round(total_serat * f, 1)}g Serat")
     print("=" * 60)
+    return "SUCCESS", None
 
 if __name__ == "__main__":
     init_cache_table()

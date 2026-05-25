@@ -270,6 +270,10 @@ class HalamanLogin(QWidget):
         layout.addWidget(card, alignment=Qt.AlignCenter)
         layout.addStretch(1)
 
+    def clear_fields(self):
+        self.inp_user.clear()
+        self.inp_pass.clear()
+
     def _aksi_masuk(self):
         usr = self.inp_user.text()
         pwd = self.inp_pass.text()
@@ -442,7 +446,12 @@ class HalamanRegister(QWidget):
         self.btn_lanjut.clicked.connect(self._lanjut)
         cl.addWidget(self.btn_lanjut)
 
-        layout.addWidget(card)
+    def clear_fields(self):
+        self.inp_nama.clear()
+        self.inp_email.clear()
+        self.inp_pass.clear()
+        self.inp_konf.clear()
+        self.chk_terms.setChecked(False)
 
     def _lanjut(self):
         full_name = self.inp_nama.text().strip()
@@ -550,7 +559,7 @@ class HalamanDataDiri(QWidget):
         lbl_jk.setStyleSheet("color: #115724; background: transparent;")
         cl.addWidget(lbl_jk)
         self.inp_jk = QComboBox()
-        self.inp_jk.addItems(["Perempuan", "Laki-laki"])
+        self.inp_jk.addItems(["", "Perempuan", "Laki-laki"])
         self.inp_jk.setFixedHeight(48)
         combo_style = '''
             QComboBox {
@@ -739,7 +748,7 @@ class HalamanDataDiri(QWidget):
             usia = int(self.inp_usia.text() or 0)
             jk = self.inp_jk.currentText()
             akt = self.inp_akt.currentText()
-            if bb > 0 and tb > 0 and usia > 0:
+            if bb > 0 and tb > 0 and usia > 0 and jk in ["Perempuan", "Laki-laki"]:
                 calc = self._sistem.calculatorHarrisBenedict(jk, bb, tb, usia, akt)
                 self.val_cal.setText(f"{calc} kkal/hari")
             else:
@@ -793,6 +802,11 @@ class HalamanDataDiri(QWidget):
 
     def _daftar(self):
         try:
+            jk = self.inp_jk.currentText()
+            if not jk or jk not in ["Perempuan", "Laki-laki"]:
+                self._show_error("Jenis kelamin harus dipilih!")
+                return
+
             # Parse input dahulu untuk mencegah exception dari float/int conversion
             parsed, error = self._parse_input_angka()
             if error:
@@ -804,12 +818,22 @@ class HalamanDataDiri(QWidget):
                 bb,
                 tb,
                 usia,
-                self.inp_jk.currentText() or "Perempuan",
+                jk,
                 self.inp_akt.currentText() or "Sedentary (Jarang Olahraga)",
             )
         except Exception:
             traceback.print_exc()
             self._show_error("Terjadi kesalahan saat mendaftar. Silakan coba lagi.")
+
+    def clear_fields(self):
+        self.register_data = {}
+        self.inp_jk.setCurrentIndex(0)  # Empty ""
+        self.inp_usia.clear()
+        self.inp_akt.setCurrentIndex(0)  # Sedentary (Jarang Olahraga)
+        self.inp_bb.clear()
+        self.inp_tb.clear()
+        self.inp_diet.setCurrentIndex(0)  # Maintain Berat Badan
+        self.val_cal.setText("--- kkal/hari")
 
 
 class EditProfileDialog(QDialog):
