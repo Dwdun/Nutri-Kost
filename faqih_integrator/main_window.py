@@ -6,22 +6,37 @@ from PyQt5.QtCore import Qt, QSize, QPropertyAnimation, QEasingCurve, QTimer, QT
 from PyQt5.QtGui import QFont, QPixmap, QIcon, QCursor, QPainter, QColor
 from fatih_GUI.toast_notification import show_toast, TOAST_NORMAL, TOAST_ERROR
 import os
+import sys
 import sqlite3 as _sqlite3
 
-# collor pallete
-SIDEBAR_BG     = "#1A7A34"   
-SIDEBAR_HOVER  = "#3C8E52"   
-SIDEBAR_ACTIVE = "#5EA271"   
+# ─── PyInstaller compatibility ───────────────────────────────────────────────
+def _res(rel: str) -> str:
+    """Path ke resource (assets) — dari _MEIPASS saat .exe, atau source saat dev."""
+    base = getattr(sys, '_MEIPASS', os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    return os.path.join(base, rel)
+
+def _writable(rel: str) -> str:
+    """Path ke file yang bisa ditulis (database) — sejajar .exe atau root proyek."""
+    if getattr(sys, 'frozen', False):
+        base = os.path.dirname(sys.executable)
+    else:
+        base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    return os.path.join(base, rel)
+
+BASE_DIR     = os.path.dirname(os.path.abspath(__file__))
+ICONS_DIR    = _res(os.path.join('assets', 'icons'))
+PATTERN_PATH = _res(os.path.join('assets', 'pattern.png'))
+
+# Color palette
+SIDEBAR_BG     = "#1A7A34"
+SIDEBAR_HOVER  = "#3C8E52"
+SIDEBAR_ACTIVE = "#5EA271"
 SIDEBAR_TEXT   = "#ffffff"
-SIDEBAR_EXP    = 280      #lebar sidebar dibuka       
-SIDEBAR_COL    = 76       #lebar sidebar ditutup
-CONTENT_BG     = "#F2F4F0"   
+SIDEBAR_EXP    = 280      # lebar sidebar dibuka
+SIDEBAR_COL    = 76       # lebar sidebar ditutup
+CONTENT_BG     = "#F2F4F0"
 HEADER_BG      = "#ffffff"
 ACCENT_GREEN   = "#1A7A34"
-
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-ICONS_DIR = os.path.join(BASE_DIR, '..', 'assets', 'icons')
-PATTERN_PATH = os.path.join(BASE_DIR, '..', 'assets', 'pattern.png')
 
 #pattern background
 class PatternWidget(QWidget):
@@ -554,8 +569,7 @@ class MainWindow(QMainWindow):
         
         #dashboard
         from fatih_GUI.halaman_dashboard import HalamanDashboard
-        import os as _os
-        _db_path = _os.path.normpath(_os.path.join(BASE_DIR, '..', 'bima_scrapper', 'nutrikost.db'))
+        _db_path = _writable(os.path.join('bima_scrapper', 'nutrikost.db'))
         _id_user = (
             self.sistem_profil.current_profil.get('id_user', 1)
             if (hasattr(self, 'sistem_profil') and self.sistem_profil and self.sistem_profil.current_profil)
@@ -709,11 +723,11 @@ class MainWindow(QMainWindow):
     # ── Admin: path DB dan schema ─────────────────────────────────────────────
     @property
     def _db_path(self) -> str:
-        return os.path.normpath(os.path.join(BASE_DIR, '..', 'bima_scrapper', 'nutrikost.db'))
+        return _writable(os.path.join('bima_scrapper', 'nutrikost.db'))
 
     @property
     def _schema_path(self) -> str:
-        return os.path.normpath(os.path.join(BASE_DIR, '..', 'bima_scrapper', 'db_schema.sql'))
+        return _writable(os.path.join('bima_scrapper', 'db_schema.sql'))
 
     # ── Admin: Ekspor schema (sqlite3 nutrikost.db .dump > db_schema.sql) ────
     def _export_schema(self):

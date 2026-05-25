@@ -9,9 +9,13 @@ from PyQt5.QtGui import QFont, QFontMetrics, QIcon
 
 # Path Configuration
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-db_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "bima_scrapper", "nutrikost.db"))
+if getattr(sys, 'frozen', False):
+    db_path = os.path.abspath(os.path.join(os.path.dirname(sys.executable), "bima_scrapper", "nutrikost.db"))
+else:
+    db_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "bima_scrapper", "nutrikost.db"))
 
 from fatih_GUI.toast_notification import show_toast, TOAST_SUCCESS, TOAST_ERROR
+
 
 def font_body(size):
     return QFont("Poppins", size)

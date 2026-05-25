@@ -1,4 +1,5 @@
 import os
+import sys
 import json
 import re
 import sqlite3
@@ -15,10 +16,10 @@ model = genai.GenerativeModel('gemini-flash-latest')
 #cache makanan di db
 def init_cache_table(db_name='nutrikost.db'):
     #cek tabel CacheResep
-    base_dir = os.path.dirname(os.path.abspath(__file__))
-    db_path = os.path.join(base_dir, db_name)
+    db_path = DBHelper(db_name).db_path
     
     conn = sqlite3.connect(db_path)
+
 
     # Buat tabel dengan skema lengkap jika belum ada
     conn.execute('''
@@ -56,8 +57,9 @@ def init_cache_table(db_name='nutrikost.db'):
 
 def get_or_fetch_resep(nama_makanan_input):
     #Cek Nama makanan
-    db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'nutrikost.db')
+    db_path = DBHelper('nutrikost.db').db_path
     conn = sqlite3.connect(db_path)
+
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
 
@@ -240,8 +242,9 @@ def proses_nutrisi_terminal(nama_makanan):
         water_per100   = round(total_air     * faktor, 2)
         fiber_per100   = round(total_serat   * faktor, 2)
 
-        db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'nutrikost.db')
+        db_path = DBHelper('nutrikost.db').db_path
         conn_cache = sqlite3.connect(db_path)
+
         try:
             conn_cache.execute(
                 """

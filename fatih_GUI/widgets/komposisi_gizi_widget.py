@@ -234,7 +234,7 @@ class KomposisiGiziWidget(QWidget):
                 labels=None,
                 wedgeprops={'linewidth': 0},
             )
-            ax.text(0, 0, 'Belum ada\\ndata', ha='center', va='center', fontproperties=_FP_POPPINS_BOLD, fontsize=14, color=C_TEXT_SUB)
+            ax.text(0, 0, 'Belum ada\ndata', ha='center', va='center', fontproperties=_FP_POPPINS_BOLD, fontsize=14, color=C_TEXT_SUB)
         else:
             # ── Pie ──
             wedges, _, autotexts = ax.pie(

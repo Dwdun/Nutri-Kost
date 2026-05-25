@@ -1,6 +1,7 @@
 import sqlite3
 import json
 import os
+import sys
 import re
 from thefuzz import process
 
@@ -69,7 +70,17 @@ def kalkulasi_nutrisi_bahan(teks_bahan, db_makanan_dict):
 
 class DBHelper:
     def __init__(self, db_name='nutrikost.db'):
-        self.db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), db_name)
+        # Saat dikemas sebagai .exe, __file__ menunjuk ke folder temp (read-only).
+        # Kita harus menyimpan database di folder yang bisa ditulis:
+        #   - mode .exe  → folder sejajar executable
+        #   - mode dev   → folder models.py (bima_scrapper/)
+        if getattr(sys, 'frozen', False):
+            base = os.path.dirname(sys.executable)
+        else:
+            base = os.path.dirname(os.path.abspath(__file__))
+        db_dir = os.path.join(base, 'bima_scrapper') if getattr(sys, 'frozen', False) else base
+        os.makedirs(db_dir, exist_ok=True)
+        self.db_path = os.path.join(db_dir, db_name)
 
     def _get_connection(self):
         conn = sqlite3.connect(self.db_path)
@@ -377,7 +388,11 @@ class DBHelper:
 
 class JsonHelper:
     def __init__(self):
-        self.base_dir = os.path.dirname(os.path.abspath(__file__))
+        # Saat dikemas .exe, JSON dibundel di _MEIPASS/bima_scrapper/
+        if getattr(sys, 'frozen', False):
+            self.base_dir = os.path.join(sys._MEIPASS, 'bima_scrapper')
+        else:
+            self.base_dir = os.path.dirname(os.path.abspath(__file__))
 
     def _read_json(self, filename):
         file_path = os.path.join(self.base_dir, filename)
