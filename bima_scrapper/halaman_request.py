@@ -254,20 +254,7 @@ class RequestPage(PageTemplate):
 
     def build_content(self, container):
         self.container = container
-        main_layout = self._scroll.widget().layout()
 
-        # Pin semua konten ke atas
-        main_layout.setAlignment(Qt.AlignTop)
-        main_layout.setContentsMargins(24, 24, 24, 24)
-        main_layout.setSpacing(16)
-
-        h_header_layout = QHBoxLayout()
-        text_vbox = QVBoxLayout()
-        text_vbox.addWidget(self._page_title)
-        text_vbox.addWidget(self._page_desc)
-        h_header_layout.addLayout(text_vbox)
-        h_header_layout.addStretch()
-        
         self.btn_refresh = QPushButton("↻ Refresh")
         self.btn_refresh.setFixedSize(145, 56)
         self.btn_refresh.setCursor(Qt.PointingHandCursor)
@@ -286,14 +273,13 @@ class RequestPage(PageTemplate):
             }
         """)
         self.btn_refresh.clicked.connect(self.refresh)
-        h_header_layout.addWidget(self.btn_refresh)
-        
-        main_layout.insertLayout(0, h_header_layout)
+        self._header_row.insertWidget(1, self.btn_refresh)
 
-        # --- MAIN CARD --- (disisipkan di index 1, tepat setelah header)
-        self.card = QWidget()
+        # --- MAIN CARD ---
+        self.card = QFrame()
+        self.card.setObjectName("MainCard")
         self.card.setStyleSheet("""
-            QWidget {
+            QFrame#MainCard {
                 background: white;
                 border-radius: 16px;
                 border: 1px solid #1A7A34;
@@ -326,7 +312,7 @@ class RequestPage(PageTemplate):
         self.rows_layout.setColumnStretch(8, 3)   # Aksi
 
         self.card_layout.addWidget(self.rows_container)
-        main_layout.insertWidget(1, self.card)
+        container.layout().addWidget(self.card)
 
         self.load_data()
 

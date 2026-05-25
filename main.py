@@ -139,13 +139,19 @@ class AppLauncher(QMainWindow):
         self.stack.addWidget(self.datadiri_wrapper)
 
     def show_login(self):
+        if hasattr(self, 'login_p') and self.login_p:
+            self.login_p.clear_fields()
         self.stack.setCurrentWidget(self.login_wrapper)
         
     def show_register(self):
+        if hasattr(self, 'register_p') and self.register_p:
+            self.register_p.clear_fields()
         self.stack.setCurrentWidget(self.register_wrapper)
 
     def show_datadiri(self, data):
-        self.datadiri_p.register_data = data
+        if hasattr(self, 'datadiri_p') and self.datadiri_p:
+            self.datadiri_p.clear_fields()
+            self.datadiri_p.register_data = data
         self.stack.setCurrentWidget(self.datadiri_wrapper)
 
     #main window baru dibuat
@@ -180,6 +186,15 @@ class AppLauncher(QMainWindow):
         self.stack.removeWidget(self.dashboard) #keluar dari tampila
         self.dashboard.deleteLater() 
         self.dashboard = None
+
+        # Reset all auth fields on logout
+        if hasattr(self, 'login_p') and self.login_p:
+            self.login_p.clear_fields()
+        if hasattr(self, 'register_p') and self.register_p:
+            self.register_p.clear_fields()
+        if hasattr(self, 'datadiri_p') and self.datadiri_p:
+            self.datadiri_p.clear_fields()
+
         self.show_login()
 
 def main():

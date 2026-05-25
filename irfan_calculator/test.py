@@ -30,7 +30,7 @@ except Exception as _e:
 # ==================  AI WORKER THREAD  ==================
 class AIWorkerThread(QThread):
     """Menjalankan proses_nutrisi_terminal di background agar UI tidak freeze."""
-    finished = pyqtSignal(str, bool)   # (nama_makanan, sukses)
+    finished = pyqtSignal(str, bool, str, str)   # (nama_makanan, sukses, status, detail)
 
     def __init__(self, nama_makanan):
         super().__init__()
@@ -39,13 +39,19 @@ class AIWorkerThread(QThread):
     def run(self):
         try:
             # Suppress output terminal supaya tidak banjir di konsol GUI
+            import io
+            from contextlib import redirect_stdout
             f = io.StringIO()
             with redirect_stdout(f):
-                proses_nutrisi_terminal(self.nama_makanan)
-            self.finished.emit(self.nama_makanan, True)
+                res = proses_nutrisi_terminal(self.nama_makanan)
+                if isinstance(res, tuple):
+                    status, detail = res
+                else:
+                    status, detail = "SUCCESS", ""
+            self.finished.emit(self.nama_makanan, True, status, detail or "")
         except Exception as e:
             print(f"[AI Error] {e}")
-            self.finished.emit(self.nama_makanan, False)
+            self.finished.emit(self.nama_makanan, False, "FAILED", str(e))
 
 
 # ==================  AI TAMBAH POPUP  ==================
@@ -177,21 +183,34 @@ class AITambahPopup(QWidget):
         self.worker.finished.connect(self._on_ai_done)
         self.worker.start()
 
-    def _on_ai_done(self, nama_makanan, sukses):
+    def _on_ai_done(self, nama_makanan, sukses, status, detail):
         self.btn_search.setEnabled(True)
         self.btn_back.setEnabled(True)
         self.input_nama.setEnabled(True)
 
         if sukses:
-            self._set_status(
-                f"✅  '{nama_makanan}' berhasil dianalisis & di-request!\n"
-                "Klik Kembali.",
-                "#1A7A34"
-            )
-            self.success_callback(nama_makanan)
+            if status == "EXISTS":
+                self._set_status(
+                    f"💡  '{nama_makanan}' sudah terdaftar di database utama\n"
+                    f"sebagai '{detail.title()}'. Silakan cari langsung.",
+                    "orange"
+                )
+            elif status == "EMPTY":
+                self._set_status(
+                    f"⚠️  '{nama_makanan}' tidak dapat diuraikan oleh AI.\n"
+                    "Coba masukkan nama makanan yang wajar.",
+                    "orange"
+                )
+            else:
+                self._set_status(
+                    f"✅  '{nama_makanan}' berhasil dianalisis & di-request!\n"
+                    "Silakan menunggu persetujuan admin.",
+                    "#1A7A34"
+                )
+                self.success_callback(nama_makanan)
         else:
             self._set_status(
-                "❌  Gagal menganalisis makanan. Periksa koneksi & coba lagi.",
+                "❌  Gagal menganalisis makanan. Periksa koneksi/API Key.",
                 "red"
             )
 
@@ -405,6 +424,8 @@ class TambahPopup(QWidget):
             self.nama.setEnabled(False)
             self.porsi.setText(str(self.edit_data['portion']))
             self.waktu.setCurrentText(self.edit_data['meal_time'])
+        else:
+            self.nama.setCurrentIndex(-1)
 
         self.update_preview()
 
