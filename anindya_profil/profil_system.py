@@ -109,24 +109,24 @@ class ProfilSystem:
         if not data.get('full_name') or not data['full_name'].strip():
             return False, "Nama tidak boleh kosong."
 
-        # Cek usia: harus angka, antara 1 sampai 120
+        # Cek usia: harus angka, lebih dari 1 tahun, maksimum 120
         usia = data.get('age')
-        if not isinstance(usia, int) or usia <= 0 or usia > 120:
-            return False, "Usia tidak valid (harus 1-120)."
+        if not isinstance(usia, int) or usia <= 1 or usia > 120:
+            return False, "Usia tidak valid (harus lebih dari 1 tahun dan maksimal 120)."
 
         # Cek gender: hanya boleh 'Laki-laki' atau 'Perempuan'
         if data.get('gender') not in ['Laki-laki', 'Perempuan']:
             return False, "Gender harus 'Laki-laki' atau 'Perempuan'."
 
-        # Cek berat badan: tidak boleh 0 atau negatif
+        # Cek berat badan: minimal 10 kg
         bb = data.get('weight')
-        if not isinstance(bb, (int, float)) or bb <= 0 or bb > 300:
-            return False, "Berat badan tidak valid (harus > 0 kg, maks 300 kg)."
+        if not isinstance(bb, (int, float)) or bb < 10 or bb > 300:
+            return False, "Berat badan tidak valid (harus >= 10 kg, maks 300 kg)."
 
-        # Cek tinggi badan: tidak boleh 0 atau negatif
+        # Cek tinggi badan: minimal 50 cm
         tb = data.get('height')
-        if not isinstance(tb, (int, float)) or tb <= 0 or tb > 300:
-            return False, "Tinggi badan tidak valid (harus > 0 cm, maks 300 cm)."
+        if not isinstance(tb, (int, float)) or tb < 50 or tb > 300:
+            return False, "Tinggi badan tidak valid (harus >= 50 cm, maks 300 cm)."
 
         # Cek email: validasi format email dan whitelist domain
         email = data.get('email', '')
