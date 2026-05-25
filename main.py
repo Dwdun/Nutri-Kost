@@ -1,9 +1,30 @@
 import sys
 import os
-import sqlite3 # Tambahkan import sqlite3
+import sqlite3
+import traceback
 
-#tempat main.py berada = root proyek
-BASE = os.path.dirname(__file__)   
+# ─── PyInstaller compatibility ───────────────────────────────────────────────
+# Saat dikemas sebagai .exe, semua file statis diekstrak ke folder temp _MEIPASS.
+# BASE_RESOURCES → folder resource (assets, schema SQL, dll.) — bisa berupa _MEIPASS
+# BASE_WRITABLE  → folder di sebelah .exe / script — tempat menyimpan database
+def _resource_path(relative_path: str) -> str:
+    """Kembalikan path absolut ke resource (bundled atau development)."""
+    base = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
+    return os.path.join(base, relative_path)
+
+def _writable_path(relative_path: str) -> str:
+    """Kembalikan path di folder yang bisa ditulis (sejajar .exe / main.py)."""
+    if getattr(sys, 'frozen', False):
+        # Saat jalan sebagai .exe → pakai folder yang sama dengan .exe
+        base = os.path.dirname(sys.executable)
+    else:
+        # Saat development → pakai folder root proyek
+        base = os.path.dirname(os.path.abspath(__file__))
+    return os.path.join(base, relative_path)
+
+# Shortcut yang dipakai di seluruh file
+BASE = _resource_path('.')   # untuk assets/fonts/icons (read-only OK)
+
 
 #add sub folder to py
 sys.path.insert(0, os.path.join(BASE, "faqih_integrator"))  # main_window, search_page
@@ -22,28 +43,34 @@ from anindya_profil.test import HalamanLogin, HalamanRegister, HalamanDataDiri, 
 
 # Fungsi untuk inisialisasi database
 def init_database():
-    db_dir = os.path.join(BASE, "bima_scrapper")
+    # Schema SQL ada di dalam bundle (read-only)
+    sql_path = _resource_path(os.path.join("bima_scrapper", "db_schema.sql"))
+    # Database disimpan di folder yang bisa ditulis (sejajar .exe)
+    db_dir  = _writable_path("bima_scrapper")
     db_path = os.path.join(db_dir, "nutrikost.db")
-    sql_path = os.path.join(db_dir, "db_schema.sql")
+
+    # Pastikan folder tujuan ada
+    os.makedirs(db_dir, exist_ok=True)
 
     if not os.path.exists(sql_path):
         print(f"Peringatan: File schema tidak ditemukan di {sql_path}")
         return
 
     try:
-        # Membaca isi dari db_schema.sql
         with open(sql_path, 'r', encoding='utf-8') as sql_file:
             sql_script = sql_file.read()
 
-        # Connect ke database (akan otomatis membuat nutrikost.db jika belum ada)
         conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
-        
-        # Mengeksekusi seluruh script SQL sekaligus
-        cursor.executescript(sql_script)
-        conn.commit()
+        # executescript dengan IF NOT EXISTS sudah ada di schema, jadi aman dijalankan ulang
+        try:
+            cursor.executescript(sql_script)
+            conn.commit()
+        except Exception:
+            # Tabel sudah ada — tidak masalah, skip saja
+            pass
         conn.close()
-        print("Database berhasil diinisialisasi berdasarkan db_schema.sql")
+        print(f"Database berhasil diinisialisasi: {db_path}")
     except Exception as e:
         print(f"Terjadi kesalahan saat inisialisasi database: {e}")
 
@@ -55,8 +82,8 @@ class AppLauncher(QMainWindow):
         self.resize(1200, 720)
         
         # Set high-quality taskbar icon for Windows
-        ico_path = os.path.join(BASE, "assets", "icons", "Logo.ico")
-        png_path = os.path.join(BASE, "assets", "icons", "Logo.png")
+        ico_path = _resource_path(os.path.join("assets", "icons", "Logo.ico"))
+        png_path = _resource_path(os.path.join("assets", "icons", "Logo.png"))
         icon_path = ico_path if os.path.exists(ico_path) else png_path
         if os.path.exists(icon_path):
             self.setWindowIcon(QIcon(icon_path))
@@ -129,11 +156,24 @@ class AppLauncher(QMainWindow):
             self.dashboard.deleteLater()
             self.dashboard = None
 
-        self.dashboard = MainWindow(self._sistem)
-        self.dashboard.logout_signal.connect(self.handle_logout)
-            
-        self.stack.addWidget(self.dashboard)
-        self.stack.setCurrentWidget(self.dashboard)
+        try:
+            self.dashboard = MainWindow(self._sistem)
+            self.dashboard.logout_signal.connect(self.handle_logout)
+            self.stack.addWidget(self.dashboard)
+            self.stack.setCurrentWidget(self.dashboard)
+        except Exception as e:
+            # Tulis error ke file log agar bisa di-debug
+            log_path = _writable_path('nutrikost_error.log')
+            with open(log_path, 'a', encoding='utf-8') as f:
+                f.write(f"\n=== Error saat membuka dashboard ===\n")
+                f.write(traceback.format_exc())
+            # Tampilkan pesan error ke user
+            from PyQt5.QtWidgets import QMessageBox
+            QMessageBox.critical(
+                self,
+                "Gagal Membuka Dashboard",
+                f"Terjadi kesalahan:\n{e}\n\nDetail disimpan di: {log_path}"
+            )
     
     #handling logout
     def handle_logout(self):
@@ -157,21 +197,22 @@ def main():
     app = QApplication(sys.argv)
     
     # Gunakan .ico untuk taskbar Windows (lebih reliable dari .png)
-    ico_path = os.path.join(BASE, "assets", "icons", "Logo.ico")
-    png_path = os.path.join(BASE, "assets", "icons", "Logo.png")
+    ico_path = _resource_path(os.path.join("assets", "icons", "Logo.ico"))
+    png_path = _resource_path(os.path.join("assets", "icons", "Logo.png"))
     icon_path = ico_path if os.path.exists(ico_path) else png_path
     app_icon = QIcon(icon_path) if os.path.exists(icon_path) else QIcon()
     app.setWindowIcon(app_icon)
-        
+
     app.setApplicationName("NutriKost")
 
     #font dan icon
-    QFontDatabase.addApplicationFont(os.path.join(BASE, "assets/fonts/MontserratAlternates-Regular.ttf"))
-    QFontDatabase.addApplicationFont(os.path.join(BASE, "assets/fonts/MontserratAlternates-Bold.ttf"))
-    QFontDatabase.addApplicationFont(os.path.join(BASE, "assets/fonts/Poppins-Regular.ttf"))
-    QFontDatabase.addApplicationFont(os.path.join(BASE, "assets/fonts/Poppins-Medium.ttf"))
-    QFontDatabase.addApplicationFont(os.path.join(BASE, "assets/fonts/Poppins-SemiBold.ttf"))
-    QFontDatabase.addApplicationFont(os.path.join(BASE, "assets/fonts/Poppins-Bold.ttf"))
+    fonts_dir = _resource_path("assets/fonts")
+    QFontDatabase.addApplicationFont(os.path.join(fonts_dir, "MontserratAlternates-Regular.ttf"))
+    QFontDatabase.addApplicationFont(os.path.join(fonts_dir, "MontserratAlternates-Bold.ttf"))
+    QFontDatabase.addApplicationFont(os.path.join(fonts_dir, "Poppins-Regular.ttf"))
+    QFontDatabase.addApplicationFont(os.path.join(fonts_dir, "Poppins-Medium.ttf"))
+    QFontDatabase.addApplicationFont(os.path.join(fonts_dir, "Poppins-SemiBold.ttf"))
+    QFontDatabase.addApplicationFont(os.path.join(fonts_dir, "Poppins-Bold.ttf"))
 
     #tampilan lintas OS 
     app.setStyle("Fusion")

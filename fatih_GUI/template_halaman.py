@@ -15,14 +15,24 @@ from PyQt5.QtGui import (
     QColor, QIcon, QPalette, QBrush, QCursor,
 )
 
-# ─────────────────────────────────────────────
+# ───────────────────────────────────────────────
 #  PATH SETUP
-# ─────────────────────────────────────────────
-BASE_DIR   = os.path.dirname(os.path.abspath(__file__))
-ASSETS_DIR = os.path.join(BASE_DIR, '..', 'assets')
-ICONS_DIR  = os.path.join(ASSETS_DIR, 'icons')
-FONTS_DIR  = os.path.join(ASSETS_DIR, 'fonts')
+# ───────────────────────────────────────────────
+import sys
+
+# Saat dikemas .exe, PyInstaller mengekstrak file ke sys._MEIPASS.
+# Kita harus membaca assets dari sana, bukan dari __file__.
+if getattr(sys, 'frozen', False):
+    _BUNDLE_ROOT = sys._MEIPASS
+else:
+    _BUNDLE_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+BASE_DIR     = os.path.dirname(os.path.abspath(__file__))
+ASSETS_DIR   = os.path.join(_BUNDLE_ROOT, 'assets')
+ICONS_DIR    = os.path.join(ASSETS_DIR, 'icons')
+FONTS_DIR    = os.path.join(ASSETS_DIR, 'fonts')
 PATTERN_PATH = os.path.join(ASSETS_DIR, 'pattern.png')
+
 
 # ─────────────────────────────────────────────
 #  DESIGN TOKENS

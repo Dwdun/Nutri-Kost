@@ -1,10 +1,15 @@
 import os
+import sys
 import sqlite3
 
 class LogSystem:
     def __init__(self, db_name="nutrikost.db"):
-        base_dir = os.path.dirname(os.path.abspath(__file__))
-        db_path = os.path.join(base_dir, "..", "bima_scrapper", db_name)
+        if getattr(sys, 'frozen', False):
+            base_dir = os.path.dirname(sys.executable)
+            db_path = os.path.join(base_dir, "bima_scrapper", db_name)
+        else:
+            base_dir = os.path.dirname(os.path.abspath(__file__))
+            db_path = os.path.join(base_dir, "..", "bima_scrapper", db_name)
         db_path = os.path.abspath(db_path)
 
         if not os.path.exists(db_path):
@@ -12,6 +17,7 @@ class LogSystem:
 
         self.conn = sqlite3.connect(db_path)
         self.conn.row_factory = sqlite3.Row
+
 
     # --- CREATE ---
     def CreateLog(self, id_user, kode_makanan, meal_time, portion, cal, protein, carb, fat, category):

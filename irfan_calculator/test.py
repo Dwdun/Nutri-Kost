@@ -504,7 +504,6 @@ class TambahPopup(QWidget):
 
         outer = QVBoxLayout(dlg)
         outer.setContentsMargins(0, 0, 0, 0)
-        outer.setAlignment(Qt.AlignCenter)
 
         overlay = QWidget(dlg)
         overlay.setStyleSheet("background-color: rgba(0, 0, 0, 120);")
@@ -512,6 +511,7 @@ class TambahPopup(QWidget):
         inner = QVBoxLayout(overlay)
         inner.setContentsMargins(0, 0, 0, 0)
         inner.setAlignment(Qt.AlignCenter)
+
 
         card = QFrame()
         card.setFixedSize(400, 280)
