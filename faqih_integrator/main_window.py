@@ -731,7 +731,7 @@ class MainWindow(QMainWindow):
 
     # ── Admin: Ekspor schema (sqlite3 nutrikost.db .dump > db_schema.sql) ────
     def _export_schema(self):
-        if not self._styled_confirm(
+        if not self._confirm_dialog(
             icon="📤",
             title="Konfirmasi Ekspor",
             title_color=ACCENT_GREEN,
@@ -760,7 +760,7 @@ class MainWindow(QMainWindow):
         if not os.path.exists(self._schema_path):
             show_toast(self, f"❌ File db_schema.sql tidak ditemukan!", TOAST_ERROR)
             return
-        if not self._styled_confirm(
+        if not self._confirm_dialog(
             icon="⚠️",
             title="Konfirmasi Impor — PERINGATAN",
             title_color="#dc2626",
