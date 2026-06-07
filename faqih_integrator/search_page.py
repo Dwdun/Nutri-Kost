@@ -5,8 +5,8 @@ from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLineEdit, QPushButton,
     QLabel, QScrollArea, QFrame, QComboBox, QSizePolicy, QGridLayout
 )
-from PyQt5.QtCore import Qt, QTimer, QDate, pyqtSignal, QPoint, QRect, QSize
-from PyQt5.QtGui import QFont, QCursor
+from PyQt5.QtCore import Qt, QTimer, QDate, pyqtSignal, QPoint, QRect, QSize, QThread
+from PyQt5.QtGui import QFont, QCursor, QPainter, QColor, QPen
 
 import sys
 import os
@@ -161,6 +161,64 @@ class FoodCard(QFrame):
         # Klik di mana saja pada card memicu signal
         self.clicked.emit(self._data)
 
+#komponen loading spinner
+class LoadingSpinner(QWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.angle = 0
+        self.timer = QTimer(self)
+        self.timer.timeout.connect(self.rotate)
+        self.timer.start(50)  # rotate setiap 50ms
+        self.setFixedSize(50, 50)
+
+    def rotate(self):
+        self.angle = (self.angle + 30) % 360
+        self.update()
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+        
+        width = self.width()
+        height = self.height()
+        
+        painter.translate(width / 2, height / 2)
+        painter.rotate(self.angle)
+        
+        pen = QPen()
+        pen.setWidth(4)
+        pen.setCapStyle(Qt.RoundCap)
+        
+        color = QColor(GREEN_PRIMARY)
+        for i in range(8):
+            color.setAlphaF((i + 1) / 8.0)
+            pen.setColor(color)
+            painter.setPen(pen)
+            painter.drawLine(0, -15, 0, -8)
+            painter.rotate(45)
+
+# Worker thread untuk query database di background
+class DbWorker(QThread):
+    finished = pyqtSignal(dict, bool, str)
+
+    def __init__(self, db_helper, query=None, page=None, per_page=None):
+        super().__init__()
+        self.db = db_helper
+        self.query = query
+        self.page = page
+        self.per_page = per_page
+
+    def run(self):
+        try:
+            if self.query is not None:
+                raw = self.db.search_makanan(self.query)
+                self.finished.emit({"data": raw}, True, "")
+            else:
+                hasil = self.db.get_all_makanan_paginated(page=self.page, per_page=self.per_page)
+                self.finished.emit(hasil, False, "")
+        except Exception as e:
+            self.finished.emit({}, self.query is not None, str(e))
+
 #Page Utama Searching filtering dan sorting
 class SearchPage(QWidget):
     PER_PAGE = 20
@@ -175,6 +233,7 @@ class SearchPage(QWidget):
         self._total_pages    = 1      # total halaman yang ada di DB
         self._total_items    = 0      # total semua item di DB (misal 9800)
         self._is_searching = False  # True kalau sedang menampilkan hasil search
+        self._worker       = None   # worker thread untuk background search
 
         self._db = DBHelper()
 
@@ -408,24 +467,66 @@ class SearchPage(QWidget):
         self._sort_key, self._sort_desc = self._sort_combo.currentData()
         self._render(self._filter_sort(self._all_results))
 
+    def _cancel_active_worker(self):
+        if self._worker is not None:
+            try:
+                self._worker.finished.disconnect()
+            except TypeError:
+                pass
+            self._worker = None
+
+    def _show_loading(self):
+        while self._result_layout.count():
+            item = self._result_layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+
+        self._status.setText(" Sedang mencari data...")
+        self._status.setStyleSheet(f"color: {GRAY_TEXT}; font-size: 13px;")
+
+        self._loading_widget = QWidget()
+        layout = QVBoxLayout(self._loading_widget)
+        layout.setAlignment(Qt.AlignCenter)
+        layout.setContentsMargins(0, 80, 0, 80)
+        
+        spinner = LoadingSpinner()
+        layout.addWidget(spinner, alignment=Qt.AlignCenter)
+        
+        lbl = QLabel("Sedang mencari data...")
+        lbl.setFont(QFont("Poppins", 13))
+        lbl.setStyleSheet(f"color: {GREEN_PRIMARY}; font-weight: 500; margin-top: 12px; background: transparent; border: none;")
+        lbl.setAlignment(Qt.AlignCenter)
+        layout.addWidget(lbl, alignment=Qt.AlignCenter)
+        
+        self._result_layout.addWidget(self._loading_widget, 0, 0, 1, 3)
+
     #searching makanan sesuai yang diinput berdasarkan dengan nama db
     def _do_search(self):
+        self._cancel_active_worker()
         query = self._search_input.text().strip()
 
         if query:
             self._is_searching = True
-            try:
-                raw = self._db.search_makanan(query)
-            except Exception as e:
-                print(f"[SearchPage] Mocking search due to DB error: {e}")
-                raw = []
-            self._all_results = raw
-            self._update_pagination_ui()
-            self._render(self._filter_sort(raw))
+            self._show_loading()
+            self._worker = DbWorker(self._db, query=query)
+            self._worker.finished.connect(self._on_search_finished)
+            self._worker.start()
         else:
             self._is_searching = False
             self._current_page = 1
             self._fetch_page(page=1)
+
+    def _on_search_finished(self, result: dict, is_search: bool, error_msg: str):
+        self._worker = None
+        if error_msg:
+            print(f"[SearchPage] DB search error: {error_msg}")
+            raw = []
+        else:
+            raw = result.get("data", [])
+            
+        self._all_results = raw
+        self._update_pagination_ui()
+        self._render(self._filter_sort(raw))
 
     def _filter_sort(self, data: List[dict]) -> List[dict]:
         field, threshold, operator = FILTER_CHIPS.get(self._active_chip, ("", 0, ""))
@@ -490,14 +591,21 @@ class SearchPage(QWidget):
             self._callback(makanan)
 
     def _fetch_page(self, page: int):
-        try:
-            hasil = self._db.get_all_makanan_paginated(page=page, per_page=self.PER_PAGE)
-        except Exception as e:
-            print(f"[SearchPage] Mocking pagination due to DB error: {e}")
-            hasil = {"data": [], "pagination": {"total_items": 0, "total_pages": 1}}
+        self._cancel_active_worker()
+        self._show_loading()
+        self._worker = DbWorker(self._db, page=page, per_page=self.PER_PAGE)
+        self._worker.finished.connect(self._on_fetch_finished)
+        self._worker.start()
 
-        new_data   = hasil["data"]
-        pagination = hasil["pagination"]
+    def _on_fetch_finished(self, result: dict, is_search: bool, error_msg: str):
+        self._worker = None
+        if error_msg or not result:
+            print(f"[SearchPage] DB pagination error: {error_msg}")
+            new_data = []
+            pagination = {"total_items": 0, "total_pages": 1}
+        else:
+            new_data = result.get("data", [])
+            pagination = result.get("pagination", {"total_items": 0, "total_pages": 1})
 
         self._total_items = pagination["total_items"]
         self._total_pages = pagination["total_pages"]
