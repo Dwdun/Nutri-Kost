@@ -7,7 +7,12 @@ import random
 import google.generativeai as genai
 from thefuzz import process
 from dotenv import load_dotenv
-load_dotenv()
+if getattr(sys, 'frozen', False):
+    bundle_dir = sys._MEIPASS
+    env_path = os.path.join(bundle_dir, '.env')
+    load_dotenv(env_path)
+else:
+    load_dotenv()
 
 
 from models import DBHelper, KONVERSI_GRAM 

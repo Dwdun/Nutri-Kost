@@ -677,6 +677,7 @@ class PageTemplate(QMainWindow):
 
         # deskripsi
         self._page_desc = QLabel(self.PAGE_DESC)
+        self._page_desc.setWordWrap(True)
         self._page_desc.setFont(font_body(10))
         self._page_desc.setStyleSheet(f'color: {C_TEXT_SUB}; background: transparent;')
 
