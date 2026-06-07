@@ -70,6 +70,10 @@ def _ambil_detail_makro(db_path: str, id_user: int = 1) -> dict:
         target_air = 2.0
         
         # 2. Ambil total dari LogHarian (7 hari terakhir)
+        from datetime import datetime, timedelta
+        today = datetime.now().strftime('%Y-%m-%d')
+        six_days_ago = (datetime.now() - timedelta(days=6)).strftime('%Y-%m-%d')
+
         query = """
             SELECT
                 COALESCE(SUM(L.protein), 0) as total_protein,
@@ -81,9 +85,9 @@ def _ambil_detail_makro(db_path: str, id_user: int = 1) -> dict:
             FROM LogHarian L
             LEFT JOIN Makanan M ON L.kode_makanan = M.code
             WHERE L.id_user = ?
-              AND date(L.meal_time) BETWEEN date('now', '-6 days') AND date('now')
+              AND date(L.meal_time) BETWEEN ? AND ?
         """
-        cursor.execute(query, (id_user,))
+        cursor.execute(query, (id_user, six_days_ago, today))
         row_log = cursor.fetchone()
         conn.close()
         
@@ -251,8 +255,10 @@ class DetailMakroWidget(QWidget):
         
         return row
 
-    def refresh(self):
+    def refresh(self, id_user: int = None):
         """Reload data dari database dan rebuild UI."""
+        if id_user is not None:
+            self._id_user = id_user
         layout = self.layout()
         if layout:
             while layout.count():

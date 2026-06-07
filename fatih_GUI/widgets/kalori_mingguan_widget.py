@@ -373,8 +373,10 @@ class KaloriMingguanWidget(QWidget):
         return card
 
     # ── Refresh data ──────────────────────────
-    def refresh(self):
+    def refresh(self, id_user: int = None):
         """Reload data dari database dan repaint chart."""
+        if id_user is not None:
+            self._id_user = id_user
         # Hapus layout lama
         layout = self.layout()
         if layout:

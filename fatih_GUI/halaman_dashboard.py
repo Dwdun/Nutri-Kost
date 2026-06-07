@@ -323,25 +323,27 @@ class HalamanDashboard(QWidget):
     # ─────────────────────────────────────────
     #  REFRESH
     # ─────────────────────────────────────────
-    def refresh(self):
+    def refresh(self, id_user: int = None):
         """Reload semua widget dari database."""
+        if id_user is not None:
+            self._id_user = id_user
         if hasattr(self, 'title_lbl') and self.title_lbl:
             nama = _ambil_nama_user(self._db_path, self._id_user)
             self.title_lbl.setText(f'Halo, {nama}')
         if hasattr(self, '_w_kalori_hari_ini'):
-            self._w_kalori_hari_ini.refresh()
+            self._w_kalori_hari_ini.refresh(id_user=id_user)
         if hasattr(self, '_w_detail_makro'):
-            self._w_detail_makro.refresh()
+            self._w_detail_makro.refresh(id_user=id_user)
         if hasattr(self, '_w_fun_fact'):
             self._w_fun_fact.refresh()
         if hasattr(self, '_nav_card'):
-            self._nav_card.refresh()
+            self._nav_card.refresh(id_user=id_user)
         if hasattr(self, '_w_kalori_mingguan'):
-            self._w_kalori_mingguan.refresh()
+            self._w_kalori_mingguan.refresh(id_user=id_user)
         if hasattr(self, '_w_komposisi'):
-            self._w_komposisi.refresh()
+            self._w_komposisi.refresh(id_user=id_user)
         if hasattr(self, '_w_top_makanan'):
-            self._w_top_makanan.refresh()
+            self._w_top_makanan.refresh(id_user=id_user)
 
     # ─────────────────────────────────────────
     #  FONT HELPERS

@@ -92,6 +92,10 @@ def _ambil_makronutrien(db_path: str, id_user: int = 1) -> dict:
     Jika semua 0 (belum ada data), return nilai dummy supaya chart tetap tampil.
     """
     try:
+        from datetime import datetime, timedelta
+        today = datetime.now().strftime('%Y-%m-%d')
+        six_days_ago = (datetime.now() - timedelta(days=6)).strftime('%Y-%m-%d')
+        
         conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
         cursor.execute(
@@ -102,9 +106,9 @@ def _ambil_makronutrien(db_path: str, id_user: int = 1) -> dict:
                 COALESCE(SUM(fat), 0)     as total_fat
             FROM LogHarian
             WHERE id_user = ?
-              AND date(meal_time) BETWEEN date('now', '-6 days') AND date('now')
+              AND date(meal_time) BETWEEN ? AND ?
             """,
-            (id_user,),
+            (id_user, six_days_ago, today),
         )
         row = cursor.fetchone()
         conn.close()
@@ -333,8 +337,10 @@ class KomposisiGiziWidget(QWidget):
         return item
 
     # ── Refresh data ──────────────────────────
-    def refresh(self):
+    def refresh(self, id_user: int = None):
         """Reload data dari database dan repaint chart."""
+        if id_user is not None:
+            self._id_user = id_user
         layout = self.layout()
         if layout:
             while layout.count():

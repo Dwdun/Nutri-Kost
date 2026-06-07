@@ -151,7 +151,9 @@ class RiwayatPage(QWidget):
         
         self.refresh_data()
 
-    def refresh_data(self):
+    def refresh_data(self, id_user: int = None):
+        if id_user is not None:
+            self.id_user = id_user
         for i in reversed(range(self.cards_layout.count())): 
             widget = self.cards_layout.itemAt(i).widget()
             if widget is not None:
@@ -163,14 +165,23 @@ class RiwayatPage(QWidget):
         checked_btn = self.filter_group.checkedButton()
         if checked_btn:
             text = checked_btn.text()
+            from datetime import datetime, timedelta
             if text == "7 Hari":
-                condition += " AND DATE(l.meal_time) >= DATE('now', '-7 days')"
+                seven_days_ago = (datetime.now() - timedelta(days=6)).strftime('%Y-%m-%d')
+                condition += " AND DATE(l.meal_time) >= ?"
+                params.append(seven_days_ago)
             elif text == "14 Hari":
-                condition += " AND DATE(l.meal_time) >= DATE('now', '-14 days')"
+                fourteen_days_ago = (datetime.now() - timedelta(days=13)).strftime('%Y-%m-%d')
+                condition += " AND DATE(l.meal_time) >= ?"
+                params.append(fourteen_days_ago)
             elif text == "30 Hari":
-                condition += " AND DATE(l.meal_time) >= DATE('now', '-30 days')"
+                thirty_days_ago = (datetime.now() - timedelta(days=29)).strftime('%Y-%m-%d')
+                condition += " AND DATE(l.meal_time) >= ?"
+                params.append(thirty_days_ago)
             elif text == "Bulan ini":
-                condition += " AND strftime('%Y-%m', l.meal_time) = strftime('%Y-%m', 'now')"
+                current_month = datetime.now().strftime('%Y-%m')
+                condition += " AND strftime('%Y-%m', l.meal_time) = ?"
+                params.append(current_month)
 
         try:
             conn = sqlite3.connect(db_path)

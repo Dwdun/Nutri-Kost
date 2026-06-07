@@ -51,23 +51,27 @@ def _ambil_top_10_makanan(db_path: str, id_user: int = 1) -> list:
     [{'name': str, 'cal': float, 'freq': int}, ...]
     """
     try:
+        from datetime import datetime, timedelta
+        today = datetime.now().strftime('%Y-%m-%d')
+        thirty_days_ago = (datetime.now() - timedelta(days=29)).strftime('%Y-%m-%d')
+
         conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
         
         query = """
             SELECT 
                 M.food_name,
-                M.cal,
+                AVG(L.cal) as avg_cal,
                 COUNT(L.id_log) as freq
             FROM LogHarian L
             JOIN Makanan M ON L.kode_makanan = M.code
             WHERE L.id_user = ? 
-              AND date(L.meal_time) BETWEEN date('now', '-30 days') AND date('now')
+              AND date(L.meal_time) BETWEEN ? AND ?
             GROUP BY L.kode_makanan
             ORDER BY freq DESC, M.food_name ASC
             LIMIT 10
         """
-        cursor.execute(query, (id_user,))
+        cursor.execute(query, (id_user, thirty_days_ago, today))
         rows = cursor.fetchall()
         conn.close()
         
@@ -206,8 +210,10 @@ class TopMakananWidget(QWidget):
         
         return row
 
-    def refresh(self):
+    def refresh(self, id_user: int = None):
         """Reload data dari database dan rebuild UI."""
+        if id_user is not None:
+            self._id_user = id_user
         layout = self.layout()
         if layout:
             while layout.count():

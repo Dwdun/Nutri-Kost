@@ -324,8 +324,10 @@ class KaloriHariIniWidget(QWidget):
         return row
 
     # ── Refresh ──
-    def refresh(self):
+    def refresh(self, id_user: int = None):
         """Reload data dari database dan rebuild widget."""
+        if id_user is not None:
+            self._id_user = id_user
         layout = self.layout()
         if layout:
             while layout.count():
