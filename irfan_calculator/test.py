@@ -985,7 +985,7 @@ class LogPage(QWidget):
                     image: url("assets/icons/State=Hover-delete.png");
                 }
             """)
-            btn_delete.clicked.connect(lambda _, id=entry['id_log']: self.delete_entry(id))
+            btn_delete.clicked.connect(lambda _, e=entry: self.delete_entry(e['id_log'], e['food_name']))
             self.rows_layout.addWidget(btn_delete, row_idx, 8)
 
             line = QFrame()
@@ -997,6 +997,111 @@ class LogPage(QWidget):
         current_showing = len(page_items)
         self.lbl_count.setText(f"Showing {current_showing} of {total_items} (Page {self.current_page + 1}/{max_pages})")
         self.lbl_total_cal.setText(f"Total Kalori: {total_calories:.1f} kcal")
+
+    def _konfirmasi_hapus_popup(self, food_name: str) -> bool:
+        from PyQt5.QtWidgets import QDialog
+
+        main_window = self.window()
+
+        dlg = QDialog(main_window)
+        dlg.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
+        dlg.setAttribute(Qt.WA_TranslucentBackground)
+        dlg.setModal(True)
+        dlg.setFixedSize(main_window.width(), main_window.height())
+
+        outer = QVBoxLayout(dlg)
+        outer.setContentsMargins(0, 0, 0, 0)
+
+        overlay = QWidget(dlg)
+        overlay.setStyleSheet("background-color: rgba(0, 0, 0, 120);")
+        overlay.setAttribute(Qt.WA_StyledBackground, True)
+
+        inner = QVBoxLayout(overlay)
+        inner.setContentsMargins(0, 0, 0, 0)
+        inner.setAlignment(Qt.AlignCenter)
+
+        card = QFrame()
+        card.setFixedSize(400, 260)
+        card.setStyleSheet("""
+            QFrame {
+                background: white;
+                border-radius: 25px;
+                border: none;
+            }
+            QLabel {
+                border: none;
+                background: transparent;
+                color: #555555;
+                font-family: 'Poppins';
+            }
+        """)
+
+        card_layout = QVBoxLayout(card)
+        card_layout.setContentsMargins(28, 28, 28, 28)
+        card_layout.setSpacing(12)
+
+        lbl_title = QLabel("🗑️ Hapus Makanan")
+        lbl_title.setFont(QFont('Poppins', 14, QFont.Bold))
+        lbl_title.setStyleSheet("color: #E03030;")
+        card_layout.addWidget(lbl_title)
+
+        lbl_msg = QLabel(
+            f"Apakah kamu yakin ingin menghapus\n"
+            f"<b>{food_name}</b> dari log makanan?"
+        )
+        lbl_msg.setFont(QFont('Poppins', 10))
+        lbl_msg.setWordWrap(True)
+        card_layout.addWidget(lbl_msg)
+
+        card_layout.addStretch()
+
+        btn_row = QHBoxLayout()
+        btn_row.setSpacing(12)
+
+        btn_batal = QPushButton("Batal")
+        btn_batal.setFixedHeight(50)
+        btn_batal.setCursor(Qt.PointingHandCursor)
+        btn_batal.setStyleSheet("""
+            QPushButton {
+                background-color: white;
+                color: rgba(26,122,52,0.7);
+                border: 1.5px solid #1A7A34;
+                border-radius: 25px;
+                font-size: 16px;
+            }
+            QPushButton:hover {
+                color: #1A7A34;
+            }
+        """)
+        btn_batal.clicked.connect(dlg.reject)
+
+        btn_hapus = QPushButton("Ya, Hapus")
+        btn_hapus.setFixedHeight(50)
+        btn_hapus.setCursor(Qt.PointingHandCursor)
+        btn_hapus.setFont(QFont('Poppins', 10, QFont.Bold))
+        btn_hapus.setStyleSheet("""
+            QPushButton {
+                background-color: #E03030;
+                color: white;
+                border-radius: 25px;
+                font-size: 15px;
+                border: none;
+            }
+            QPushButton:hover {
+                background-color: #C62828;
+            }
+        """)
+        btn_hapus.clicked.connect(dlg.accept)
+
+        btn_row.addWidget(btn_batal)
+        btn_row.addWidget(btn_hapus)
+
+        card_layout.addLayout(btn_row)
+
+        inner.addWidget(card)
+        outer.addWidget(overlay)
+
+        return dlg.exec_() == QDialog.Accepted
 
     def open_popup(self, entry_data=None):
         main_window = self.window()
@@ -1040,7 +1145,10 @@ class LogPage(QWidget):
         if self.popup:
             self.popup.hide()
 
-    def delete_entry(self, id_log):
+    def delete_entry(self, id_log, food_name):
+        if not self._konfirmasi_hapus_popup(food_name):
+            return
+
         self.db.DeleteLog(id_log)
         self.load_data()
         self.log_updated.emit()
