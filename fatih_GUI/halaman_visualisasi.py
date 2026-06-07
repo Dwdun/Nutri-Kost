@@ -213,16 +213,18 @@ class HalamanVisualisasi(QWidget):
                 """)
 
     # ── Refresh Semua Visualisasi ──
-    def refresh(self):
+    def refresh(self, id_user: int = None):
         """Memanggil method refresh() pada setiap widget grafik untuk update data dari database."""
+        if id_user is not None:
+            self._id_user = id_user
         if hasattr(self, '_w_kalori') and hasattr(self._w_kalori, 'refresh'):
-            self._w_kalori.refresh()
+            self._w_kalori.refresh(id_user=id_user)
         if hasattr(self, '_w_komposisi') and hasattr(self._w_komposisi, 'refresh'):
-            self._w_komposisi.refresh()
+            self._w_komposisi.refresh(id_user=id_user)
         if hasattr(self, '_w_detail') and hasattr(self._w_detail, 'refresh'):
-            self._w_detail.refresh()
+            self._w_detail.refresh(id_user=id_user)
         if hasattr(self, '_w_top10') and hasattr(self._w_top10, 'refresh'):
-            self._w_top10.refresh()
+            self._w_top10.refresh(id_user=id_user)
 
     # ── Logika Export PDF ──
     def _on_export_pdf(self):

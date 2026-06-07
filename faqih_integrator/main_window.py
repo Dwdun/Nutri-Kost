@@ -663,14 +663,20 @@ class MainWindow(QMainWindow):
             self._stack.setCurrentWidget(self.profil_app)
             
         # 3. Refresh dashboard page jika ada
+        new_id_user = profil_data.get("id_user", 1)
         if hasattr(self, 'dashboard_page') and self.dashboard_page:
             if hasattr(self.dashboard_page, 'refresh'):
-                self.dashboard_page.refresh()
+                self.dashboard_page.refresh(id_user=new_id_user)
                 
         # 4. Refresh visualisasi page jika ada
         if hasattr(self, 'visualisasi_page') and self.visualisasi_page:
             if hasattr(self.visualisasi_page, 'refresh'):
-                self.visualisasi_page.refresh()
+                self.visualisasi_page.refresh(id_user=new_id_user)
+
+        # 5. Refresh riwayat page jika ada
+        if hasattr(self, 'riwayat_page') and self.riwayat_page:
+            if hasattr(self.riwayat_page, 'refresh_data'):
+                self.riwayat_page.refresh_data(id_user=new_id_user)
 
     #konfirmasi sebelum logout — pakai LogoutConfirmDialog yang sama dengan halaman profil
     def _confirm_logout(self):
@@ -874,6 +880,13 @@ class MainWindow(QMainWindow):
         if page_key not in self._page_widgets:
             return
             
+        # Dapatkan id_user aktif
+        current_id_user = (
+            self.sistem_profil.current_profil.get('id_user', 1)
+            if (hasattr(self, 'sistem_profil') and self.sistem_profil and self.sistem_profil.current_profil)
+            else 1
+        )
+            
         if page_key in ["kalori_mingguan", "komposisi_gizi", "top_10_makanan"]:
             if hasattr(self, 'visualisasi_page'):
                 if page_key == "kalori_mingguan":
@@ -882,9 +895,13 @@ class MainWindow(QMainWindow):
                     self.visualisasi_page.set_tab(1)
                 elif page_key == "top_10_makanan":
                     self.visualisasi_page.set_tab(2)
+                self.visualisasi_page.refresh(id_user=current_id_user)
 
         if page_key == "dashboard" and hasattr(self, 'dashboard_page'):
-            self.dashboard_page.refresh()
+            self.dashboard_page.refresh(id_user=current_id_user)
+
+        if page_key == "riwayat" and hasattr(self, 'riwayat_page'):
+            self.riwayat_page.refresh_data(id_user=current_id_user)
                     
         for key, btn in self._sidebar_buttons.items():
             if isinstance(btn, NavItem):

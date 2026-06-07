@@ -251,8 +251,10 @@ class NavCardWidget(QWidget):
     def _on_card_clicked(self, page_key: str):
         self.card_clicked.emit(page_key)
 
-    def refresh(self):
+    def refresh(self, id_user: int = None):
         """Reload data dan rebuild kartu."""
+        if id_user is not None:
+            self._id_user = id_user
         layout = self.layout()
         if layout:
             while layout.count():
