@@ -8,7 +8,7 @@ PyQt5>=5.15.0          # Framework utama untuk tampilan desktop (MainWindow, wid
 # Fuzzy String Matching :
 thefuzz>=0.22.0        # Pencarian makanan dengan pencocokan nama yang tidak persis
 python-Levenshtein>=0.25.0  # Akselerasi thefuzz (opsional tapi sangat direkomendasikan)
-
+python-dotenv
 # Web Scraping :
 requests>=2.31.0       # HTTP request untuk scraper (USDA, TKPI, Cookpad)
 beautifulsoup4>=4.12.0 # Parsing HTML hasil scraping
