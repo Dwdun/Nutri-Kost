@@ -517,11 +517,21 @@ class TambahPopup(QWidget):
         from PyQt5.QtWidgets import QDialog
         main_window = self.window()
 
-        dlg = QDialog(main_window)
+        class FullScreenDialog(QDialog):
+            def showEvent(self, event):
+                if self.parent():
+                    self.setGeometry(self.parent().geometry())
+                super().showEvent(event)
+            def resizeEvent(self, event):
+                if self.parent():
+                    self.setGeometry(self.parent().geometry())
+                super().resizeEvent(event)
+
+        dlg = FullScreenDialog(main_window)
         dlg.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
         dlg.setAttribute(Qt.WA_TranslucentBackground)
         dlg.setModal(True)
-        dlg.setFixedSize(main_window.width(), main_window.height())
+        dlg.setGeometry(main_window.geometry())
 
         outer = QVBoxLayout(dlg)
         outer.setContentsMargins(0, 0, 0, 0)
@@ -1003,11 +1013,21 @@ class LogPage(QWidget):
 
         main_window = self.window()
 
-        dlg = QDialog(main_window)
+        class FullScreenDialog(QDialog):
+            def showEvent(self, event):
+                if self.parent():
+                    self.setGeometry(self.parent().geometry())
+                super().showEvent(event)
+            def resizeEvent(self, event):
+                if self.parent():
+                    self.setGeometry(self.parent().geometry())
+                super().resizeEvent(event)
+
+        dlg = FullScreenDialog(main_window)
         dlg.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
         dlg.setAttribute(Qt.WA_TranslucentBackground)
         dlg.setModal(True)
-        dlg.setFixedSize(main_window.width(), main_window.height())
+        dlg.setGeometry(main_window.geometry())
 
         outer = QVBoxLayout(dlg)
         outer.setContentsMargins(0, 0, 0, 0)

@@ -849,7 +849,7 @@ class EditProfileDialog(QDialog):
         
         self.setWindowFlags(Qt.FramelessWindowHint | Qt.Dialog)
         self.setAttribute(Qt.WA_TranslucentBackground)
-        self._overlay_color = QColor(0, 0, 0, 180)
+        self._overlay_color = QColor(0, 0, 0, 120)
         
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(0, 0, 0, 0)
@@ -1007,9 +1007,14 @@ class EditProfileDialog(QDialog):
         painter.fillRect(self.rect(), self._overlay_color)
         painter.end()
 
+    def showEvent(self, event):
+        if self.parent():
+            self.setGeometry(self.parent().geometry())
+        super().showEvent(event)
+
     def resizeEvent(self, event):
         if self.parent():
-            self.resize(self.parent().size())
+            self.setGeometry(self.parent().geometry())
         super().resizeEvent(event)
 
     def _simpan(self):
@@ -1059,7 +1064,7 @@ class LogoutConfirmDialog(QDialog):
         
         self.setWindowFlags(Qt.FramelessWindowHint | Qt.Dialog)
         self.setAttribute(Qt.WA_TranslucentBackground)
-        self._overlay_color = QColor(0, 0, 0, 180)
+        self._overlay_color = QColor(0, 0, 0, 120)
         
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(0, 0, 0, 0)
@@ -1132,9 +1137,14 @@ class LogoutConfirmDialog(QDialog):
         painter.fillRect(self.rect(), self._overlay_color)
         painter.end()
 
+    def showEvent(self, event):
+        if self.parent():
+            self.setGeometry(self.parent().geometry())
+        super().showEvent(event)
+
     def resizeEvent(self, event):
         if self.parent():
-            self.resize(self.parent().size())
+            self.setGeometry(self.parent().geometry())
         super().resizeEvent(event)
 
 class EmailSenderWorker(QThread):
@@ -1469,7 +1479,7 @@ class ProfilApp(QWidget):
 
     def _aksi_logout(self):
         dlg = LogoutConfirmDialog(self.window())
-        dlg.setGeometry(0, 0, self.window().width(), self.window().height())
+        dlg.setGeometry(self.window().geometry())
         if dlg.exec_() == QDialog.Accepted:
             self._sistem.current_profil = None
             self.logout_signal.emit()
@@ -1488,8 +1498,8 @@ class ProfilApp(QWidget):
 
         header_text_layout.setSpacing(2)
         profile_title = QLabel("Profile")
-        profile_title.setFont(QFont('Montserrat Alternates SemiBold', 24))
-        profile_title.setStyleSheet(f"color: {C_TEXT_DARK}; background: transparent;")
+        profile_title.setFont(QFont('Montserrat Alternates', 32, QFont.Bold))
+        profile_title.setStyleSheet(f"color: {C_TEXT_DARK}; background: transparent; border: none; font-family: 'Montserrat Alternates'; font-size: 32px; font-weight: bold;")
         
         profile_desc = QLabel("Data diri dan target nutrisi harianmu")
         profile_desc.setFont(font_body(11))
@@ -1769,7 +1779,7 @@ class ProfilApp(QWidget):
 
     def _go_to_edit(self):
         dlg = EditProfileDialog(self._sistem, self.window())
-        dlg.setGeometry(0, 0, self.window().width(), self.window().height())
+        dlg.setGeometry(self.window().geometry())
         if dlg.exec_() == QDialog.Accepted:
             self.refresh_me.emit()
 

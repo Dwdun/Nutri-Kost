@@ -501,15 +501,25 @@ class SettingPage(QWidget):
     def deleteAllData(self):
         # ── Custom styled confirmation dialog (sesuai gaya TambahPopup) ──────
         win = self.window()
-        dlg = QDialog(win)
+        class FullScreenDialog(QDialog):
+            def showEvent(self, event):
+                if self.parent():
+                    self.setGeometry(self.parent().geometry())
+                super().showEvent(event)
+            def resizeEvent(self, event):
+                if self.parent():
+                    self.setGeometry(self.parent().geometry())
+                super().resizeEvent(event)
+
+        dlg = FullScreenDialog(win)
         dlg.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
         dlg.setAttribute(Qt.WA_TranslucentBackground)
         dlg.setModal(True)
-        dlg.setFixedSize(win.width(), win.height())
+        dlg.setGeometry(win.geometry())
 
         # Overlay menutupi seluruh dialog
         overlay = QWidget(dlg)
-        overlay.setFixedSize(win.width(), win.height())
+        overlay.setGeometry(0, 0, win.width(), win.height())
         overlay.setStyleSheet("background-color: rgba(0, 0, 0, 120);")
         overlay.setAttribute(Qt.WA_StyledBackground, True)
 

@@ -676,8 +676,8 @@ class MainWindow(QMainWindow):
     def _confirm_logout(self):
         from anindya_profil.test import LogoutConfirmDialog
         from PyQt5.QtWidgets import QDialog
-        dlg = LogoutConfirmDialog(self)
-        dlg.setGeometry(0, 0, self.width(), self.height())
+        dlg = LogoutConfirmDialog(self.window())
+        dlg.setGeometry(self.window().geometry())
         if dlg.exec_() == QDialog.Accepted:
             self.logout_signal.emit()
 
@@ -785,24 +785,29 @@ class MainWindow(QMainWindow):
         except Exception as e:
             show_toast(self, f"❌ Gagal impor schema: {e}", TOAST_ERROR)
 
-    def _styled_confirm(
-        self, icon: str, title: str, title_color: str,
-        message: str, btn_ok_text: str, btn_ok_color: str, btn_ok_hover: str
-    ) -> bool:
-        """Generic styled overlay confirmation dialog.
-        Returns True if user clicked the OK button."""
+    def _confirm_dialog(self, title: str, message: str, btn_ok_text: str = "OK", btn_ok_color: str = "#E03030", btn_ok_hover: str = "#C62828", icon: str = "⚠️", title_color: str = "#E03030") -> bool:
         from PyQt5.QtWidgets import QDialog, QFrame as _QFrame
         from PyQt5.QtGui import QFont as _QFont
 
-        dlg = QDialog(self)
+        class FullScreenDialog(QDialog):
+            def showEvent(self, event):
+                if self.parent():
+                    self.setGeometry(self.parent().geometry())
+                super().showEvent(event)
+            def resizeEvent(self, event):
+                if self.parent():
+                    self.setGeometry(self.parent().geometry())
+                super().resizeEvent(event)
+
+        dlg = FullScreenDialog(self.window())
         dlg.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
         dlg.setAttribute(Qt.WA_TranslucentBackground)
         dlg.setModal(True)
-        dlg.setFixedSize(self.width(), self.height())
+        dlg.setGeometry(self.window().geometry())
 
         # Overlay dark background fills entire dialog
         overlay = QWidget(dlg)
-        overlay.setFixedSize(self.width(), self.height())
+        overlay.setGeometry(0, 0, self.window().width(), self.window().height())
         overlay.setStyleSheet("background-color: rgba(0, 0, 0, 120);")
         overlay.setAttribute(Qt.WA_TranslucentBackground, False)
         overlay.setAttribute(Qt.WA_StyledBackground, True)
@@ -810,7 +815,7 @@ class MainWindow(QMainWindow):
         card_w, card_h = 440, 300
         card = _QFrame(overlay)
         card.setFixedSize(card_w, card_h)
-        card.move((self.width() - card_w) // 2, (self.height() - card_h) // 2)
+        card.move((self.window().width() - card_w) // 2, (self.window().height() - card_h) // 2)
         card.setStyleSheet("""
             QFrame { background: white; border-radius: 25px; border: none; }
             QLabel { border: none; background: transparent; color: #555555; font-family: 'Poppins'; }

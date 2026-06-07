@@ -141,6 +141,15 @@ class DetailResepDialog(QDialog):
             ["Bahan Mentah", "Dikenali Sbg (DB)", "Berat (g)", "Kalori", "Protein", "Karbo"]
         )
         tabel.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
+        for i in range(1, 6):
+            tabel.horizontalHeader().setSectionResizeMode(i, QHeaderView.ResizeToContents)
+        
+        tabel.verticalHeader().setVisible(False)
+        tabel.setEditTriggers(QTableWidget.NoEditTriggers)
+        tabel.setSelectionBehavior(QTableWidget.SelectRows)
+        tabel.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        tabel.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        tabel.setWordWrap(True)
         layout.addWidget(tabel)
 
         bahan_list = self.resep.get('bahan_detail', [])
@@ -164,6 +173,7 @@ class DetailResepDialog(QDialog):
                 tabel.setItem(row, 1, QTableWidgetItem("Tidak Dikenali"))
                 for col in range(2, 6):
                     tabel.setItem(row, col, QTableWidgetItem("-"))
+        tabel.resizeRowsToContents()
 
         ringkasan = QLabel(
             f"<div style='line-height: 1.5;'>"
