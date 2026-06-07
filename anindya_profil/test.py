@@ -849,8 +849,7 @@ class EditProfileDialog(QDialog):
         
         self.setWindowFlags(Qt.FramelessWindowHint | Qt.Dialog)
         self.setAttribute(Qt.WA_TranslucentBackground)
-        self.setObjectName("OverlayDialog")
-        self.setStyleSheet("#OverlayDialog { background-color: rgba(0, 0, 0, 120); }")
+        self._overlay_color = QColor(0, 0, 0, 180)
         
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(0, 0, 0, 0)
@@ -1003,6 +1002,11 @@ class EditProfileDialog(QDialog):
         card_layout.addLayout(btns)
         main_layout.addWidget(self.card)
 
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.fillRect(self.rect(), self._overlay_color)
+        painter.end()
+
     def resizeEvent(self, event):
         if self.parent():
             self.resize(self.parent().size())
@@ -1055,8 +1059,7 @@ class LogoutConfirmDialog(QDialog):
         
         self.setWindowFlags(Qt.FramelessWindowHint | Qt.Dialog)
         self.setAttribute(Qt.WA_TranslucentBackground)
-        self.setObjectName("OverlayDialog")
-        self.setStyleSheet("#OverlayDialog { background-color: rgba(0, 0, 0, 120); }")
+        self._overlay_color = QColor(0, 0, 0, 180)
         
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(0, 0, 0, 0)
@@ -1123,6 +1126,11 @@ class LogoutConfirmDialog(QDialog):
         
         card_layout.addLayout(btns)
         main_layout.addWidget(self.card)
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.fillRect(self.rect(), self._overlay_color)
+        painter.end()
 
     def resizeEvent(self, event):
         if self.parent():
