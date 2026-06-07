@@ -176,7 +176,7 @@ class RiwayatPage(QWidget):
             conn = sqlite3.connect(db_path)
             cursor = conn.cursor()
 
-            cursor.execute("SELECT calory FROM ProfilUser LIMIT 1")
+            cursor.execute("SELECT calory FROM ProfilUser WHERE id_user = ?", (self.id_user,))
             res = cursor.fetchone()
             goal_cal = (res[0] if res and res[0] is not None else 2000)
 
