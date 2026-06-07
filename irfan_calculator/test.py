@@ -1050,6 +1050,7 @@ class LogPage(QWidget):
             f"<b>{food_name}</b> dari log makanan?"
         )
         lbl_msg.setFont(QFont('Poppins', 10))
+        lbl_msg.setTextFormat(Qt.RichText)
         lbl_msg.setWordWrap(True)
         card_layout.addWidget(lbl_msg)
 
