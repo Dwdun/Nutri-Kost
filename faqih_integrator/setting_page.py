@@ -474,6 +474,11 @@ class SettingPage(QWidget):
                         tanggal = meal_time_str
                         waktu = "-"
                     
+                    try:
+                        tanggal = datetime.strptime(tanggal, "%Y-%m-%d").strftime("%d/%m/%Y")
+                    except Exception:
+                        pass
+
                     kategori = str(item.get('category') or "Lainnya").capitalize()
 
                     # Ambil nama makanan dan bersihkan teksnya
@@ -482,7 +487,7 @@ class SettingPage(QWidget):
 
                     # Menulis data ke CSV dengan mengambil nilai langsung berdasarkan nama kolom
                     writer.writerow([
-                        tanggal, 
+                        f"'{tanggal}'", 
                         kategori, 
                         makanan_bersih, 
                         round(float(item.get('portion') or 0), 1), 
