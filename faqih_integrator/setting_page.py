@@ -439,12 +439,44 @@ class SettingPage(QWidget):
             return  # user cancel
 
         try:
-            with open(filepath, "w", newline="", encoding="utf-8") as f:
-                writer = csv.DictWriter(f, fieldnames=logs[0].keys())
-                writer.writeheader()
-                writer.writerows(logs)
+            # Menggunakan format file dari Code 1 (utf-8-sig, delimiter=';')
+            with open(filepath, "w", newline="", encoding="utf-8-sig") as file:
+                writer = csv.writer(file, delimiter=';', quoting=csv.QUOTE_MINIMAL)
+                
+                # Header custom dipertahankan
+                writer.writerow(["Tanggal", "Waktu", "Makanan", "Porsi", "Kalori", "Protein", "Karbohidrat", "Lemak"])
+                
+                for item in logs:
+                    # Ambil string meal_time (contoh: "2026-06-07 08:30:00")
+                    meal_time_str = str(item.get('meal_time', ''))
+                    
+                    # Memisahkan Tanggal dan Waktu berdasarkan spasi
+                    if " " in meal_time_str:
+                        tanggal, waktu = meal_time_str.split(" ", 1)
+                    else:
+                        tanggal = meal_time_str
+                        waktu = "-"
+                    
+                    kategori = str(item.get('category') or "Lainnya").capitalize()
+
+                    # Ambil nama makanan dan bersihkan teksnya
+                    makanan = item.get('food_name', 'Lainnya')
+                    makanan_bersih = self._clean_text(makanan) if hasattr(self, '_clean_text') else str(makanan).strip()
+
+                    # Menulis data ke CSV dengan mengambil nilai langsung berdasarkan nama kolom
+                    writer.writerow([
+                        tanggal, 
+                        kategori, 
+                        makanan_bersih, 
+                        round(float(item.get('portion') or 0), 1), 
+                        round(float(item.get('cal') or 0), 1), 
+                        round(float(item.get('protein') or 0), 1), 
+                        round(float(item.get('carb') or 0), 1), 
+                        round(float(item.get('fat') or 0), 1)
+                    ])
 
             show_toast(self, f"Data berhasil disimpan ke:\n{filepath}", TOAST_SUCCESS)
+            
         except Exception as e:
             show_toast(self, f"Terjadi kesalahan:\n{e}", TOAST_ERROR)
 
