@@ -10,7 +10,6 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtCore import Qt, QSettings, QPropertyAnimation, pyqtProperty, QEasingCurve, QTime
 from PyQt5.QtGui import QFont, QPainter, QColor
 from fatih_GUI.toast_notification import show_toast, TOAST_SUCCESS, TOAST_ERROR, TOAST_NORMAL
-
 ACCENT_GREEN  = "#1A7A34"
 CONTENT_BG    = "#f5f7f5"
 CARD_BG       = "#ffffff"
@@ -429,6 +428,24 @@ class SettingPage(QWidget):
             show_toast(self, "Belum ada data log yang tersimpan.", TOAST_NORMAL)
             return
 
+        # ---------- FILTER BERDASARKAN NAMA PROFIL ----------
+        nama_profil_aktif = None
+        if self.sistem_profil and getattr(self.sistem_profil, 'current_profil', None):
+            nama_profil_aktif = self.sistem_profil.current_profil.get('full_name')
+        if not nama_profil_aktif and hasattr(self.window(), 'sistem_profil'):
+            wp = getattr(self.window(), 'sistem_profil', None)
+            if wp and getattr(wp, 'current_profil', None):
+                nama_profil_aktif = wp.current_profil.get('full_name')
+        if not nama_profil_aktif:
+            nama_profil_aktif = 'Nama_Default'
+        
+        # Saring log menggunakan list comprehension berdasarkan kolom full_name
+        filtered_logs = [item for item in logs if item.get('full_name') == nama_profil_aktif]
+
+        if not filtered_logs:
+            show_toast(self, "Belum ada data log untuk profil ini.", TOAST_NORMAL)
+            return
+
         # Dialog pilih lokasi simpan — nama file otomatis menyertakan timestamp
         ts = datetime.now().strftime("%Y%m%d_%H%M%S")
         default_name = f"nutrikost_log_{ts}.csv"
@@ -446,7 +463,7 @@ class SettingPage(QWidget):
                 # Header custom dipertahankan
                 writer.writerow(["Tanggal", "Waktu", "Makanan", "Porsi", "Kalori", "Protein", "Karbohidrat", "Lemak"])
                 
-                for item in logs:
+                for item in filtered_logs:
                     # Ambil string meal_time (contoh: "2026-06-07 08:30:00")
                     meal_time_str = str(item.get('meal_time', ''))
                     
