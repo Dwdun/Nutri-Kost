@@ -355,7 +355,11 @@ class RiwayatPage(QWidget):
                 writer = csv.writer(file, delimiter=';', quoting=csv.QUOTE_MINIMAL)
                 writer.writerow(["Tanggal", "Waktu", "Makanan", "Porsi", "Kalori", "Protein", "Karbohidrat", "Lemak"])
                 for row in rows:
-                    writer.writerow([row[0], str(row[1] or "Lainnya").capitalize(), self._clean_text(row[2]), 
+                    try:
+                        formatted_date = datetime.strptime(row[0], "%Y-%m-%d").strftime("%d/%m/%Y")
+                    except Exception:
+                        formatted_date = str(row[0])
+                    writer.writerow([f"{formatted_date}", str(row[1] or "Lainnya").capitalize(), self._clean_text(row[2]), 
                                      round(row[3], 1), round(row[4], 1), round(row[5], 1), round(row[6], 1), round(row[7], 1)])
             conn.close()
             show_toast(self, f"Data berhasil diekspor.", TOAST_SUCCESS)
