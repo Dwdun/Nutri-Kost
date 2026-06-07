@@ -343,8 +343,9 @@ class HalamanRegister(QWidget):
         super().__init__(parent)
         self._sistem = sistem
         layout = QVBoxLayout(self)
+        layout.addStretch(1)
         layout.setAlignment(Qt.AlignCenter)
-        layout.setSpacing(40)
+        layout.setSpacing(24)
 
         title = QLabel("Daftar")
         title.setAlignment(Qt.AlignCenter)
@@ -446,6 +447,9 @@ class HalamanRegister(QWidget):
         self.btn_lanjut.clicked.connect(self._lanjut)
         cl.addWidget(self.btn_lanjut)
 
+        layout.addWidget(card, alignment=Qt.AlignCenter)
+        layout.addStretch(1)
+
     def clear_fields(self):
         self.inp_nama.clear()
         self.inp_email.clear()
@@ -507,8 +511,9 @@ class HalamanDataDiri(QWidget):
         # Salin data pendaftaran agar tidak memodifikasi referensi yang tidak aman
         self.register_data = dict(getattr(self, 'register_data', {}) or {})
         layout = QVBoxLayout(self)
+        layout.addStretch(1)
         layout.setAlignment(Qt.AlignCenter)
-        layout.setSpacing(40)
+        layout.setSpacing(24)
 
         title = QLabel("Data Diri")
         title.setAlignment(Qt.AlignCenter)
@@ -704,6 +709,7 @@ class HalamanDataDiri(QWidget):
         cl.addWidget(btn_daftar)
 
         layout.addWidget(card)
+        layout.addStretch(1)
 
     def _show_error(self, message):
         # Tangani pesan error secara aman agar UI tidak crash jika toast gagal

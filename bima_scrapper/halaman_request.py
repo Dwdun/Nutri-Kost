@@ -273,7 +273,7 @@ class RequestPage(PageTemplate):
             }
         """)
         self.btn_refresh.clicked.connect(self.refresh)
-        self._header_row.insertWidget(1, self.btn_refresh)
+        self._header_row.addWidget(self.btn_refresh)
 
         # --- MAIN CARD ---
         self.card = QFrame()
