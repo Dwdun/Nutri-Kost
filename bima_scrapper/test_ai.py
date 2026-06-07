@@ -6,11 +6,14 @@ import sqlite3
 import random
 import google.generativeai as genai
 from thefuzz import process
+from dotenv import load_dotenv
+load_dotenv()
+
 
 from models import DBHelper, KONVERSI_GRAM 
 
 #Gemini
-api_key = os.environ.get("GEMINI_API_KEY") or "AIzaSyBu5Ce7b1inSfAUJQFEblWqUMRu9uUIhzs"
+api_key = os.getenv("GOOGLE_API_KEY")
 genai.configure(api_key=api_key)
 model = genai.GenerativeModel('gemini-flash-latest')
 
