@@ -336,8 +336,9 @@ class RiwayatPage(QWidget):
         return cleaned.strip()
 
     def export_to_csv(self):
-        default_name = f"Riwayat_Nutrisi.csv"
-        file_path, _ = QFileDialog.getSaveFileName(self, "Export CSV", default_name, "CSV Files (*.csv)")
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        default_name = f"nutrikost_log_{ts}.csv"
+        file_path, _ = QFileDialog.getSaveFileName(self, "Simpan CSV", default_name, "CSV Files (*.csv)")
         if not file_path:
             return
         try:
@@ -359,10 +360,10 @@ class RiwayatPage(QWidget):
                         formatted_date = datetime.strptime(row[0], "%Y-%m-%d").strftime("%d/%m/%Y")
                     except Exception:
                         formatted_date = str(row[0])
-                    writer.writerow([f"{formatted_date}", str(row[1] or "Lainnya").capitalize(), self._clean_text(row[2]), 
+                    writer.writerow([f"'{formatted_date}'", str(row[1] or "Lainnya").capitalize(), self._clean_text(row[2]), 
                                      round(row[3], 1), round(row[4], 1), round(row[5], 1), round(row[6], 1), round(row[7], 1)])
             conn.close()
-            show_toast(self, f"Data berhasil diekspor.", TOAST_SUCCESS)
+            show_toast(self, f"Data berhasil disimpan ke:\n{file_path}", TOAST_SUCCESS)
         except Exception as e:
             show_toast(self, f"Gagal: {str(e)}", TOAST_ERROR)
 
