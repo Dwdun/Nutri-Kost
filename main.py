@@ -116,7 +116,7 @@ class AppLauncher(QMainWindow):
     def init_auth_flow(self):
         #halaman auth
         self.login_p = HalamanLogin(self._sistem)
-        self.register_p = HalamanRegister()
+        self.register_p = HalamanRegister(self._sistem)
         self.datadiri_p = HalamanDataDiri(self._sistem)
 
         #wrapper
@@ -197,14 +197,77 @@ class AppLauncher(QMainWindow):
 
         self.show_login()
 
+def buat_shortcut_desktop():
+    """Membuat shortcut di Desktop Windows secara otomatis menggunakan PowerShell."""
+    if sys.platform == "win32":
+        import subprocess
+        desktop_dir = os.path.join(os.environ["USERPROFILE"], "Desktop")
+        shortcut_path = os.path.join(desktop_dir, "NutriKost.lnk")
+        
+        # Tentukan target file (script atau .exe)
+        if getattr(sys, 'frozen', False):
+            target_path = sys.executable
+        else:
+            target_path = os.path.abspath(__file__)
+            
+        if not os.path.exists(shortcut_path):
+            try:
+                ps_script = (
+                    f'$WshShell = New-Object -ComObject WScript.Shell; '
+                    f'$Shortcut = $WshShell.CreateShortcut("{shortcut_path}"); '
+                    f'$Shortcut.TargetPath = "{target_path}"; '
+                    f'$Shortcut.Save()'
+                )
+                subprocess.run(["powershell", "-Command", ps_script], capture_output=True)
+                print("[NutriKost] Shortcut desktop berhasil dibuat!")
+            except Exception as e:
+                print(f"[NutriKost] Gagal membuat shortcut: {e}")
+
+def global_excepthook(exctype, value, tb):
+    """Menangkap semua error/exception yang tidak ditangani agar aplikasi tidak langsung force close."""
+    import traceback
+    from PyQt5.QtWidgets import QMessageBox
+    
+    # Format pesan error lengkap
+    error_msg = "".join(traceback.format_exception(exctype, value, tb))
+    print("[CRITICAL ERROR]\n", error_msg)
+    
+    # Tulis ke file log
+    try:
+        log_path = _writable_path('nutrikost_error.log')
+        with open(log_path, 'a', encoding='utf-8') as f:
+            f.write("\n=== UNHANDLED CRITICAL EXCEPTION ===\n")
+            f.write(error_msg)
+    except Exception:
+        pass
+        
+    # Tampilkan box pesan error ke user
+    try:
+        msg_box = QMessageBox()
+        msg_box.setIcon(QMessageBox.Critical)
+        msg_box.setWindowTitle("Aplikasi Eror")
+        msg_box.setText("Terjadi kesalahan kritis pada aplikasi.")
+        msg_box.setInformativeText(str(value))
+        msg_box.setDetailedText(error_msg)
+        msg_box.exec_()
+    except Exception:
+        pass
+        
+    # Panggil handler default bawaan python
+    sys.__excepthook__(exctype, value, tb)
+
 def main():
     import ctypes
+    sys.excepthook = global_excepthook
     # HARUS dipanggil SEBELUM QApplication agar taskbar icon di Windows berubah
     try:
         myappid = 'nutrikost.app.1.0'
         ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
     except Exception:
         pass
+    
+    # Buat shortcut di desktop jika belum ada
+    buat_shortcut_desktop()
     
     # Memanggil fungsi inisiasi DB sebelum masuk GUI
     init_database()
