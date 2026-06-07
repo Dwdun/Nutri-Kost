@@ -237,12 +237,6 @@ class SearchPage(QWidget):
 
         self._db = DBHelper()
 
-        # QTimer sebagai debounce mencegah query ke DB setiap kali user mengetik satu huruf.
-        # Timer di-reset tiap ada perubahan teks, query baru dijalankan setelah 400ms diam.
-        self._timer = QTimer()
-        self._timer.setSingleShot(True)
-        self._timer.setInterval(400)
-        self._timer.timeout.connect(self._do_search)
 
         self._build_ui()
         self._do_search()   # load awal menampilkan semua makanan tanpa filter
@@ -285,8 +279,8 @@ class SearchPage(QWidget):
             QLineEdit:focus {{ border: 1.5px solid {GREEN_PRIMARY}; }}
         """)
 
-        # Setiap perubahan teks me-restart timer debounce DAN langsung sembunyikan pagination
-        self._search_input.textChanged.connect(self._on_search_text_changed)
+        # Jalankan pencarian saat menekan enter
+        self._search_input.returnPressed.connect(self._do_search)
         top.addWidget(self._search_input, stretch=1)
 
         self._search_btn = QPushButton("Cari")
@@ -441,18 +435,6 @@ class SearchPage(QWidget):
 
         root.addLayout(pagination_row)    
 
-    # dipanggil setiap teks search berubah — langsung sembunyikan pagination
-    # agar user tidak bisa klik prev/next saat sedang mengetik query
-    def _on_search_text_changed(self, text: str):
-        self._timer.start()   # debounce 400ms sebelum query DB
-        if text.strip():
-            # Ada teks: tandai sedang searching & sembunyikan tombol pagination saat itu juga
-            self._is_searching = True
-            self._prev_btn.hide()
-            self._next_btn.hide()
-            self._page_label.hide()
-            self._pagination_label.setText("")
-        # Jika teks dikosongkan kembali, _do_search() akan me-reset ke mode paginasi
 
     #kalo chip di klik , re filter data
     def _on_chip_click(self, label: str):
