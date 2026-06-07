@@ -132,7 +132,7 @@ class AppLauncher(QMainWindow):
         self.register_p.go_back.connect(self.show_login)
         
         self.datadiri_p.register_success.connect(self.show_dashboard)
-        self.datadiri_p.go_back.connect(self.show_register)
+        self.datadiri_p.go_back.connect(self.show_register_simple)
 
         self.stack.addWidget(self.login_wrapper)
         self.stack.addWidget(self.register_wrapper)
@@ -146,6 +146,9 @@ class AppLauncher(QMainWindow):
     def show_register(self):
         if hasattr(self, 'register_p') and self.register_p:
             self.register_p.clear_fields()
+        self.stack.setCurrentWidget(self.register_wrapper)
+
+    def show_register_simple(self):
         self.stack.setCurrentWidget(self.register_wrapper)
 
     def show_datadiri(self, data):
@@ -259,10 +262,11 @@ def global_excepthook(exctype, value, tb):
 def main():
     import ctypes
     sys.excepthook = global_excepthook
-    # HARUS dipanggil SEBELUM QApplication agar taskbar icon di Windows berubah
+    # HARUS dipanggil SEBELUM QApplication agar taskbar icon di Windows berubah (hanya saat development/tidak frozen)
     try:
-        myappid = 'nutrikost.app.1.0'
-        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
+        if not getattr(sys, 'frozen', False):
+            myappid = 'nutrikost.app.1.0'
+            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
     except Exception:
         pass
     
